@@ -1,0 +1,15 @@
+# --- .gitignore for Media Stack ---
+
+# 1. System Junk
+.DS_Store
+Thumbs.db
+
+# 2. Secrets (Passwords/API Keys)
+*.env
+
+# 3. Data Volumes (The heavy stuff)
+# This wildcard ignores every folder ending in "_data"
+*_data/
+
+.svg
+.avif
