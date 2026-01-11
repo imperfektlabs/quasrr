@@ -94,6 +94,33 @@ def extract_ratings(raw: dict) -> list[dict]:
     return ratings
 
 
+def extract_cast(movie: dict, limit: int = 5) -> list[str]:
+    """Extract cast names when present in Radarr lookup payload."""
+    credits = movie.get("credits") if isinstance(movie, dict) else None
+    cast_list = None
+
+    if isinstance(credits, dict):
+        cast_list = credits.get("cast")
+    if cast_list is None:
+        cast_list = movie.get("cast")
+
+    if not isinstance(cast_list, list):
+        return []
+
+    names = []
+    for member in cast_list:
+        if isinstance(member, dict):
+            name = member.get("name")
+        else:
+            name = str(member) if member is not None else None
+        if name:
+            names.append(name)
+        if len(names) >= limit:
+            break
+
+    return names
+
+
 def select_quality_profile_id(profiles: list[dict], target_name: str) -> int | None:
     """Find a quality profile ID by name (case-insensitive)."""
     target = target_name.strip().lower()
@@ -286,6 +313,7 @@ class RadarrClient:
                 "runtime": movie.get("runtime"),
                 "genres": movie.get("genres", []),
                 "ratings": extract_ratings(movie.get("ratings", {})),
+                "cast": extract_cast(movie, limit=5),
                 "popularity": movie.get("popularity", 0),
                 "status": status,
                 "radarr_id": library_movie.get("id") if library_movie else None,

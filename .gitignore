@@ -12,5 +12,5 @@ Thumbs.db
 *_data/
 
 # Image files
-.svg
-.avif
+*.svg
+*.avif

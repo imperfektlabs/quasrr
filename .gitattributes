@@ -1,0 +1,17 @@
+# Auto-detect text files and normalize them to LF in the repository
+* text=auto
+
+# Force LF for specific web/code files
+*.js text eol=lf
+*.ts text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+
+# Force CRLF for Windows-specific scripts that require it
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Denote binary files so Git doesn't try to touch their line endings
+*.png binary
+*.jpg binary
+*.gif binary
