@@ -276,6 +276,7 @@ class SonarrClient:
                 "poster": poster,
                 "network": series.get("network"),
                 "ratings": extract_ratings(series.get("ratings", {})),
+                "cast": [],
                 "popularity": series.get("popularity", 0),
                 "status": status,
                 "series_status": series.get("status"),
@@ -348,6 +349,16 @@ class SonarrClient:
                     quality_profile_id = profiles[0]["id"] if profiles else 1
 
                 # Add series
+                seasons_payload = []
+                for season in series_data.get("seasons", []):
+                    season_number = season.get("seasonNumber")
+                    if season_number is None:
+                        continue
+                    seasons_payload.append({
+                        "seasonNumber": season_number,
+                        "monitored": False,
+                    })
+
                 add_data = {
                     "title": series_data.get("title"),
                     "tvdbId": tvdb_id,
@@ -355,7 +366,9 @@ class SonarrClient:
                     "qualityProfileId": quality_profile_id,
                     "rootFolderPath": root_folder,
                     "monitored": False,  # Don't auto-monitor per PROJECT_BRIEF
+                    "monitorNewItems": "none",
                     "seasonFolder": True,
+                    "seasons": seasons_payload,
                     "addOptions": {
                         "searchForMissingEpisodes": False,  # Don't auto-search
                     },

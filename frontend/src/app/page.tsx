@@ -61,6 +61,7 @@ type DiscoveryResult = {
   seasons?: number
   sonarr_id?: number | null
   ratings?: Rating[]
+  cast?: string[]
   popularity?: number
 }
 
@@ -151,17 +152,18 @@ function getRatingLink(result: DiscoveryResult, rating: Rating): string | null {
       ? `https://www.themoviedb.org/movie/${result.tmdb_id}`
       : `https://www.themoviedb.org/tv/${result.tmdb_id}`
   }
-  if (source === 'tvdb' && result.tvdb_id) {
-    return `https://thetvdb.com/series/${result.tvdb_id}`
-  }
   if (source === 'justwatch') {
     return `https://www.justwatch.com/ca/search?q=${encodeURIComponent(result.title)}`
   }
   if (source === 'metacritic') {
-    return `https://www.metacritic.com/search/all/${encodeURIComponent(result.title)}/results`
+    const typePath = result.type === 'movie' ? 'movie' : 'tv'
+    return `https://www.metacritic.com/search/${typePath}/${encodeURIComponent(result.title)}/results`
   }
   if (source === 'rottentomatoes') {
     return `https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title)}`
+  }
+  if (source === 'tvdb') {
+    return `https://thetvdb.com/search?query=${encodeURIComponent(result.title)}`
   }
 
   return null
@@ -203,7 +205,13 @@ function RatingBadge({ rating, href }: { rating: Rating; href?: string | null })
   if (!href) return content
 
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="inline-flex">
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex"
+      onClick={(event) => event.stopPropagation()}
+    >
       {content}
     </a>
   )
@@ -1020,13 +1028,28 @@ function DetailsView({
 
               {result.ratings && result.ratings.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {result.ratings.map((rating) => (
-                    <RatingBadge
-                      key={rating.source}
-                      rating={rating}
-                      href={getRatingLink(result, rating)}
-                    />
-                  ))}
+                  {result.ratings
+                    .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+                    .map((rating) => (
+                      <RatingBadge
+                        key={rating.source}
+                        rating={rating}
+                        href={getRatingLink(result, rating)}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {result.cast && result.cast.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Cast</p>
+                  <div className="flex flex-wrap gap-2">
+                    {result.cast.slice(0, 5).map((name) => (
+                      <span key={name} className="glass-chip text-xs px-2 py-1 rounded">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1111,33 +1134,29 @@ function DiscoveryCard({
   }
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onShowDetails(result)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onShowDetails(result)
-        }
-      }}
-      className="glass-card rounded-lg overflow-hidden flex w-full text-left transition hover:border-slate-400/40"
-    >
+    <div className="glass-card rounded-lg overflow-hidden flex w-full text-left transition hover:border-slate-400/40">
       {/* Poster */}
       <div className="w-24 md:w-32 flex-shrink-0">
         <div className="aspect-[2/3] w-full bg-slate-800/60">
-          {result.poster ? (
-            <img
-              src={result.poster}
-              alt={result.title}
-              className="w-full h-full object-contain"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-2 text-center">
-              No poster
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => onShowDetails(result)}
+            className="w-full h-full"
+            title="Open details"
+          >
+            {result.poster ? (
+              <img
+                src={result.poster}
+                alt={result.title}
+                className="w-full h-full object-contain"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-2 text-center">
+                No poster
+              </div>
+            )}
+          </button>
         </div>
       </div>
 
@@ -1179,10 +1198,24 @@ function DiscoveryCard({
           {/* Season picker moved to right column */}
         </div>
 
-        <div className="flex md:flex-col items-start md:items-end justify-between md:justify-start gap-2">
-          {result.type === 'tv' && result.seasons && result.seasons > 0 && (
-            <div className="w-full md:w-auto">
-              <label className="text-xs text-gray-400">Season</label>
+        <div className="flex md:flex-col items-start md:items-end gap-2 h-full">
+          {result.ratings && result.ratings.length > 0 && (
+            <div className="flex flex-wrap justify-start md:justify-end gap-2">
+              {result.ratings
+                .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+                .slice(0, 3)
+                .map((rating) => (
+                  <RatingBadge
+                    key={rating.source}
+                    rating={rating}
+                    href={getRatingLink(result, rating)}
+                  />
+                ))}
+            </div>
+          )}
+
+          <div className="mt-auto flex flex-col items-end gap-2 w-full">
+            {result.type === 'tv' && result.seasons && result.seasons > 0 && (
               <select
                 value={selectedSeason}
                 onChange={(event) => {
@@ -1190,7 +1223,8 @@ function DiscoveryCard({
                   setSelectedSeason(value === 'all' ? 'all' : Number(value))
                 }}
                 onClick={(event) => event.stopPropagation()}
-                className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-sm"
+                className="w-full md:w-auto bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-sm"
+                title="Season"
               >
                 <option value="all">All seasons</option>
                 {Array.from({ length: result.seasons }, (_, index) => index + 1).map((season) => (
@@ -1199,22 +1233,8 @@ function DiscoveryCard({
                   </option>
                 ))}
               </select>
-            </div>
-          )}
+            )}
 
-          {result.ratings && result.ratings.length > 0 && (
-            <div className="flex flex-wrap justify-start md:justify-end gap-2">
-              {result.ratings.slice(0, 3).map((rating) => (
-                <RatingBadge
-                  key={rating.source}
-                  rating={rating}
-                  href={getRatingLink(result, rating)}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="flex justify-end w-full">
             <button
               onClick={handleReleasesClick}
               className="bg-blue-600/90 hover:bg-blue-500 text-white py-1.5 px-3 rounded text-xs font-semibold tracking-wide transition-colors"
@@ -1257,6 +1277,8 @@ function HomeContent() {
   const [releaseData, setReleaseData] = useState<ReleaseResponse | null>(null)
   const [loadingReleases, setLoadingReleases] = useState(false)
   const [releaseError, setReleaseError] = useState<string | null>(null)
+
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1349,6 +1371,10 @@ function HomeContent() {
     if (sort === 'relevance' && sortDirection !== 'desc') setSortDirection('desc')
     if (nextPage !== page) setPage(nextPage)
   }, [searchParams])
+
+  useEffect(() => {
+    searchInputRef.current?.focus()
+  }, [])
 
   useEffect(() => {
     setSelectedResult(null)
@@ -1460,6 +1486,7 @@ function HomeContent() {
           <form onSubmit={handleSearch} className="space-y-3">
             <div className="flex gap-2">
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -1475,70 +1502,75 @@ function HomeContent() {
               </button>
             </div>
 
-            <div className="grid md:grid-cols-4 gap-2">
-              <div>
-                <label className="text-xs text-gray-400">Type</label>
-                <select
-                  value={filterType}
-                  onChange={(event) => {
-                    setFilterType(event.target.value as SearchFilterType)
-                    setPage(1)
-                  }}
-                  className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                >
-                  <option value="all">All</option>
-                  <option value="movie">Movies</option>
-                  <option value="tv">TV Shows</option>
-                </select>
+            <details className="mt-1">
+              <summary className="text-xs text-slate-300 cursor-pointer select-none">
+                Filters
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <div className="w-full sm:w-auto">
+                  <label className="text-xs text-gray-400">Type</label>
+                  <select
+                    value={filterType}
+                    onChange={(event) => {
+                      setFilterType(event.target.value as SearchFilterType)
+                      setPage(1)
+                    }}
+                    className="mt-1 w-full sm:w-36 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  >
+                    <option value="all">All</option>
+                    <option value="movie">Movies</option>
+                    <option value="tv">TV Shows</option>
+                  </select>
+                </div>
+                <div className="w-full sm:w-auto">
+                  <label className="text-xs text-gray-400">Status</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(event) => {
+                      setFilterStatus(event.target.value as SearchStatusFilter)
+                      setPage(1)
+                    }}
+                    className="mt-1 w-full sm:w-44 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  >
+                    <option value="all">All</option>
+                    <option value="not_in_library">Not in library</option>
+                    <option value="in_library">In library</option>
+                    <option value="downloaded">Downloaded</option>
+                  </select>
+                </div>
+                <div className="w-full sm:w-auto">
+                  <label className="text-xs text-gray-400">Sort</label>
+                  <select
+                    value={sortField}
+                    onChange={(event) => {
+                      setSortField(event.target.value as SearchSortField)
+                      setPage(1)
+                    }}
+                    className="mt-1 w-full sm:w-36 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  >
+                    <option value="relevance">Relevance</option>
+                    <option value="popularity">Popularity</option>
+                    <option value="year">Year</option>
+                    <option value="title">Title</option>
+                    <option value="rating">Rating</option>
+                  </select>
+                </div>
+                <div className="w-full sm:w-auto">
+                  <label className="text-xs text-gray-400">Direction</label>
+                  <select
+                    value={sortDirection}
+                    onChange={(event) => {
+                      setSortDirection(event.target.value as SearchSortDirection)
+                      setPage(1)
+                    }}
+                    className="mt-1 w-full sm:w-36 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  >
+                    <option value="desc">Descending</option>
+                    <option value="asc">Ascending</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="text-xs text-gray-400">Status</label>
-                <select
-                  value={filterStatus}
-                  onChange={(event) => {
-                    setFilterStatus(event.target.value as SearchStatusFilter)
-                    setPage(1)
-                  }}
-                  className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                >
-                  <option value="all">All</option>
-                  <option value="not_in_library">Not in library</option>
-                  <option value="in_library">In library</option>
-                  <option value="downloaded">Downloaded</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Sort</label>
-                <select
-                  value={sortField}
-                  onChange={(event) => {
-                    setSortField(event.target.value as SearchSortField)
-                    setPage(1)
-                  }}
-                  className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                >
-                  <option value="relevance">Relevance</option>
-                  <option value="popularity">Popularity</option>
-                  <option value="year">Year</option>
-                  <option value="title">Title</option>
-                  <option value="rating">Rating</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Direction</label>
-                <select
-                  value={sortDirection}
-                  onChange={(event) => {
-                    setSortDirection(event.target.value as SearchSortDirection)
-                    setPage(1)
-                  }}
-                  className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                >
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
-                </select>
-              </div>
-            </div>
+            </details>
           </form>
         </div>
 
