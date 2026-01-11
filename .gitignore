@@ -11,5 +11,6 @@ Thumbs.db
 # This wildcard ignores every folder ending in "_data"
 *_data/
 
+# Image files
 .svg
 .avif

@@ -1,0 +1,67 @@
+# Docker Compose for Shiny-Palm-Tree
+# Unified media search and download management
+
+# --- YAML Anchor for Common Configuration ---
+x-common-config: &common-config
+  env_file:
+    - ./shiny-palm-tree.env
+  networks:
+    - net-media
+    #- net-shiny-palm-tree
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "100m"
+      max-file: "5"
+
+# --- Service Definitions ---
+services:
+  # -------------------------------------------------------------------
+  # Backend Service (FastAPI)
+  # -------------------------------------------------------------------
+  backend:
+    <<: *common-config
+    build: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME}-backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ${PROJECT_ROOT_PATH}/data:/app/data
+      - ${PROJECT_ROOT_PATH}/config:/app/config
+      - ${PROJECT_ROOT_PATH}/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # -------------------------------------------------------------------
+  # Frontend Service (Next.js)
+  # -------------------------------------------------------------------
+  frontend:
+    <<: *common-config
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME}-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+# ===================================================================
+# NETWORK DEFINITION
+# ===================================================================
+networks:
+  net-media:
+  #net-shiny-palm-tree:
+    #driver: bridge
+    name: net-media
+    #name: net-${COMPOSE_PROJECT_NAME}

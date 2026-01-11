@@ -1,0 +1,84 @@
+# ==============================================
+# SHINY-PALM-TREE DEFAULT CONFIGURATION
+# ==============================================
+# These are sensible defaults shipped with the app.
+# Override in settings.yaml or via environment variables.
+
+# --- Application ---
+app:
+  name: "Shiny Palm Tree"
+  log_level: "INFO"
+
+# --- User Preferences ---
+user:
+  country: "CA"
+  language: "en"
+
+# --- Streaming Services ---
+# Services the user subscribes to (Canada defaults)
+streaming_services:
+  - id: netflix
+    name: "Netflix"
+    enabled: true
+  - id: crave
+    name: "Crave"
+    enabled: true
+  - id: disney_plus
+    name: "Disney+"
+    enabled: true
+  - id: amazon_prime
+    name: "Amazon Prime Video"
+    enabled: true
+  - id: apple_tv
+    name: "Apple TV+"
+    enabled: false
+  - id: paramount_plus
+    name: "Paramount+"
+    enabled: false
+  - id: cbc_gem
+    name: "CBC Gem"
+    enabled: false
+
+# --- Quality Preferences ---
+quality:
+  tv:
+    # 1-hour episodes
+    hour_episode:
+      min_size_mb: 800
+      max_size_mb: 1200
+      preferred_format: "WEBDL"
+      preferred_resolution: "720p"
+    # 30-min episodes
+    half_hour_episode:
+      min_size_mb: 400
+      max_size_mb: 500
+      preferred_format: "WEBDL"
+      preferred_resolution: "720p"
+  movies:
+    min_size_mb: 2000
+    max_size_mb: 4000
+    preferred_format: "WEBDL"
+    preferred_resolution: "720p"
+
+  # Red flags - releases matching these are deprioritized
+  red_flags:
+    - pattern: "HEVC"
+      reason: "Compatibility concerns"
+    - pattern: "x265"
+      reason: "Compatibility concerns"
+    - pattern: "720p"
+      min_size_mb: 300
+      reason: "Likely re-encoded garbage"
+
+# --- AI Configuration ---
+ai:
+  provider: "openai"
+  model: "gpt-4"
+  max_tokens: 1000
+  temperature: 0.3
+
+# --- Feature Flags ---
+features:
+  show_download_always: false  # Show download option even when streaming available
+  ai_suggestions: true         # Enable AI-assisted release suggestions
+  auto_quality_filter: true    # Auto-filter releases outside quality preferences

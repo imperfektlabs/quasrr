@@ -1,0 +1,62 @@
+# ==============================================
+# SHINY-PALM-TREE USER SETTINGS
+# ==============================================
+# Copy this file to settings.yaml and customize.
+# Values here override defaults.yaml.
+# Environment variables override both.
+
+# --- User Preferences ---
+user:
+  country: "CA"
+  language: "en"
+
+# --- Streaming Services ---
+# Enable only services you subscribe to
+streaming_services:
+  - id: netflix
+    name: "Netflix"
+    enabled: true
+  - id: crave
+    name: "Crave"
+    enabled: true
+  - id: disney_plus
+    name: "Disney+"
+    enabled: true
+  - id: amazon_prime
+    name: "Amazon Prime Video"
+    enabled: false
+  - id: apple_tv
+    name: "Apple TV+"
+    enabled: false
+  - id: paramount_plus
+    name: "Paramount+"
+    enabled: false
+  - id: cbc_gem
+    name: "CBC Gem"
+    enabled: false
+
+# --- Quality Preferences ---
+# Adjust based on your storage/bandwidth preferences
+quality:
+  tv:
+    hour_episode:
+      min_size_mb: 800
+      max_size_mb: 1200
+    half_hour_episode:
+      min_size_mb: 400
+      max_size_mb: 500
+  movies:
+    min_size_mb: 2000
+    max_size_mb: 4000
+
+# --- AI Configuration ---
+# Override model if needed
+ai:
+  provider: "openai"  # openai, anthropic, ollama
+  model: "gpt-4"
+
+# --- Feature Flags ---
+features:
+  show_download_always: false
+  ai_suggestions: true
+  auto_quality_filter: true
