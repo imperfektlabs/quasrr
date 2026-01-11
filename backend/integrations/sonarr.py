@@ -1,0 +1,492 @@
+"""
+Sonarr API client for interactive search.
+"""
+
+import asyncio
+import logging
+import time
+from datetime import datetime, timezone
+from typing import Optional
+
+import httpx
+
+from config import get_config
+
+logger = logging.getLogger(__name__)
+LIBRARY_CACHE_TTL = 60  # seconds
+_library_cache: dict[str, object] = {"timestamp": 0.0, "data": {}}
+
+
+def format_size(size_bytes: int) -> str:
+    """Format bytes to human-readable size."""
+    if size_bytes == 0:
+        return "0 B"
+
+    units = ["B", "KB", "MB", "GB", "TB"]
+    unit_index = 0
+    size = float(size_bytes)
+
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+
+    return f"{size:.1f} {units[unit_index]}"
+
+
+def format_age(publish_date: str) -> str:
+    """Format publish date to relative age."""
+    if not publish_date:
+        return "Unknown"
+
+    try:
+        pub = datetime.fromisoformat(publish_date.replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        delta = now - pub
+
+        days = delta.days
+        if days == 0:
+            hours = delta.seconds // 3600
+            return f"{hours}h" if hours > 0 else "< 1h"
+        elif days == 1:
+            return "1 day"
+        elif days < 30:
+            return f"{days} days"
+        elif days < 365:
+            months = days // 30
+            return f"{months} month{'s' if months > 1 else ''}"
+        else:
+            years = days // 365
+            return f"{years} year{'s' if years > 1 else ''}"
+    except Exception:
+        return "Unknown"
+
+
+def extract_ratings(raw: dict) -> list[dict]:
+    """Normalize ratings from Sonarr/metadata sources."""
+    if not raw or not isinstance(raw, dict):
+        return []
+
+    ratings = []
+
+    # Single-source format
+    if "value" in raw:
+        value = raw.get("value")
+        if value is not None:
+            ratings.append({
+                "source": "tvdb",
+                "value": value,
+                "votes": raw.get("votes"),
+            })
+        return ratings
+
+    # Multi-source format
+    for source, data in raw.items():
+        if not isinstance(data, dict):
+            continue
+        value = data.get("value")
+        if value is None:
+            continue
+        ratings.append({
+            "source": source,
+            "value": value,
+            "votes": data.get("votes"),
+        })
+
+    return ratings
+
+
+def select_quality_profile_id(profiles: list[dict], target_name: str) -> int | None:
+    """Find a quality profile ID by name (case-insensitive)."""
+    target = target_name.strip().lower()
+    for profile in profiles:
+        name = str(profile.get("name", "")).strip().lower()
+        if name == target:
+            return profile.get("id")
+    return None
+
+
+class SonarrClient:
+    """Async client for Sonarr API."""
+
+    def __init__(self):
+        config = get_config()
+        self.base_url = config.integrations.sonarr_url
+        self.api_key = config.integrations.sonarr_api_key
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.base_url and self.api_key)
+
+    def _get_headers(self) -> dict:
+        return {"X-Api-Key": self.api_key}
+
+    async def test_connection(self) -> dict:
+        """Test connection to Sonarr."""
+        if not self.is_configured:
+            return {"status": "error", "message": "Sonarr not configured"}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/system/status",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                data = response.json()
+                logger.info(f"Sonarr connection successful: v{data.get('version')}")
+                return {"status": "ok", "version": data.get("version")}
+        except httpx.TimeoutException:
+            logger.error(f"Sonarr connection timeout: {self.base_url}")
+            return {"status": "error", "message": "Connection timeout"}
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Sonarr HTTP error: {e.response.status_code}")
+            return {"status": "error", "message": f"HTTP {e.response.status_code}"}
+        except Exception as e:
+            logger.error(f"Sonarr connection error: {e}")
+            return {"status": "error", "message": str(e)}
+
+    async def lookup_series(self, term: str) -> list[dict]:
+        """Search for a TV series by name."""
+        if not self.is_configured:
+            logger.warning("Sonarr not configured, skipping lookup")
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/series/lookup",
+                    headers=self._get_headers(),
+                    params={"term": term},
+                )
+                response.raise_for_status()
+                results = response.json()
+                logger.info(f"Sonarr lookup '{term}': {len(results)} series found")
+                return results
+        except Exception as e:
+            logger.error(f"Sonarr lookup error: {e}")
+            return []
+
+    async def search_releases(self, series_id: int, season: Optional[int] = None) -> list[dict]:
+        """
+        Search for releases for a series.
+        If season is None, searches for all episodes.
+        """
+        if not self.is_configured:
+            return []
+
+        try:
+            params = {"seriesId": series_id}
+            if season is not None:
+                params["seasonNumber"] = season
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/release",
+                    headers=self._get_headers(),
+                    params=params,
+                )
+                response.raise_for_status()
+                releases = response.json()
+                logger.info(f"Sonarr releases for series {series_id}: {len(releases)} found")
+                return releases
+        except Exception as e:
+            logger.error(f"Sonarr release search error: {e}")
+            return []
+
+    async def get_library_series(self) -> dict[int, dict]:
+        """Get all series in Sonarr library, keyed by TVDB ID."""
+        if not self.is_configured:
+            return {}
+
+        cached_at = _library_cache.get("timestamp", 0.0)
+        cached_data = _library_cache.get("data", {})
+        if isinstance(cached_at, (int, float)) and time.time() - cached_at < LIBRARY_CACHE_TTL:
+            if isinstance(cached_data, dict):
+                return cached_data
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/series",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                series_list = response.json()
+                # Key by TVDB ID for fast lookup
+                data = {s.get("tvdbId"): s for s in series_list if s.get("tvdbId")}
+                _library_cache["timestamp"] = time.time()
+                _library_cache["data"] = data
+                return data
+        except Exception as e:
+            logger.error(f"Sonarr get library error: {e}")
+            return {}
+
+    async def discover(self, term: str) -> list[dict]:
+        """
+        Stage 1: Discovery search - returns ALL matching series with metadata.
+        No indexer search at this stage.
+        """
+        if not self.is_configured:
+            return []
+
+        logger.info(f"Sonarr discover starting: '{term}'")
+
+        # Lookup and library fetch in parallel
+        series_task = asyncio.create_task(self.lookup_series(term))
+        library_task = asyncio.create_task(self.get_library_series())
+        series_list, library = await asyncio.gather(series_task, library_task)
+
+        if not series_list:
+            logger.info(f"No series found for '{term}'")
+            return []
+
+        results = []
+        for series in series_list[:25]:  # Limit to 25 results
+            tvdb_id = series.get("tvdbId")
+            library_series = library.get(tvdb_id)
+
+            # Determine library status
+            if library_series:
+                # Check if any episodes have files
+                stats = library_series.get("statistics", {})
+                episode_file_count = stats.get("episodeFileCount", 0)
+                if episode_file_count > 0:
+                    status = "downloaded"
+                else:
+                    status = "in_library"
+            else:
+                status = "not_in_library"
+
+            # Get poster URL
+            images = series.get("images", [])
+            poster = None
+            for img in images:
+                if img.get("coverType") == "poster":
+                    poster = img.get("remoteUrl") or img.get("url")
+                    break
+            if not poster:
+                poster = series.get("remotePoster")
+
+            results.append({
+                "tvdb_id": tvdb_id,
+                "imdb_id": series.get("imdbId"),
+                "title": series.get("title", "Unknown"),
+                "year": series.get("year"),
+                "overview": series.get("overview", ""),
+                "poster": poster,
+                "network": series.get("network"),
+                "ratings": extract_ratings(series.get("ratings", {})),
+                "popularity": series.get("popularity", 0),
+                "status": status,
+                "series_status": series.get("status"),
+                "seasons": len(series.get("seasons", [])),
+                "sonarr_id": library_series.get("id") if library_series else None,
+            })
+
+        logger.info(f"Discover returning {len(results)} series for '{term}'")
+        return results
+
+    async def get_series_by_tvdb(self, tvdb_id: int) -> dict | None:
+        """Get series from Sonarr library by TVDB ID."""
+        if not self.is_configured:
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/series",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                series_list = response.json()
+                for s in series_list:
+                    if s.get("tvdbId") == tvdb_id:
+                        return s
+                return None
+        except Exception as e:
+            logger.error(f"Sonarr get series error: {e}")
+            return None
+
+    async def add_series(self, tvdb_id: int) -> dict | None:
+        """Add a series to Sonarr library by TVDB ID."""
+        if not self.is_configured:
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # Lookup series to get full details
+                response = await client.get(
+                    f"{self.base_url}/api/v3/series/lookup",
+                    headers=self._get_headers(),
+                    params={"term": f"tvdb:{tvdb_id}"},
+                )
+                response.raise_for_status()
+                series_list = response.json()
+                if not series_list:
+                    logger.error(f"Sonarr: Series not found for TVDB {tvdb_id}")
+                    return None
+                series_data = series_list[0]
+
+                # Get root folder
+                root_response = await client.get(
+                    f"{self.base_url}/api/v3/rootfolder",
+                    headers=self._get_headers(),
+                )
+                root_response.raise_for_status()
+                root_folders = root_response.json()
+                root_folder = root_folders[0]["path"] if root_folders else "/tv"
+
+                # Get quality profile
+                profile_response = await client.get(
+                    f"{self.base_url}/api/v3/qualityprofile",
+                    headers=self._get_headers(),
+                )
+                profile_response.raise_for_status()
+                profiles = profile_response.json()
+                quality_profile_id = select_quality_profile_id(profiles, "HD 720p/1080p")
+                if not quality_profile_id:
+                    quality_profile_id = profiles[0]["id"] if profiles else 1
+
+                # Add series
+                add_data = {
+                    "title": series_data.get("title"),
+                    "tvdbId": tvdb_id,
+                    "year": series_data.get("year"),
+                    "qualityProfileId": quality_profile_id,
+                    "rootFolderPath": root_folder,
+                    "monitored": False,  # Don't auto-monitor per PROJECT_BRIEF
+                    "seasonFolder": True,
+                    "addOptions": {
+                        "searchForMissingEpisodes": False,  # Don't auto-search
+                    },
+                }
+
+                add_response = await client.post(
+                    f"{self.base_url}/api/v3/series",
+                    headers=self._get_headers(),
+                    json=add_data,
+                )
+                add_response.raise_for_status()
+                added_series = add_response.json()
+                logger.info(f"Sonarr: Added series '{series_data.get('title')}' (TVDB: {tvdb_id})")
+                return added_series
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400:
+                logger.warning(f"Sonarr add series failed (400): {e.response.text}")
+            else:
+                logger.error(f"Sonarr add series HTTP error: {e.response.status_code}")
+            return None
+        except Exception as e:
+            logger.error(f"Sonarr add series error: {e}")
+            return None
+
+    async def get_releases_by_tvdb(self, tvdb_id: int, title: str, season: Optional[int] = None) -> dict:
+        """
+        Stage 2: Get releases for a specific series by TVDB ID.
+        Adds series to library if not present, then searches indexers.
+        Returns normalized release data with metadata.
+        """
+        if not self.is_configured:
+            return {"error": "Sonarr not configured", "releases": []}
+
+        logger.info(f"Sonarr release search: TVDB {tvdb_id} - '{title}'")
+
+        # Check if series is in library
+        existing_series = await self.get_series_by_tvdb(tvdb_id)
+
+        if not existing_series:
+            # Add series to library first
+            logger.info(f"Series not in library, adding: TVDB {tvdb_id}")
+            existing_series = await self.add_series(tvdb_id)
+            if not existing_series:
+                return {
+                    "error": "Failed to add series to Sonarr",
+                    "releases": [],
+                    "title": title,
+                    "tvdb_id": tvdb_id,
+                }
+
+        series_id = existing_series.get("id")
+        series_title = existing_series.get("title", title)
+        series_year = existing_series.get("year")
+
+        logger.info(f"Searching releases for series ID {series_id}: '{series_title}'")
+
+        # Search for releases
+        releases = await self.search_releases(series_id, season)
+
+        if not releases and season is None:
+            seasons = existing_series.get("seasons", [])
+            season_numbers = [
+                s.get("seasonNumber")
+                for s in seasons
+                if isinstance(s.get("seasonNumber"), int)
+            ]
+
+            if season_numbers:
+                logger.info(f"No all-season results; searching seasons individually for series {series_id}")
+                collected: dict[str, dict] = {}
+                for season_number in season_numbers:
+                    season_releases = await self.search_releases(series_id, season_number)
+                    for release in season_releases:
+                        key = release.get("guid") or release.get("title")
+                        if key and key not in collected:
+                            collected[key] = release
+                releases = list(collected.values())
+
+        if not releases:
+            return {
+                "title": series_title,
+                "year": series_year,
+                "tvdb_id": tvdb_id,
+                "sonarr_id": series_id,
+                "releases": [],
+                "message": "No releases found. Check indexers are configured.",
+            }
+
+        # Normalize releases
+        normalized = []
+        for release in releases:
+            size_bytes = release.get("size", 0)
+            quality_info = release.get("quality", {}).get("quality", {})
+
+            normalized.append({
+                "title": release.get("title", "Unknown"),
+                "size": size_bytes,
+                "size_formatted": format_size(size_bytes),
+                "size_gb": round(size_bytes / (1024**3), 2) if size_bytes else 0,
+                "quality": quality_info.get("name", "Unknown"),
+                "resolution": quality_info.get("resolution", 0),
+                "source": quality_info.get("source", "unknown"),
+                "indexer": release.get("indexer", "Unknown"),
+                "age": format_age(release.get("publishDate")),
+                "publish_date": release.get("publishDate"),
+                "seeders": release.get("seeders"),
+                "leechers": release.get("leechers"),
+                "protocol": release.get("protocol", "unknown"),
+                "guid": release.get("guid"),
+                "info_url": release.get("infoUrl"),
+                "rejected": release.get("rejected", False),
+                "rejections": release.get("rejections", []),
+                # TV-specific
+                "season": release.get("seasonNumber"),
+                "episode": release.get("episodeNumbers", []),
+                "full_season": release.get("fullSeason", False),
+            })
+
+        logger.info(f"Returning {len(normalized)} releases for '{series_title}'")
+
+        return {
+            "title": series_title,
+            "year": series_year,
+            "tvdb_id": tvdb_id,
+            "sonarr_id": series_id,
+            "releases": normalized,
+            "season": season,
+        }
+
+
+def get_sonarr_client() -> SonarrClient:
+    """Get Sonarr client instance."""
+    return SonarrClient()
