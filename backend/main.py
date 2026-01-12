@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import get_config, reload_config, redact_secrets
 from integrations.radarr import get_radarr_client
 from integrations.sonarr import get_sonarr_client
+from integrations.sabnzbd import get_sabnzbd_client, SabnzbdError
 
 # Configure logging
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
     # Test integrations
     radarr = get_radarr_client()
     sonarr = get_sonarr_client()
+    sab = get_sabnzbd_client()
 
     if radarr.is_configured:
         result = await radarr.test_connection()
@@ -52,6 +54,12 @@ async def lifespan(app: FastAPI):
         logger.info(f"Sonarr: {result}")
     else:
         logger.warning("Sonarr not configured")
+
+    if sab.is_configured:
+        result = await sab.test_connection()
+        logger.info(f"SABnzbd: {result}")
+    else:
+        logger.warning("SABnzbd not configured")
 
     yield
     logger.info("Shutting down Shiny-Palm-Tree backend")
@@ -98,15 +106,145 @@ async def get_integrations_status():
     """Get status of all integrations."""
     radarr = get_radarr_client()
     sonarr = get_sonarr_client()
+    sab = get_sabnzbd_client()
 
-    radarr_status = await radarr.test_connection()
-    sonarr_status = await sonarr.test_connection()
+    radarr_status, sonarr_status, sab_status = await asyncio.gather(
+        radarr.test_connection(),
+        sonarr.test_connection(),
+        sab.test_connection()
+    )
 
     return {
         "radarr": radarr_status,
         "sonarr": sonarr_status,
+        "sabnzbd": sab_status,
     }
 
+
+@app.get("/sab/queue")
+async def get_sab_queue():
+    """Get the current SABnzbd download queue."""
+    sab = get_sabnzbd_client()
+    if not sab.is_configured:
+        raise HTTPException(status_code=503, detail="SABnzbd not configured")
+    try:
+        queue = await sab.get_queue()
+        return queue
+    except SabnzbdError as e:
+        logger.error(f"Error fetching SABnzbd queue: {e.code}")
+        status_code = 502 if e.code == "unreachable" else 500
+        raise HTTPException(status_code=status_code, detail=e.message)
+    except Exception:
+        logger.error("Error fetching SABnzbd queue: unexpected")
+        raise HTTPException(status_code=500, detail="SABnzbd request failed")
+
+
+@app.get("/sab/recent")
+async def get_sab_recent(limit: int = Query(5, ge=1, le=20, description="Number of groups to return")):
+    """Get recent SABnzbd download history, grouped."""
+    sab = get_sabnzbd_client()
+    if not sab.is_configured:
+        raise HTTPException(status_code=503, detail="SABnzbd not configured")
+    try:
+        history = await sab.get_history(group_limit=limit)
+        return history
+    except SabnzbdError as e:
+        logger.error(f"Error fetching SABnzbd history: {e.code}")
+        status_code = 502 if e.code == "unreachable" else 500
+        raise HTTPException(status_code=status_code, detail=e.message)
+    except Exception:
+        logger.error("Error fetching SABnzbd history: unexpected")
+        raise HTTPException(status_code=500, detail="SABnzbd request failed")
+
+
+@app.post("/sab/queue/pause")
+async def pause_sab_queue():
+    """Pause the full SABnzbd queue."""
+    sab = get_sabnzbd_client()
+    if not sab.is_configured:
+        raise HTTPException(status_code=503, detail="SABnzbd not configured")
+    try:
+        await sab.pause_all()
+        return {"status": "paused"}
+    except SabnzbdError as e:
+        logger.error(f"Error pausing SABnzbd queue: {e.code}")
+        status_code = 502 if e.code == "unreachable" else 500
+        raise HTTPException(status_code=status_code, detail=e.message)
+    except Exception:
+        logger.error("Error pausing SABnzbd queue: unexpected")
+        raise HTTPException(status_code=500, detail="SABnzbd request failed")
+
+
+@app.post("/sab/queue/resume")
+async def resume_sab_queue():
+    """Resume the full SABnzbd queue."""
+    sab = get_sabnzbd_client()
+    if not sab.is_configured:
+        raise HTTPException(status_code=503, detail="SABnzbd not configured")
+    try:
+        await sab.resume_all()
+        return {"status": "resumed"}
+    except SabnzbdError as e:
+        logger.error(f"Error resuming SABnzbd queue: {e.code}")
+        status_code = 502 if e.code == "unreachable" else 500
+        raise HTTPException(status_code=status_code, detail=e.message)
+    except Exception:
+        logger.error("Error resuming SABnzbd queue: unexpected")
+        raise HTTPException(status_code=500, detail="SABnzbd request failed")
+
+
+@app.post("/sab/queue/item/{job_id}/pause")
+async def pause_sab_job(job_id: str):
+    """Pause a single SABnzbd queue item."""
+    sab = get_sabnzbd_client()
+    if not sab.is_configured:
+        raise HTTPException(status_code=503, detail="SABnzbd not configured")
+    try:
+        await sab.pause_job(job_id)
+        return {"status": "paused"}
+    except SabnzbdError as e:
+        logger.error(f"Error pausing SABnzbd job {job_id}: {e.code}")
+        status_code = 502 if e.code == "unreachable" else 500
+        raise HTTPException(status_code=status_code, detail=e.message)
+    except Exception:
+        logger.error(f"Error pausing SABnzbd job {job_id}: unexpected")
+        raise HTTPException(status_code=500, detail="SABnzbd request failed")
+
+
+@app.post("/sab/queue/item/{job_id}/resume")
+async def resume_sab_job(job_id: str):
+    """Resume a single SABnzbd queue item."""
+    sab = get_sabnzbd_client()
+    if not sab.is_configured:
+        raise HTTPException(status_code=503, detail="SABnzbd not configured")
+    try:
+        await sab.resume_job(job_id)
+        return {"status": "resumed"}
+    except SabnzbdError as e:
+        logger.error(f"Error resuming SABnzbd job {job_id}: {e.code}")
+        status_code = 502 if e.code == "unreachable" else 500
+        raise HTTPException(status_code=status_code, detail=e.message)
+    except Exception:
+        logger.error(f"Error resuming SABnzbd job {job_id}: unexpected")
+        raise HTTPException(status_code=500, detail="SABnzbd request failed")
+
+
+@app.post("/sab/queue/item/{job_id}/delete")
+async def delete_sab_job(job_id: str):
+    """Delete a single SABnzbd queue item."""
+    sab = get_sabnzbd_client()
+    if not sab.is_configured:
+        raise HTTPException(status_code=503, detail="SABnzbd not configured")
+    try:
+        await sab.delete_job(job_id)
+        return {"status": "deleted"}
+    except SabnzbdError as e:
+        logger.error(f"Error deleting SABnzbd job {job_id}: {e.code}")
+        status_code = 502 if e.code == "unreachable" else 500
+        raise HTTPException(status_code=status_code, detail=e.message)
+    except Exception:
+        logger.error(f"Error deleting SABnzbd job {job_id}: unexpected")
+        raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 @app.get("/search")
 async def search(

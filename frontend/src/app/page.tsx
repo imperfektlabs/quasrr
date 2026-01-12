@@ -114,11 +114,67 @@ type ReleaseResponse = {
   message?: string
 }
 
+// SABnzbd Types
+type SabQueueItem = {
+  id?: string
+  name: string
+  status: string
+  percentage: string
+  size_total: string
+  size_remaining: string
+  speed: string
+  eta: string
+  category: string
+  parsedTitle: string
+  mediaType: 'movie' | 'tv' | 'unknown'
+  season?: number
+  episode?: number
+  groupKey: string
+}
+
+type SabQueueResponse = {
+  jobs: SabQueueItem[]
+  speed: string
+}
+
+type SabRecentItem = {
+  name: string
+  status: string
+  completedTime: number | null
+  size: string
+  category: string
+  parsedTitle: string
+  mediaType: 'movie' | 'tv' | 'unknown'
+  season?: number
+  episode?: number
+  groupKey: string
+}
+
+type SabRecentGroup = {
+  groupKey: string
+  title: string
+  mediaType: 'movie' | 'tv' | 'unknown'
+  count: number
+  totalSize: number
+  latestCompletedTime: number | null
+  items: SabRecentItem[]
+}
+
+type SabRecentResponse = {
+  groups: SabRecentGroup[]
+}
+
 type SortField = 'size' | 'quality' | 'age' | 'title'
 type SortDirection = 'asc' | 'desc' | null
 
 function getBackendUrl(): string {
   return `${window.location.protocol}//${window.location.hostname}:8000`
+}
+
+function formatTimestamp(value: number | null | undefined, mode: 'date' | 'time' = 'date'): string {
+  if (!value) return 'Unknown'
+  const date = new Date(value * 1000)
+  return mode === 'time' ? date.toLocaleTimeString() : date.toLocaleString()
 }
 
 function formatRating(rating: Rating): string {
@@ -1248,6 +1304,194 @@ function DiscoveryCard({
   )
 }
 
+// SABnzbd Queue component
+function SabQueue({
+  data,
+  error,
+  onRefresh,
+  onPauseAll,
+  onResumeAll,
+  onPauseJob,
+  onResumeJob,
+  onDeleteJob,
+  actionBusy,
+}: {
+  data: SabQueueResponse | null
+  error: string | null
+  onRefresh: () => void
+  onPauseAll: () => void
+  onResumeAll: () => void
+  onPauseJob: (jobId: string) => void
+  onResumeJob: (jobId: string) => void
+  onDeleteJob: (jobId: string) => void
+  actionBusy: boolean
+}) {
+  if (error) {
+    return <div className="text-red-400">Error fetching queue: {error}</div>
+  }
+  if (!data) {
+    return <div className="text-yellow-400">Loading queue...</div>
+  }
+  if (data.jobs.length === 0) {
+    return <div className="text-gray-400">Nothing downloading</div>
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onPauseAll}
+          disabled={actionBusy}
+          className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+          title="Pause all"
+          aria-label="Pause all"
+        >
+          ||
+        </button>
+        <button
+          type="button"
+          onClick={onResumeAll}
+          disabled={actionBusy}
+          className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+          title="Resume all"
+          aria-label="Resume all"
+        >
+          {'>'}
+        </button>
+      </div>
+      {data.jobs.map((job) => {
+        const percent = Number(job.percentage) || 0
+        const isPaused = job.status?.toLowerCase().includes('pause')
+        return (
+          <div key={job.name} className="glass-card rounded-lg p-3">
+            <p className="text-sm truncate font-semibold" title={job.name}>{job.name}</p>
+            <div className="text-xs text-gray-400 mt-1 flex justify-between">
+              <span>{job.status}</span>
+              <span>{job.eta} remaining</span>
+            </div>
+            <div className="w-full bg-slate-700/60 rounded-full h-2.5 mt-2">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full"
+                style={{ width: `${percent}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-gray-400 mt-1 flex justify-between items-center gap-2">
+              <span>{percent}%</span>
+              <span className="ml-auto">{job.size_remaining} / {job.size_total} MB</span>
+            </div>
+            {job.id && (
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => (isPaused ? onResumeJob(job.id as string) : onPauseJob(job.id as string))}
+                  disabled={actionBusy}
+                  className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+                  title={isPaused ? 'Resume' : 'Pause'}
+                  aria-label={isPaused ? 'Resume' : 'Pause'}
+                >
+                  {isPaused ? '>' : '||'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteJob(job.id as string)}
+                  disabled={actionBusy}
+                  className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+                  title="Delete"
+                  aria-label="Delete"
+                >
+                  X
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// SABnzbd Recent component
+function SabRecent({ data, error }: { data: SabRecentResponse | null, error: string | null }) {
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const initializedRef = useRef(false)
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+  
+  // Initially, all groups with more than one item are collapsed
+  useEffect(() => {
+    if (!data || initializedRef.current) return
+    const initialCollapsed = new Set(
+      data.groups.filter(g => g.count > 1).map(g => g.groupKey)
+    )
+    setCollapsedGroups(initialCollapsed)
+    initializedRef.current = true
+  }, [data])
+
+  if (error) {
+    return <div className="text-red-400">Error fetching recent items: {error}</div>
+  }
+  if (!data) {
+    return <div className="text-yellow-400">Loading recent items...</div>
+  }
+  if (data.groups.length === 0) {
+    return <div className="text-gray-400">No recent downloads</div>
+  }
+
+  return (
+    <div className="space-y-3">
+      {data.groups.map(group => {
+        const isCollapsed = collapsedGroups.has(group.groupKey)
+        const sizeText = group.totalSize > 0 ? `${(group.totalSize / (1024 ** 3)).toFixed(2)} GB` : 'Unknown size'
+        
+        return (
+          <div key={group.groupKey} className="glass-card rounded-lg">
+            <button
+              className="p-3 w-full text-left"
+              onClick={() => toggleGroup(group.groupKey)}
+            >
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-semibold truncate" title={group.title}>{group.title}</p>
+                <span className="text-xs text-gray-400">{isCollapsed ? 'Show' : 'Hide'}</span>
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                <span>{group.count} item(s)</span>
+                <span className="mx-2">|</span>
+                <span>{sizeText}</span>
+                <span className="mx-2">|</span>
+                <span>{formatTimestamp(group.latestCompletedTime)}</span>
+              </div>
+            </button>
+            {!isCollapsed && (
+              <div className="border-t border-slate-700/60 px-3 py-2 space-y-2">
+                {group.items.map(item => (
+                  <div key={item.name} className="text-xs">
+                    <p className="text-gray-300 truncate" title={item.name}>{item.name}</p>
+                    <div className="text-gray-500 flex justify-between">
+                       <span>{item.status} - {item.size}</span>
+                       <span>{formatTimestamp(item.completedTime, 'time')}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function HomeContent() {
   const [health, setHealth] = useState<HealthStatus>(null)
   const [config, setConfig] = useState<ConfigStatus>(null)
@@ -1266,6 +1510,18 @@ function HomeContent() {
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [selectedResult, setSelectedResult] = useState<DiscoveryResult | null>(null)
+  
+  // SABnzbd state
+  const [sabQueue, setSabQueue] = useState<SabQueueResponse | null>(null)
+  const [sabRecent, setSabRecent] = useState<SabRecentResponse | null>(null)
+  const [sabLoading, setSabLoading] = useState(false)
+  const [sabQueueError, setSabQueueError] = useState<string | null>(null)
+  const [sabRecentError, setSabRecentError] = useState<string | null>(null)
+  const [sabExpanded, setSabExpanded] = useState<'queue' | 'recent' | null>(null)
+  const [sabActionBusy, setSabActionBusy] = useState(false)
+  const [sabSectionVisible, setSabSectionVisible] = useState(false)
+
+  const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
 
   const pageSize = 25
 
@@ -1279,6 +1535,50 @@ function HomeContent() {
   const [releaseError, setReleaseError] = useState<string | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  const fetchSabData = async (silent?: boolean) => {
+    if (!silent) {
+      setSabLoading(true)
+    }
+    setSabQueueError(null)
+    setSabRecentError(null)
+    const backendUrl = getBackendUrl()
+    
+    try {
+      // Fetch queue and recent in parallel
+      const [queueRes, recentRes] = await Promise.all([
+        fetch(`${backendUrl}/sab/queue`),
+        fetch(`${backendUrl}/sab/recent?limit=5`)
+      ])
+
+      if (!queueRes.ok) {
+         const errorData = await queueRes.json().catch(() => ({}))
+         throw new Error(`Queue: ${errorData.detail || `HTTP ${queueRes.status}`}`)
+      }
+      setSabQueue(await queueRes.json())
+
+      if (!recentRes.ok) {
+         const errorData = await recentRes.json().catch(() => ({}))
+         throw new Error(`Recent: ${errorData.detail || `HTTP ${recentRes.status}`}`)
+      }
+      setSabRecent(await recentRes.json())
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to connect to SABnzbd'
+      if (msg.startsWith('Queue:')) {
+        setSabQueueError(msg.replace('Queue: ', ''))
+      } else if (msg.startsWith('Recent:')) {
+        setSabRecentError(msg.replace('Recent: ', ''))
+      } else {
+        setSabQueueError(msg)
+        setSabRecentError(msg)
+      }
+    } finally {
+      if (!silent) {
+        setSabLoading(false)
+      }
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1296,6 +1596,10 @@ function HomeContent() {
         setConfig(configData)
 
         setError(null)
+        
+        if (configData.integrations.sabnzbd_url) {
+          fetchSabData()
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to connect')
         setHealth(null)
@@ -1307,6 +1611,22 @@ function HomeContent() {
 
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (!sabConfigured || !sabExpanded) return
+
+    fetchSabData(true)
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchSabData(true)
+      }
+    }, 5000)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [sabConfigured, sabExpanded])
 
   const runSearch = async (query: string, nextPage: number) => {
     setSearching(true)
@@ -1460,6 +1780,49 @@ function HomeContent() {
     }
   }
 
+  const performSabAction = async (path: string) => {
+    setSabActionBusy(true)
+    setSabQueueError(null)
+
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}${path}`, { method: 'POST' })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      await fetchSabData(true)
+    } catch (err) {
+      setSabQueueError(err instanceof Error ? err.message : 'Failed to update queue')
+    } finally {
+      setSabActionBusy(false)
+    }
+  }
+
+  const queueSummary = (() => {
+    if (sabQueueError) return `Error: ${sabQueueError}`
+    if (!sabQueue) return 'Loading queue...'
+    const activeCount = sabQueue.jobs.length
+    return activeCount > 0 ? `${activeCount} active` : '0 active'
+  })()
+
+  const recentSummary = (() => {
+    if (sabRecentError) return `Error: ${sabRecentError}`
+    if (!sabRecent) return 'Loading recent...'
+    const groupCount = sabRecent.groups.length
+    return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
+  })()
+
+  const toggleSabPanel = (panel: 'queue' | 'recent') => {
+    setSabExpanded((current) => (current === panel ? null : panel))
+  }
+
+  const handlePauseAll = () => performSabAction('/sab/queue/pause')
+  const handleResumeAll = () => performSabAction('/sab/queue/resume')
+  const handlePauseJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/pause`)
+  const handleResumeJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/resume`)
+  const handleDeleteJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/delete`)
+
   return (
     <main className="min-h-screen p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -1573,6 +1936,105 @@ function HomeContent() {
             </details>
           </form>
         </div>
+
+        {/* Download Activity Section */}
+        {config && (
+          <div className="mb-4">
+            {!sabSectionVisible ? (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="text-xs px-3 py-2 rounded bg-slate-800/60"
+                  onClick={() => setSabSectionVisible(true)}
+                >
+                  Show download activity
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-lg font-semibold">Download Activity</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSabSectionVisible(false)
+                        setSabExpanded(null)
+                      }}
+                      className="px-3 py-1.5 rounded bg-slate-800/60 text-xs"
+                    >
+                      Hide
+                    </button>
+                    <button
+                      onClick={() => fetchSabData(false)}
+                      disabled={!sabConfigured || sabLoading}
+                      className="px-3 py-1.5 rounded bg-slate-800/60 disabled:opacity-50 text-xs"
+                    >
+                      {sabLoading ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                  </div>
+                </div>
+                {!sabConfigured ? (
+                  <div className="glass-panel rounded-lg p-4 text-gray-400">
+                    SABnzbd not configured
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="glass-panel rounded-lg">
+                      <button
+                        type="button"
+                        className="w-full text-left p-3 flex items-center justify-between"
+                        onClick={() => toggleSabPanel('queue')}
+                      >
+                        <div>
+                          <div className="text-md font-semibold">Queue</div>
+                          <div className="text-xs text-gray-400">{queueSummary}</div>
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {sabExpanded === 'queue' ? 'Collapse' : 'Expand'}
+                        </span>
+                      </button>
+                      {sabExpanded === 'queue' && (
+                        <div className="px-3 pb-3">
+                          <SabQueue
+                            data={sabQueue}
+                            error={sabQueueError}
+                            onRefresh={fetchSabData}
+                            onPauseAll={handlePauseAll}
+                            onResumeAll={handleResumeAll}
+                            onPauseJob={handlePauseJob}
+                            onResumeJob={handleResumeJob}
+                            onDeleteJob={handleDeleteJob}
+                            actionBusy={sabActionBusy}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="glass-panel rounded-lg">
+                      <button
+                        type="button"
+                        className="w-full text-left p-3 flex items-center justify-between"
+                        onClick={() => toggleSabPanel('recent')}
+                      >
+                        <div>
+                          <div className="text-md font-semibold">Recent</div>
+                          <div className="text-xs text-gray-400">{recentSummary}</div>
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {sabExpanded === 'recent' ? 'Collapse' : 'Expand'}
+                        </span>
+                      </button>
+                      {sabExpanded === 'recent' && (
+                        <div className="px-3 pb-3">
+                          <SabRecent data={sabRecent} error={sabRecentError} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Search Results */}
         {searchError && (
