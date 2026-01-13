@@ -16,6 +16,7 @@ type ConfigStatus = {
     sonarr_url: string | null
     radarr_url: string | null
     sabnzbd_url: string | null
+    tmdb_api_key?: string | null
   }
   features: {
     show_download_always: boolean
@@ -105,6 +106,8 @@ type ReleaseResponse = {
   year?: number
   type: string
   season?: number
+  requested_season?: number
+  requested_episode?: number
   poster?: string
   tmdb_id?: number
   tvdb_id?: number
@@ -113,6 +116,45 @@ type ReleaseResponse = {
   runtime?: number
   releases: Release[]
   message?: string
+}
+
+type AISuggestion = {
+  index?: number
+  guid?: string | null
+  title?: string | null
+  reason?: string
+  warnings?: string[]
+}
+
+type AIIntent = {
+  media_type: 'movie' | 'tv' | 'unknown'
+  title: string
+  season?: number | null
+  episode?: number | null
+  episode_date?: string | null
+  action?: 'search' | 'download'
+  quality?: string | null
+  confidence?: number
+  notes?: string
+}
+
+type AIAvailability = {
+  tmdb_id?: number
+  title?: string
+  year?: string
+  overview?: string
+  poster_url?: string
+  link?: string
+  flatrate?: { name: string; logo_url?: string | null }[]
+  subscribed?: string[]
+  media_type?: 'movie' | 'tv'
+}
+
+type AIIntentPlan = {
+  query: string
+  intent: AIIntent
+  availability?: AIAvailability
+  recommendation?: 'watch' | 'search' | 'download'
 }
 
 // SABnzbd Types
@@ -170,6 +212,10 @@ type SortDirection = 'asc' | 'desc' | null
 
 function getBackendUrl(): string {
   return `${window.location.protocol}//${window.location.hostname}:8000`
+}
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
 function getReleaseKey(release: Release): string {
@@ -427,17 +473,30 @@ function ReleaseView({
   onGrabRelease,
   grabBusyIds,
   grabFeedback,
+  aiEnabled,
+  aiSuggestion,
+  aiSuggestBusy,
+  aiSuggestError,
+  onAiSuggest,
 }: {
   data: ReleaseResponse
   onClose: () => void
   onGrabRelease: (release: Release) => void
   grabBusyIds: Set<string>
   grabFeedback: { type: 'error' | 'success'; text: string } | null
+  aiEnabled: boolean
+  aiSuggestion: AISuggestion | null
+  aiSuggestBusy: boolean
+  aiSuggestError: string | null
+  onAiSuggest: () => void
 }) {
   const [sortField, setSortField] = useState<SortField>('size')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [groupFocus, setGroupFocus] = useState<string | null>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const aiPickGuid = aiSuggestion?.guid || null
+  const requestedSeason = data.requested_season
+  const requestedEpisode = data.requested_episode
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -684,6 +743,22 @@ function ReleaseView({
                     {grabFeedback.text}
                   </p>
                 )}
+                {aiSuggestError && (
+                  <p className="mt-2 text-xs text-red-400">AI: {aiSuggestError}</p>
+                )}
+                {aiSuggestion && (
+                  <div className="mt-2 text-xs text-emerald-300">
+                    <div>AI pick: {aiSuggestion.title || 'Suggested release'}</div>
+                    {aiSuggestion.reason && (
+                      <div className="text-emerald-200/80">{aiSuggestion.reason}</div>
+                    )}
+                    {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
+                      <div className="text-amber-200/80">
+                        {aiSuggestion.warnings.join(' • ')}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {data.type === 'tv' && groupFocus && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
                     <span className="glass-chip px-2 py-1 rounded">Group: {groupFocus}</span>
@@ -698,12 +773,24 @@ function ReleaseView({
                 )}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white text-2xl px-2"
-            >
-              X
-            </button>
+            <div className="flex items-center gap-2">
+              {aiEnabled && (
+                <button
+                  type="button"
+                  onClick={onAiSuggest}
+                  disabled={aiSuggestBusy}
+                  className="text-xs px-2 py-1 rounded bg-emerald-700/70 hover:bg-emerald-600/80 disabled:opacity-50"
+                >
+                  {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white text-2xl px-2"
+              >
+                X
+              </button>
+            </div>
           </div>
 
           {/* Release list */}
@@ -832,12 +919,21 @@ function ReleaseView({
                           const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
                           const canGrab = Boolean(release.guid && release.indexer_id)
                           const isGrabBusy = grabBusyIds.has(getReleaseKey(release))
+                          const isAiPick = Boolean(aiPickGuid && release.guid === aiPickGuid)
+                          const isRequested = Boolean(
+                            requestedEpisode &&
+                            (!requestedSeason || getSeason(release) === requestedSeason) &&
+                            Array.isArray(release.episode) &&
+                            release.episode.includes(requestedEpisode)
+                          )
 
                           return (
                             <div
                               key={release.guid || `${group.key}-${index}`}
                               className={`p-2 hover:bg-slate-800/40 ${
                                 release.rejected ? 'opacity-50' : ''
+                              } ${isAiPick ? 'ring-1 ring-emerald-400/60 bg-emerald-900/10' : ''} ${
+                                isRequested ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
                               }`}
                             >
                               {/* Desktop layout */}
@@ -1015,6 +1111,179 @@ function ReleaseView({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AIPlanModal({
+  plan,
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  plan: AIIntentPlan
+  busy: boolean
+  error: string | null
+  onConfirm: (plan: AIIntentPlan) => void
+  onCancel: () => void
+}) {
+  const intent = plan.intent
+  const availability = plan.availability
+  const actionLabel = plan.recommendation === 'watch'
+    ? 'Search anyway'
+    : (intent.action === 'download' ? 'Find releases' : 'Search')
+
+  return (
+    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onCancel}>
+      <div className="min-h-screen p-4">
+        <div
+          className="max-w-2xl mx-auto glass-panel rounded-lg p-4 md:p-6"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Plan & Availability</h2>
+              <p className="text-gray-400 text-sm">"{plan.query}"</p>
+            </div>
+            <button onClick={onCancel} className="text-gray-400 hover:text-white text-2xl px-2">
+              X
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-[120px,1fr] text-sm">
+            <div>
+              {availability?.poster_url ? (
+                <img
+                  src={availability.poster_url}
+                  alt={availability.title || intent.title}
+                  className="w-full max-h-48 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="w-full h-40 rounded-lg bg-slate-800/60 flex items-center justify-center text-xs text-gray-500">
+                  No poster
+                </div>
+              )}
+            </div>
+            <div className="space-y-3">
+              <div className="text-slate-200 text-lg font-semibold">
+                {availability?.title || intent.title || 'Unknown'}
+              </div>
+              <div className="text-gray-400 text-xs">
+                {availability?.year || 'Unknown year'} {intent.media_type !== 'unknown' && `• ${intent.media_type}`}
+              </div>
+              {availability?.overview && (
+                <div
+                  className="text-gray-300 text-xs leading-relaxed"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 4,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {availability.overview}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2 text-xs">
+                {intent.season && (
+                  <span className="glass-chip px-2 py-1 rounded">Season {intent.season}</span>
+                )}
+                {intent.episode && (
+                  <span className="glass-chip px-2 py-1 rounded">Episode {intent.episode}</span>
+                )}
+                {intent.episode_date && (
+                  <span className="glass-chip px-2 py-1 rounded">{intent.episode_date}</span>
+                )}
+                {intent.quality && (
+                  <span className="glass-chip px-2 py-1 rounded">{intent.quality}</span>
+                )}
+                {intent.action && (
+                  <span className="glass-chip px-2 py-1 rounded">{intent.action}</span>
+                )}
+              </div>
+              {intent.notes && (
+                <div
+                  className="text-gray-300"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {intent.notes}
+                </div>
+              )}
+              {availability?.flatrate && availability.flatrate.length > 0 && (
+                <div>
+                  <div className="text-gray-400 text-xs mb-2">Streaming options</div>
+                  <div className="flex flex-wrap gap-2">
+                    {availability.flatrate.map((provider) => (
+                      <div
+                        key={provider.name}
+                        className="flex items-center gap-2 bg-slate-800/60 rounded px-2 py-1 text-xs"
+                      >
+                        {provider.logo_url ? (
+                          <img
+                            src={provider.logo_url}
+                            alt={provider.name}
+                            className="h-5 w-5 object-contain"
+                          />
+                        ) : (
+                          <span className="text-gray-500">•</span>
+                        )}
+                        <span>{provider.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {availability?.subscribed && availability.subscribed.length > 0 && (
+                <div className="text-emerald-300 text-xs">
+                  Available on your services: {availability.subscribed.join(', ')}
+                </div>
+              )}
+              {plan.recommendation === 'watch' && (
+                <div className="text-amber-300 text-xs">
+                  Recommendation: watch instead of downloading.
+                </div>
+              )}
+              {error && (
+                <div className="text-red-400 text-xs">AI: {error}</div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {availability?.link && (
+              <a
+                href={availability.link}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-3 rounded text-xs"
+              >
+                View streaming options
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => onConfirm(plan)}
+              disabled={busy}
+              className="bg-blue-600/90 hover:bg-blue-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium"
+            >
+              {busy ? 'Working...' : actionLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </div>
@@ -1548,6 +1817,7 @@ function HomeContent() {
   const [sabSectionVisible, setSabSectionVisible] = useState(false)
 
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
+  const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
 
   const pageSize = 25
 
@@ -1561,6 +1831,16 @@ function HomeContent() {
   const [releaseError, setReleaseError] = useState<string | null>(null)
   const [grabBusyIds, setGrabBusyIds] = useState<Set<string>>(new Set())
   const [grabFeedback, setGrabFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null)
+  const [aiSuggestBusy, setAiSuggestBusy] = useState(false)
+  const [aiSuggestError, setAiSuggestError] = useState<string | null>(null)
+  const [aiIntentPlan, setAiIntentPlan] = useState<AIIntentPlan | null>(null)
+  const [aiIntentBusy, setAiIntentBusy] = useState(false)
+  const [aiIntentError, setAiIntentError] = useState<string | null>(null)
+  const [aiIntentEnabled, setAiIntentEnabled] = useState(true)
+  const [streamingUpdateBusy, setStreamingUpdateBusy] = useState(false)
+  const [streamingUpdateError, setStreamingUpdateError] = useState<string | null>(null)
+  const [tmdbProviders, setTmdbProviders] = useState<Record<string, string | null>>({})
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const sabPollInFlight = useRef(false)
@@ -1731,11 +2011,51 @@ function HomeContent() {
   }, [])
 
   useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('ai_intent_enabled')
+      if (stored !== null) {
+        setAiIntentEnabled(stored === 'true')
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!config?.integrations.tmdb_api_key) return
+    const fetchProviders = async () => {
+      const backendUrl = getBackendUrl()
+      try {
+        const response = await fetch(`${backendUrl}/tmdb/providers?type=movie`)
+        if (!response.ok) return
+        const data = await response.json()
+        const providers = Array.isArray(data.providers) ? data.providers : []
+        const next: Record<string, string | null> = {}
+        for (const provider of providers) {
+          if (provider?.name) {
+            next[provider.name.toLowerCase()] = provider.logo_url || null
+          }
+        }
+        setTmdbProviders(next)
+      } catch {
+        // Ignore provider load errors.
+      }
+    }
+    fetchProviders()
+  }, [config?.integrations.tmdb_api_key])
+
+  useEffect(() => {
     setSelectedResult(null)
     setReleaseData(null)
     setReleaseError(null)
     setGrabFeedback(null)
     setGrabBusyIds(new Set())
+    setAiSuggestion(null)
+    setAiSuggestError(null)
+    setAiSuggestBusy(false)
+    setAiIntentPlan(null)
+    setAiIntentError(null)
+    setAiIntentBusy(false)
   }, [searchParams])
 
   useEffect(() => {
@@ -1772,13 +2092,64 @@ function HomeContent() {
     setSearchResults(null)
     setSelectedResult(null)
     setPage(1)
-    setActiveQuery(trimmed)
+    if (!aiEnabled || !aiIntentEnabled) {
+      setActiveQuery(trimmed)
+      return
+    }
+
+    setAiIntentBusy(true)
+    setAiIntentError(null)
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/ai/intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: trimmed }),
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      const data = await response.json()
+      setAiIntentPlan({
+        query: trimmed,
+        intent: data.intent,
+        availability: data.availability,
+        recommendation: data.recommendation,
+      })
+    } catch (err) {
+      setAiIntentError(err instanceof Error ? err.message : 'AI intent failed')
+      try {
+        const backendUrl = getBackendUrl()
+        const availRes = await fetch(
+          `${backendUrl}/availability?query=${encodeURIComponent(trimmed)}`
+        )
+        const availData = availRes.ok ? await availRes.json() : {}
+        const availability = availData.availability || null
+        setAiIntentPlan({
+          query: trimmed,
+          intent: {
+            media_type: availability?.media_type || 'unknown',
+            title: availability?.title || trimmed,
+            action: 'search',
+          },
+          availability: availability || undefined,
+          recommendation: availability?.subscribed?.length ? 'watch' : 'search',
+        })
+      } catch {
+        setActiveQuery(trimmed)
+      }
+    } finally {
+      setAiIntentBusy(false)
+    }
   }
 
   const handleShowReleases = async (result: DiscoveryResult, season?: number) => {
     setLoadingReleases(true)
     setReleaseError(null)
     setGrabFeedback(null)
+    setAiSuggestion(null)
+    setAiSuggestError(null)
 
     try {
       const backendUrl = getBackendUrl()
@@ -1809,6 +2180,85 @@ function HomeContent() {
         title: data.title || result.title,
         year: data.year || result.year,
         type: data.type || result.type,
+      })
+    } catch (err) {
+      setReleaseError(err instanceof Error ? err.message : 'Failed to fetch releases')
+    } finally {
+      setLoadingReleases(false)
+    }
+  }
+
+  const executePlan = async (plan: AIIntentPlan) => {
+    setAiIntentPlan(null)
+    setReleaseError(null)
+    setReleaseData(null)
+    setSearchResults(null)
+    setSelectedResult(null)
+
+    const intent = plan.intent
+    if (!intent || !intent.title || intent.media_type === 'unknown') {
+      setActiveQuery(plan.query)
+      return
+    }
+
+    setLoadingReleases(true)
+    try {
+      const backendUrl = getBackendUrl()
+      const lookupRes = await fetch(
+        `${backendUrl}/lookup?type=${intent.media_type}&query=${encodeURIComponent(intent.title)}`
+      )
+      if (!lookupRes.ok) {
+        const errorData = await lookupRes.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${lookupRes.status}`)
+      }
+      const lookupData = await lookupRes.json()
+      const top = Array.isArray(lookupData.results) ? lookupData.results[0] : null
+      if (!top) {
+        setActiveQuery(plan.query)
+        return
+      }
+
+      const params = new URLSearchParams({
+        type: intent.media_type,
+        title: top.title || intent.title,
+      })
+      if (intent.media_type === 'movie') {
+        if (!top.tmdb_id) {
+          setActiveQuery(plan.query)
+          return
+        }
+        params.set('tmdb_id', String(top.tmdb_id))
+      } else {
+        if (!top.tvdb_id) {
+          setActiveQuery(plan.query)
+          return
+        }
+        params.set('tvdb_id', String(top.tvdb_id))
+        if (intent.season) {
+          params.set('season', String(intent.season))
+        }
+        if (intent.episode) {
+          params.set('episode', String(intent.episode))
+        }
+        if (intent.episode_date) {
+          params.set('episode_date', intent.episode_date)
+        }
+      }
+
+      const response = await fetch(`${backendUrl}/releases?${params}`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      const data = await response.json()
+      setReleaseData({
+        ...data,
+        poster: top.poster,
+        title: data.title || top.title || intent.title,
+        year: data.year || top.year,
+        type: data.type || intent.media_type,
+        requested_season: intent.season || undefined,
+        requested_episode: intent.episode || undefined,
       })
     } catch (err) {
       setReleaseError(err instanceof Error ? err.message : 'Failed to fetch releases')
@@ -1867,6 +2317,56 @@ function HomeContent() {
     }
   }
 
+  const handleAiSuggest = async () => {
+    if (!releaseData) return
+    setAiSuggestBusy(true)
+    setAiSuggestError(null)
+    setAiSuggestion(null)
+
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/ai/release/suggest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: releaseData.type,
+          title: releaseData.title,
+          releases: releaseData.releases.map((release) => ({
+            title: release.title,
+            size: release.size,
+            size_formatted: release.size_formatted,
+            size_gb: release.size_gb,
+            quality: release.quality,
+            indexer: release.indexer,
+            age: release.age,
+            protocol: release.protocol,
+            guid: release.guid,
+            rejected: release.rejected,
+            rejections: release.rejections,
+            season: release.season,
+            episode: release.episode,
+            full_season: release.full_season,
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (!data.suggestion) {
+        throw new Error('AI returned no suggestion')
+      }
+      setAiSuggestion(data.suggestion)
+    } catch (err) {
+      setAiSuggestError(err instanceof Error ? err.message : 'AI suggestion failed')
+    } finally {
+      setAiSuggestBusy(false)
+    }
+  }
+
   const performSabAction = async (path: string) => {
     setSabActionBusy(true)
     setSabQueueError(null)
@@ -1909,6 +2409,41 @@ function HomeContent() {
   const handlePauseJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/pause`)
   const handleResumeJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/resume`)
   const handleDeleteJob = (jobId: string) => performSabAction(`/downloads/queue/item/${jobId}/delete`)
+
+  const handleStreamingToggle = async (id: string, enabled: boolean) => {
+    if (!config) return
+    setStreamingUpdateBusy(true)
+    setStreamingUpdateError(null)
+    const current = config.streaming_services || []
+    const nextEnabled = current
+      .map((service) => ({
+        ...service,
+        enabled: service.id === id ? enabled : service.enabled,
+      }))
+      .filter((service) => service.enabled)
+      .map((service) => service.id)
+
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/config/streaming_services`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled_ids: nextEnabled }),
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      const data = await response.json()
+      if (data?.config) {
+        setConfig(data.config)
+      }
+    } catch (err) {
+      setStreamingUpdateError(err instanceof Error ? err.message : 'Failed to update services')
+    } finally {
+      setStreamingUpdateBusy(false)
+    }
+  }
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -2021,6 +2556,33 @@ function HomeContent() {
                 </div>
               </div>
             </details>
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={aiIntentEnabled}
+                  onChange={(event) => {
+                    const next = event.target.checked
+                    setAiIntentEnabled(next)
+                    try {
+                      window.localStorage.setItem('ai_intent_enabled', String(next))
+                    } catch {
+                      // Ignore storage errors.
+                    }
+                  }}
+                />
+                AI intent parsing
+              </label>
+              {!aiIntentEnabled && (
+                <span className="text-gray-500">AI search disabled</span>
+              )}
+            </div>
+            {aiIntentBusy && (
+              <div className="text-xs text-amber-300">AI: interpreting your request...</div>
+            )}
+            {aiIntentError && (
+              <div className="text-xs text-red-400">AI: {aiIntentError}</div>
+            )}
           </form>
         </div>
 
@@ -2234,6 +2796,40 @@ function HomeContent() {
                         {config.integrations.sabnzbd_url ? 'Configured' : 'Not set'}
                       </span>
                     </div>
+                    <div className="flex justify-between">
+                      <span>TMDB</span>
+                      <span className={config.integrations.tmdb_api_key ? 'text-green-400' : 'text-gray-600'}>
+                        {config.integrations.tmdb_api_key ? 'Configured' : 'Not set'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Streaming Services</h3>
+                  {streamingUpdateError && (
+                    <div className="text-xs text-red-400 mb-2">Error: {streamingUpdateError}</div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {config.streaming_services.map((service) => (
+                      <label key={service.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={service.enabled}
+                          disabled={streamingUpdateBusy}
+                          onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
+                        />
+                        {(() => {
+                          const logo = tmdbProviders[normalizeName(service.name)]
+                          return logo ? (
+                            <img src={logo} alt={service.name} className="h-5 w-5 object-contain" />
+                          ) : (
+                            <span className="text-gray-500 text-xs">•</span>
+                          )
+                        })()}
+                        <span>{service.name}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </>
@@ -2268,6 +2864,16 @@ function HomeContent() {
         </div>
       )}
 
+      {aiIntentPlan && (
+        <AIPlanModal
+          plan={aiIntentPlan}
+          busy={loadingReleases}
+          error={aiIntentError}
+          onConfirm={executePlan}
+          onCancel={() => setAiIntentPlan(null)}
+        />
+      )}
+
       {/* Discovery details modal */}
       {selectedResult && (
         <DetailsView
@@ -2285,6 +2891,11 @@ function HomeContent() {
           onGrabRelease={handleGrabRelease}
           grabBusyIds={grabBusyIds}
           grabFeedback={grabFeedback}
+          aiEnabled={aiEnabled}
+          aiSuggestion={aiSuggestion}
+          aiSuggestBusy={aiSuggestBusy}
+          aiSuggestError={aiSuggestError}
+          onAiSuggest={handleAiSuggest}
         />
       )}
     </main>
