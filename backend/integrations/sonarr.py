@@ -5,7 +5,7 @@ Sonarr API client for interactive search.
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Optional
 
 import httpx
@@ -192,6 +192,67 @@ class SonarrClient:
         except Exception as e:
             logger.error(f"Sonarr release search error: {e}")
             return []
+
+    async def get_episode_list(self, series_id: int) -> list[dict]:
+        """Fetch episode list for a series."""
+        if not self.is_configured:
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/episode",
+                    headers=self._get_headers(),
+                    params={"seriesId": series_id},
+                )
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            logger.error(f"Sonarr episode list error: {e}")
+            return []
+
+    def _parse_air_date(self, value: str | None) -> date | None:
+        if not value:
+            return None
+        try:
+            if "T" in value:
+                return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+            return datetime.fromisoformat(value).date()
+        except Exception:
+            return None
+
+    async def resolve_episode_target(
+        self,
+        series_id: int,
+        season: Optional[int],
+        episode: Optional[int],
+        episode_date: Optional[str],
+    ) -> tuple[Optional[int], Optional[int], Optional[str]]:
+        """Resolve season/episode from episode number or air date."""
+        if episode and season:
+            return season, episode, None
+
+        if episode_date:
+            try:
+                target_date = datetime.fromisoformat(episode_date).date()
+            except Exception:
+                target_date = None
+
+            if target_date:
+                episodes = await self.get_episode_list(series_id)
+                best = None
+                best_date = None
+                for ep in episodes:
+                    air = self._parse_air_date(ep.get("airDateUtc") or ep.get("airDate"))
+                    if not air:
+                        continue
+                    if air <= target_date:
+                        if best_date is None or air > best_date:
+                            best_date = air
+                            best = ep
+                if best:
+                    return best.get("seasonNumber"), best.get("episodeNumber"), best.get("title")
+
+        return season, episode, None
 
     async def get_library_series(self) -> dict[int, dict]:
         """Get all series in Sonarr library, keyed by TVDB ID."""
@@ -394,7 +455,14 @@ class SonarrClient:
             logger.error(f"Sonarr add series error: {e}")
             return None
 
-    async def get_releases_by_tvdb(self, tvdb_id: int, title: str, season: Optional[int] = None) -> dict:
+    async def get_releases_by_tvdb(
+        self,
+        tvdb_id: int,
+        title: str,
+        season: Optional[int] = None,
+        episode: Optional[int] = None,
+        episode_date: Optional[str] = None,
+    ) -> dict:
         """
         Stage 2: Get releases for a specific series by TVDB ID.
         Adds series to library if not present, then searches indexers.
@@ -426,10 +494,44 @@ class SonarrClient:
 
         logger.info(f"Searching releases for series ID {series_id}: '{series_title}'")
 
-        # Search for releases
-        releases = await self.search_releases(series_id, season)
+        if episode and season is None:
+            return {
+                "title": series_title,
+                "year": series_year,
+                "tvdb_id": tvdb_id,
+                "sonarr_id": series_id,
+                "releases": [],
+                "message": "Episode number provided without season.",
+                "requested_season": None,
+                "requested_episode": episode,
+            }
 
-        if not releases and season is None:
+        resolved_season, resolved_episode, resolved_title = await self.resolve_episode_target(
+            series_id,
+            season,
+            episode,
+            episode_date,
+        )
+
+        if episode_date and resolved_episode is None:
+            return {
+                "title": series_title,
+                "year": series_year,
+                "tvdb_id": tvdb_id,
+                "sonarr_id": series_id,
+                "releases": [],
+                "message": "No episode found for requested air date.",
+                "requested_season": resolved_season,
+                "requested_episode": None,
+                "requested_episode_title": resolved_title,
+            }
+
+        search_season = resolved_season if resolved_season is not None else season
+
+        # Search for releases
+        releases = await self.search_releases(series_id, search_season)
+
+        if not releases and season is None and not (episode or episode_date):
             seasons = existing_series.get("seasons", [])
             season_numbers = [
                 s.get("seasonNumber")
@@ -456,6 +558,8 @@ class SonarrClient:
                 "sonarr_id": series_id,
                 "releases": [],
                 "message": "No releases found. Check indexers are configured.",
+                "requested_season": resolved_season,
+                "requested_episode": resolved_episode,
             }
 
         # Normalize releases
@@ -489,6 +593,18 @@ class SonarrClient:
                 "full_season": release.get("fullSeason", False),
             })
 
+        if resolved_episode and resolved_season is not None:
+            filtered = []
+            for release in normalized:
+                if release.get("full_season"):
+                    continue
+                if release.get("season") != resolved_season:
+                    continue
+                episodes = release.get("episode") or []
+                if resolved_episode in episodes:
+                    filtered.append(release)
+            normalized = filtered
+
         logger.info(f"Returning {len(normalized)} releases for '{series_title}'")
 
         return {
@@ -497,7 +613,10 @@ class SonarrClient:
             "tvdb_id": tvdb_id,
             "sonarr_id": series_id,
             "releases": normalized,
-            "season": season,
+            "season": search_season,
+            "requested_season": resolved_season,
+            "requested_episode": resolved_episode,
+            "requested_episode_title": resolved_title,
         }
 
     async def remove_download(self, download_id: str) -> dict:
