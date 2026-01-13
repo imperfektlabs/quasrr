@@ -7,6 +7,7 @@ from typing import Optional, Literal
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from config import get_config, reload_config, redact_secrets
 from integrations.radarr import get_radarr_client
@@ -27,6 +28,13 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", "/app/data/shiny.db")
 class SearchType(str, Enum):
     movie = "movie"
     tv = "tv"
+
+
+class GrabRequest(BaseModel):
+    type: SearchType
+    guid: str
+    indexer_id: int
+    title: Optional[str] = None
 
 
 @asynccontextmanager
@@ -245,6 +253,32 @@ async def delete_sab_job(job_id: str):
     except Exception:
         logger.error(f"Error deleting SABnzbd job {job_id}: unexpected")
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
+
+
+@app.post("/downloads/queue/item/{job_id}/delete")
+async def delete_download_job(job_id: str):
+    """Delete a download via Sonarr/Radarr so they stay in sync."""
+    sonarr = get_sonarr_client()
+    radarr = get_radarr_client()
+
+    if not sonarr.is_configured and not radarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr/Radarr not configured")
+
+    result = None
+    if sonarr.is_configured:
+        result = await sonarr.remove_download(job_id)
+        if result.get("status") == "ok":
+            return {"status": "ok"}
+
+    if radarr.is_configured:
+        result = await radarr.remove_download(job_id)
+        if result.get("status") == "ok":
+            return {"status": "ok"}
+
+    message = result.get("message", "Download not found in Sonarr/Radarr queue") if result else (
+        "Download not found in Sonarr/Radarr queue"
+    )
+    raise HTTPException(status_code=404, detail=message)
 
 @app.get("/search")
 async def search(
@@ -493,3 +527,31 @@ async def get_releases(
         result["type"] = "tv"
 
         return result
+
+
+@app.post("/releases/grab")
+async def grab_release(payload: GrabRequest):
+    """Grab a release via Radarr or Sonarr (sends to configured download client)."""
+    logger.info(
+        "Grab request: type=%s guid=%s indexer_id=%s title=%s",
+        payload.type,
+        payload.guid,
+        payload.indexer_id,
+        payload.title,
+    )
+
+    if payload.type == SearchType.movie:
+        radarr = get_radarr_client()
+        if not radarr.is_configured:
+            raise HTTPException(status_code=503, detail="Radarr not configured")
+        result = await radarr.grab_release(payload.guid, payload.indexer_id)
+    else:
+        sonarr = get_sonarr_client()
+        if not sonarr.is_configured:
+            raise HTTPException(status_code=503, detail="Sonarr not configured")
+        result = await sonarr.grab_release(payload.guid, payload.indexer_id)
+
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "Grab failed"))
+
+    return {"status": "ok"}

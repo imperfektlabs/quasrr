@@ -473,6 +473,7 @@ class SonarrClient:
                 "resolution": quality_info.get("resolution", 0),
                 "source": quality_info.get("source", "unknown"),
                 "indexer": release.get("indexer", "Unknown"),
+                "indexer_id": release.get("indexerId"),
                 "age": format_age(release.get("publishDate")),
                 "publish_date": release.get("publishDate"),
                 "seeders": release.get("seeders"),
@@ -498,6 +499,90 @@ class SonarrClient:
             "releases": normalized,
             "season": season,
         }
+
+    async def remove_download(self, download_id: str) -> dict:
+        """Remove a download from Sonarr (and download client) by downloadId."""
+        if not self.is_configured:
+            return {"status": "error", "message": "Sonarr not configured"}
+
+        logger.info(f"Removing Sonarr download: downloadId={download_id}")
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                page = 1
+                page_size = 200
+                queue_id = None
+                while page <= 5:
+                    response = await client.get(
+                        f"{self.base_url}/api/v3/queue",
+                        headers=self._get_headers(),
+                        params={"page": page, "pageSize": page_size, "includeUnknown": "true"},
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    records = data.get("records") if isinstance(data, dict) else None
+                    if records is None and isinstance(data, list):
+                        records = data
+                    if not records:
+                        break
+
+                    for record in records:
+                        if str(record.get("downloadId")) == str(download_id):
+                            queue_id = record.get("id")
+                            break
+                    if queue_id is not None:
+                        break
+
+                    total = data.get("totalRecords") if isinstance(data, dict) else None
+                    if total is None or page * page_size >= total:
+                        break
+                    page += 1
+
+                if queue_id is None:
+                    return {"status": "error", "message": "Download not found in Sonarr queue"}
+
+                delete_res = await client.delete(
+                    f"{self.base_url}/api/v3/queue/{queue_id}",
+                    headers=self._get_headers(),
+                    params={"removeFromClient": "true", "blocklist": "false"},
+                )
+                delete_res.raise_for_status()
+                return {"status": "ok"}
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "Sonarr timeout"}
+        except httpx.HTTPStatusError as e:
+            try:
+                err = e.response.json().get("message", "")[:200]
+            except Exception:
+                err = str(e.response.text)[:200]
+            return {"status": "error", "message": f"Sonarr error: {err}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def grab_release(self, guid: str, indexer_id: int) -> dict:
+        """Grab a release and send it to the download client (via Sonarr)."""
+        if not self.is_configured:
+            return {"status": "error", "message": "Sonarr not configured"}
+        logger.info(f"Grabbing release: guid={guid}, indexer_id={indexer_id}")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/v3/release",
+                    headers=self._get_headers(),
+                    json={"guid": guid, "indexerId": indexer_id},
+                )
+                response.raise_for_status()
+                logger.info(f"Release grabbed successfully: {guid}")
+                return {"status": "ok", "data": response.json()}
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "Sonarr timeout"}
+        except httpx.HTTPStatusError as e:
+            try:
+                err = e.response.json().get("message", "")[:200]
+            except Exception:
+                err = str(e.response.text)[:200]
+            return {"status": "error", "message": f"Sonarr error: {err}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
 
 def get_sonarr_client() -> SonarrClient:

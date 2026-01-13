@@ -86,6 +86,7 @@ type Release = {
   resolution?: number
   source?: string
   indexer: string
+  indexer_id?: number
   age: string
   publish_date?: string
   protocol: string
@@ -169,6 +170,10 @@ type SortDirection = 'asc' | 'desc' | null
 
 function getBackendUrl(): string {
   return `${window.location.protocol}//${window.location.hostname}:8000`
+}
+
+function getReleaseKey(release: Release): string {
+  return release.guid || `${release.title}-${release.indexer}-${release.size}-${release.publish_date || ''}`
 }
 
 function formatTimestamp(value: number | null | undefined, mode: 'date' | 'time' = 'date'): string {
@@ -419,9 +424,15 @@ function SortHeader({
 function ReleaseView({
   data,
   onClose,
+  onGrabRelease,
+  grabBusyIds,
+  grabFeedback,
 }: {
   data: ReleaseResponse
   onClose: () => void
+  onGrabRelease: (release: Release) => void
+  grabBusyIds: Set<string>
+  grabFeedback: { type: 'error' | 'success'; text: string } | null
 }) {
   const [sortField, setSortField] = useState<SortField>('size')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -666,6 +677,13 @@ function ReleaseView({
                   {data.runtime && ` | ${data.runtime} min`}
                   {data.season && ` | Season ${data.season}`}
                 </p>
+                {grabFeedback && (
+                  <p className={`mt-2 text-xs ${
+                    grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
+                  }`}>
+                    {grabFeedback.text}
+                  </p>
+                )}
                 {data.type === 'tv' && groupFocus && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
                     <span className="glass-chip px-2 py-1 rounded">Group: {groupFocus}</span>
@@ -812,6 +830,8 @@ function ReleaseView({
                           const recommendation = getSizeRecommendation(release, data.type)
                           const releaseGroup = data.type === 'tv' ? extractGroup(release.title) : null
                           const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
+                          const canGrab = Boolean(release.guid && release.indexer_id)
+                          const isGrabBusy = grabBusyIds.has(getReleaseKey(release))
 
                           return (
                             <div
@@ -891,11 +911,16 @@ function ReleaseView({
                                     </button>
                                   )}
                                   <button
-                                    disabled
-                                    className="px-2 py-1 bg-slate-700/60 text-slate-300 rounded text-[11px] cursor-not-allowed"
-                                    title="Download coming soon"
+                                    disabled={!canGrab || isGrabBusy}
+                                    onClick={() => onGrabRelease(release)}
+                                    className={`px-2 py-1 rounded text-[11px] ${
+                                      !canGrab || isGrabBusy
+                                        ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                                        : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
+                                    }`}
+                                    title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
                                   >
-                                    Grab
+                                    {isGrabBusy ? 'Grabbing...' : 'Grab'}
                                   </button>
                                 </div>
                               </div>
@@ -953,6 +978,20 @@ function ReleaseView({
                                     Show Group
                                   </button>
                                 )}
+
+                                <button
+                                  type="button"
+                                  disabled={!canGrab || isGrabBusy}
+                                  onClick={() => onGrabRelease(release)}
+                                  className={`mt-2 px-2 py-1 rounded text-[11px] ${
+                                    !canGrab || isGrabBusy
+                                      ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                                      : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
+                                  }`}
+                                  title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
+                                >
+                                  {isGrabBusy ? 'Grabbing...' : 'Grab'}
+                                </button>
 
                                 {release.rejected && release.rejections && release.rejections.length > 0 && (
                                   <p className="text-[11px] text-red-400 mt-2">
@@ -1093,19 +1132,6 @@ function DetailsView({
                         href={getRatingLink(result, rating)}
                       />
                     ))}
-                </div>
-              )}
-
-              {result.cast && result.cast.length > 0 && (
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Cast</p>
-                  <div className="flex flex-wrap gap-2">
-                    {result.cast.slice(0, 5).map((name) => (
-                      <span key={name} className="glass-chip text-xs px-2 py-1 rounded">
-                        {name}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -1533,10 +1559,17 @@ function HomeContent() {
   const [releaseData, setReleaseData] = useState<ReleaseResponse | null>(null)
   const [loadingReleases, setLoadingReleases] = useState(false)
   const [releaseError, setReleaseError] = useState<string | null>(null)
+  const [grabBusyIds, setGrabBusyIds] = useState<Set<string>>(new Set())
+  const [grabFeedback, setGrabFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const sabPollInFlight = useRef(false)
 
   const fetchSabData = async (silent?: boolean) => {
+    if (sabPollInFlight.current) {
+      return
+    }
+    sabPollInFlight.current = true
     if (!silent) {
       setSabLoading(true)
     }
@@ -1577,6 +1610,7 @@ function HomeContent() {
       if (!silent) {
         setSabLoading(false)
       }
+      sabPollInFlight.current = false
     }
   }
 
@@ -1621,7 +1655,7 @@ function HomeContent() {
       if (document.visibilityState === 'visible') {
         fetchSabData(true)
       }
-    }, 5000)
+    }, 2000)
 
     return () => {
       clearInterval(intervalId)
@@ -1700,6 +1734,8 @@ function HomeContent() {
     setSelectedResult(null)
     setReleaseData(null)
     setReleaseError(null)
+    setGrabFeedback(null)
+    setGrabBusyIds(new Set())
   }, [searchParams])
 
   useEffect(() => {
@@ -1742,6 +1778,7 @@ function HomeContent() {
   const handleShowReleases = async (result: DiscoveryResult, season?: number) => {
     setLoadingReleases(true)
     setReleaseError(null)
+    setGrabFeedback(null)
 
     try {
       const backendUrl = getBackendUrl()
@@ -1777,6 +1814,56 @@ function HomeContent() {
       setReleaseError(err instanceof Error ? err.message : 'Failed to fetch releases')
     } finally {
       setLoadingReleases(false)
+    }
+  }
+
+  const handleGrabRelease = async (release: Release) => {
+    if (!release.guid || !release.indexer_id || !releaseData) {
+      setGrabFeedback({ type: 'error', text: 'Missing release identifiers for grab.' })
+      return
+    }
+
+    const releaseKey = getReleaseKey(release)
+    setGrabFeedback(null)
+    setGrabBusyIds((prev) => {
+      const next = new Set(prev)
+      next.add(releaseKey)
+      return next
+    })
+
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/releases/grab`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: releaseData.type,
+          guid: release.guid,
+          indexer_id: release.indexer_id,
+          title: release.title,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+
+      setGrabFeedback({ type: 'success', text: 'Sent to download client.' })
+      if (sabConfigured) {
+        await fetchSabData(true)
+      }
+    } catch (err) {
+      setGrabFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to grab release',
+      })
+    } finally {
+      setGrabBusyIds((prev) => {
+        const next = new Set(prev)
+        next.delete(releaseKey)
+        return next
+      })
     }
   }
 
@@ -1821,7 +1908,7 @@ function HomeContent() {
   const handleResumeAll = () => performSabAction('/sab/queue/resume')
   const handlePauseJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/pause`)
   const handleResumeJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/resume`)
-  const handleDeleteJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/delete`)
+  const handleDeleteJob = (jobId: string) => performSabAction(`/downloads/queue/item/${jobId}/delete`)
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -1869,8 +1956,8 @@ function HomeContent() {
               <summary className="text-xs text-slate-300 cursor-pointer select-none">
                 Filters
               </summary>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <div className="w-full sm:w-auto">
+              <div className="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                <div>
                   <label className="text-xs text-gray-400">Type</label>
                   <select
                     value={filterType}
@@ -1878,14 +1965,14 @@ function HomeContent() {
                       setFilterType(event.target.value as SearchFilterType)
                       setPage(1)
                     }}
-                    className="mt-1 w-full sm:w-36 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                   >
                     <option value="all">All</option>
                     <option value="movie">Movies</option>
                     <option value="tv">TV Shows</option>
                   </select>
                 </div>
-                <div className="w-full sm:w-auto">
+                <div>
                   <label className="text-xs text-gray-400">Status</label>
                   <select
                     value={filterStatus}
@@ -1893,7 +1980,7 @@ function HomeContent() {
                       setFilterStatus(event.target.value as SearchStatusFilter)
                       setPage(1)
                     }}
-                    className="mt-1 w-full sm:w-44 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                   >
                     <option value="all">All</option>
                     <option value="not_in_library">Not in library</option>
@@ -1901,7 +1988,7 @@ function HomeContent() {
                     <option value="downloaded">Downloaded</option>
                   </select>
                 </div>
-                <div className="w-full sm:w-auto">
+                <div>
                   <label className="text-xs text-gray-400">Sort</label>
                   <select
                     value={sortField}
@@ -1909,7 +1996,7 @@ function HomeContent() {
                       setSortField(event.target.value as SearchSortField)
                       setPage(1)
                     }}
-                    className="mt-1 w-full sm:w-36 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                   >
                     <option value="relevance">Relevance</option>
                     <option value="popularity">Popularity</option>
@@ -1918,7 +2005,7 @@ function HomeContent() {
                     <option value="rating">Rating</option>
                   </select>
                 </div>
-                <div className="w-full sm:w-auto">
+                <div>
                   <label className="text-xs text-gray-400">Direction</label>
                   <select
                     value={sortDirection}
@@ -1926,7 +2013,7 @@ function HomeContent() {
                       setSortDirection(event.target.value as SearchSortDirection)
                       setPage(1)
                     }}
-                    className="mt-1 w-full sm:w-36 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                   >
                     <option value="desc">Descending</option>
                     <option value="asc">Ascending</option>
@@ -1979,22 +2066,22 @@ function HomeContent() {
                   </div>
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4">
-                    <div className="glass-panel rounded-lg">
+                    <div className="glass-panel rounded-lg overflow-hidden">
                       <button
                         type="button"
                         className="w-full text-left p-3 flex items-center justify-between"
                         onClick={() => toggleSabPanel('queue')}
                       >
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <div className="text-md font-semibold">Queue</div>
-                          <div className="text-xs text-gray-400">{queueSummary}</div>
+                          <div className="text-xs text-gray-400 truncate">{queueSummary}</div>
                         </div>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
                           {sabExpanded === 'queue' ? 'Collapse' : 'Expand'}
                         </span>
                       </button>
                       {sabExpanded === 'queue' && (
-                        <div className="px-3 pb-3">
+                        <div className="px-3 pb-3 overflow-hidden">
                           <SabQueue
                             data={sabQueue}
                             error={sabQueueError}
@@ -2009,22 +2096,22 @@ function HomeContent() {
                         </div>
                       )}
                     </div>
-                    <div className="glass-panel rounded-lg">
+                    <div className="glass-panel rounded-lg overflow-hidden">
                       <button
                         type="button"
                         className="w-full text-left p-3 flex items-center justify-between"
                         onClick={() => toggleSabPanel('recent')}
                       >
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <div className="text-md font-semibold">Recent</div>
-                          <div className="text-xs text-gray-400">{recentSummary}</div>
+                          <div className="text-xs text-gray-400 truncate">{recentSummary}</div>
                         </div>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
                           {sabExpanded === 'recent' ? 'Collapse' : 'Expand'}
                         </span>
                       </button>
                       {sabExpanded === 'recent' && (
-                        <div className="px-3 pb-3">
+                        <div className="px-3 pb-3 overflow-hidden">
                           <SabRecent data={sabRecent} error={sabRecentError} />
                         </div>
                       )}
@@ -2195,6 +2282,9 @@ function HomeContent() {
         <ReleaseView
           data={releaseData}
           onClose={() => setReleaseData(null)}
+          onGrabRelease={handleGrabRelease}
+          grabBusyIds={grabBusyIds}
+          grabFeedback={grabFeedback}
         />
       )}
     </main>
