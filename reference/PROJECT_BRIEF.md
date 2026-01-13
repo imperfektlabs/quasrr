@@ -68,7 +68,7 @@ AI should learn and suggest releases in these ranges by default.
     5. **Apple TV+ Canada**
     6. **Paramount+ Canada**
     7. **CBC Gem** (free, Canadian)
-    8. Stack TV (Corus content)
+    8. **Stack TV** (Corus content)
 
 User configures which services they subscribe to.
 Deep links must support Canadian app stores and regional URLs.

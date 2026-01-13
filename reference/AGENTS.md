@@ -59,6 +59,7 @@
 - Core logic and algorithms
 - URL path structures within the app
 - Database schema definitions
+- Only edit files using the standard file edit tool, not with commands
 
 **Config File Hierarchy:**
 1. Environment variables (secrets, deployment-specific)

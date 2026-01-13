@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from enum import Enum
 from typing import Optional, Literal
@@ -9,7 +10,9 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from config import get_config, reload_config, redact_secrets
+from config import get_config, reload_config, redact_secrets, update_streaming_services
+from integrations.ai import get_ai_client
+from integrations.tmdb import get_tmdb_client
 from integrations.radarr import get_radarr_client
 from integrations.sonarr import get_sonarr_client
 from integrations.sabnzbd import get_sabnzbd_client, SabnzbdError
@@ -35,6 +38,101 @@ class GrabRequest(BaseModel):
     guid: str
     indexer_id: int
     title: Optional[str] = None
+
+
+class AIRelease(BaseModel):
+    title: str
+    size: Optional[int] = None
+    size_formatted: Optional[str] = None
+    size_gb: Optional[float] = None
+    quality: Optional[str] = None
+    indexer: Optional[str] = None
+    age: Optional[str] = None
+    protocol: Optional[str] = None
+    guid: Optional[str] = None
+    rejected: Optional[bool] = None
+    rejections: Optional[list[str]] = None
+    season: Optional[int] = None
+    episode: Optional[list[int]] = None
+    full_season: Optional[bool] = None
+
+
+class AISuggestRequest(BaseModel):
+    type: SearchType
+    title: str
+    releases: list[AIRelease]
+
+
+class AIIntentRequest(BaseModel):
+    query: str
+
+
+class StreamingServicesUpdate(BaseModel):
+    enabled_ids: list[str]
+
+
+async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
+    def normalize_provider(name: str) -> str:
+        return "".join(ch for ch in name.lower() if ch.isalnum())
+
+    tmdb = get_tmdb_client()
+    if not tmdb.is_configured:
+        return {}
+
+    search_results = (
+        await tmdb.search_movie(title)
+        if media_type == "movie"
+        else await tmdb.search_tv(title)
+    )
+    if not search_results:
+        return {}
+
+    top = search_results[0]
+    tmdb_id = top.get("id")
+    year = (top.get("release_date") or top.get("first_air_date") or "")[:4]
+    poster_path = top.get("poster_path")
+    poster_url = f"https://image.tmdb.org/t/p/w342{poster_path}" if poster_path else None
+    providers = {}
+    if tmdb_id:
+        providers = await tmdb.get_watch_providers(
+            media_type,
+            tmdb_id,
+            config.user.country,
+        )
+
+    flatrate = providers.get("flatrate", [])
+    provider_items = []
+    for provider in flatrate:
+        name = provider.get("provider_name")
+        if not name:
+            continue
+        logo_path = provider.get("logo_path")
+        logo_url = f"https://image.tmdb.org/t/p/w45{logo_path}" if logo_path else None
+        provider_items.append({
+            "name": name,
+            "logo_url": logo_url,
+        })
+    provider_names = [p["name"] for p in provider_items]
+    enabled = [s for s in config.streaming_services if s.enabled]
+    subscribed = []
+    for provider in provider_names:
+        norm = normalize_provider(provider)
+        for service in enabled:
+            if norm == normalize_provider(service.name):
+                subscribed.append(provider)
+                break
+
+    return {
+        "tmdb_id": tmdb_id,
+        "title": top.get("title") or top.get("name"),
+        "year": year,
+        "overview": top.get("overview"),
+        "poster_url": poster_url,
+        "link": providers.get("link"),
+        "flatrate": provider_items,
+        "subscribed": subscribed,
+        "media_type": media_type,
+    }
 
 
 @asynccontextmanager
@@ -107,6 +205,38 @@ async def reload_configuration():
     config = reload_config()
     logger.info("Configuration reloaded")
     return {"status": "reloaded", "config": redact_secrets(config)}
+
+
+@app.post("/config/streaming_services")
+async def update_streaming_services_config(payload: StreamingServicesUpdate):
+    """Update enabled streaming services in settings.yaml."""
+    config = update_streaming_services(payload.enabled_ids)
+    logger.info("Streaming services updated")
+    return {"status": "updated", "config": redact_secrets(config)}
+
+
+@app.get("/tmdb/providers")
+async def get_tmdb_providers(
+    type: SearchType = Query(SearchType.movie, description="Type: movie or tv"),
+):
+    """Get TMDB provider list with logos."""
+    tmdb = get_tmdb_client()
+    if not tmdb.is_configured:
+        raise HTTPException(status_code=503, detail="TMDB not configured")
+
+    config = get_config()
+    providers = await tmdb.get_providers(type.value, config.user.country)
+    results = []
+    for provider in providers:
+        name = provider.get("provider_name")
+        logo_path = provider.get("logo_path")
+        if not name:
+            continue
+        results.append({
+            "name": name,
+            "logo_url": f"https://image.tmdb.org/t/p/w45{logo_path}" if logo_path else None,
+        })
+    return {"providers": results}
 
 
 @app.get("/integrations/status")
@@ -478,6 +608,8 @@ async def get_releases(
     tmdb_id: Optional[int] = Query(None, description="TMDB ID for movies"),
     tvdb_id: Optional[int] = Query(None, description="TVDB ID for TV shows"),
     season: Optional[int] = Query(None, description="Season number for TV shows"),
+    episode: Optional[int] = Query(None, description="Episode number for TV shows"),
+    episode_date: Optional[str] = Query(None, description="Air date (YYYY-MM-DD)"),
     title: str = Query("", description="Title for logging"),
 ):
     """
@@ -487,7 +619,8 @@ async def get_releases(
     """
     logger.info(
         f"Release search request: type={type}, tmdb_id={tmdb_id}, "
-        f"tvdb_id={tvdb_id}, season={season}, title='{title}'"
+        f"tvdb_id={tvdb_id}, season={season}, episode={episode}, "
+        f"episode_date={episode_date}, title='{title}'"
     )
 
     if type == SearchType.movie:
@@ -517,7 +650,13 @@ async def get_releases(
         if not sonarr.is_configured:
             raise HTTPException(status_code=503, detail="Sonarr not configured")
 
-        result = await sonarr.get_releases_by_tvdb(tvdb_id, title, season)
+        result = await sonarr.get_releases_by_tvdb(
+            tvdb_id,
+            title,
+            season=season,
+            episode=episode,
+            episode_date=episode_date,
+        )
 
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
@@ -555,3 +694,145 @@ async def grab_release(payload: GrabRequest):
         raise HTTPException(status_code=502, detail=result.get("message", "Grab failed"))
 
     return {"status": "ok"}
+
+
+@app.post("/ai/release/suggest")
+async def suggest_release(payload: AISuggestRequest):
+    """Get an AI suggestion for the best release."""
+    if not payload.releases:
+        raise HTTPException(status_code=400, detail="No releases provided")
+
+    config = get_config()
+    if not config.features.ai_suggestions:
+        raise HTTPException(status_code=403, detail="AI suggestions disabled")
+
+    context = {
+        "type": payload.type,
+        "title": payload.title,
+        "quality": {
+            "movies": config.quality.movies.model_dump(),
+            "tv": config.quality.tv.model_dump(),
+            "red_flags": [r.model_dump() for r in config.quality.red_flags],
+        },
+        "user": {
+            "country": config.user.country,
+            "language": config.user.language,
+        },
+    }
+
+    filtered = [r for r in payload.releases if not r.rejected]
+    if not filtered:
+        filtered = payload.releases
+
+    max_items = 30
+    trimmed = filtered[:max_items]
+
+    def to_release_dict(idx: int, release: AIRelease) -> dict:
+        title = release.title or "Unknown"
+        if len(title) > 160:
+            title = f"{title[:157]}..."
+        return {
+            "index": idx,
+            "title": title,
+            "size": release.size,
+            "size_gb": release.size_gb,
+            "quality": release.quality,
+            "indexer": release.indexer,
+            "age": release.age,
+            "protocol": release.protocol,
+            "guid": release.guid,
+            "rejected": release.rejected,
+            "season": release.season,
+            "episode": release.episode,
+            "full_season": release.full_season,
+        }
+
+    releases = [to_release_dict(idx, r) for idx, r in enumerate(trimmed)]
+    # Guardrail: if the payload is still large, trim to fit a rough character budget.
+    while releases and len(json.dumps(releases, ensure_ascii=True)) > 8000:
+        releases.pop()
+    context["release_counts"] = {
+        "total": len(payload.releases),
+        "provided": len(releases),
+        "filtered_rejected": len(payload.releases) - len(filtered),
+    }
+
+    ai = get_ai_client()
+    result = await ai.suggest_release(releases, context)
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "AI request failed"))
+
+    return {"status": "ok", "suggestion": result.get("data", {})}
+
+
+@app.post("/ai/intent")
+async def parse_intent(payload: AIIntentRequest):
+    """Parse a natural language query into a structured plan."""
+    if not payload.query.strip():
+        raise HTTPException(status_code=400, detail="Query required")
+
+    config = get_config()
+    if not config.features.ai_suggestions:
+        raise HTTPException(status_code=403, detail="AI suggestions disabled")
+
+    today = datetime.now(timezone.utc).date()
+    context = {
+        "user": {
+            "country": config.user.country,
+            "language": config.user.language,
+        },
+        "today": today.isoformat(),
+        "current_year": today.year,
+        "subscriptions": [
+            service.name
+            for service in config.streaming_services
+            if service.enabled
+        ],
+    }
+
+    ai = get_ai_client()
+    result = await ai.parse_intent(payload.query, context)
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "AI request failed"))
+
+    intent = result.get("data", {})
+    media_type = (intent.get("media_type") or "unknown").lower()
+    title = (intent.get("title") or "").strip()
+
+    def normalize_provider(name: str) -> str:
+        return "".join(ch for ch in name.lower() if ch.isalnum())
+
+    availability = {}
+    if media_type in ("movie", "tv") and title:
+        availability = await _get_tmdb_availability(media_type, title, config)
+
+    recommendation = intent.get("action") or "search"
+    if availability.get("subscribed") and not config.features.show_download_always:
+        recommendation = "watch"
+
+    return {
+        "status": "ok",
+        "intent": intent,
+        "availability": availability,
+        "recommendation": recommendation,
+    }
+
+
+@app.get("/availability")
+async def get_availability(
+    query: str = Query(..., min_length=1, description="Title to lookup"),
+    type: Optional[SearchType] = Query(None, description="Type: movie or tv"),
+):
+    """Get streaming availability without AI parsing."""
+    config = get_config()
+    if not config.integrations.tmdb_api_key:
+        raise HTTPException(status_code=503, detail="TMDB not configured")
+
+    if type is None:
+        availability = await _get_tmdb_availability("tv", query, config)
+        if not availability:
+            availability = await _get_tmdb_availability("movie", query, config)
+    else:
+        availability = await _get_tmdb_availability(type.value, query, config)
+
+    return {"availability": availability}

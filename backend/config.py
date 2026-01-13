@@ -94,6 +94,7 @@ class IntegrationConfig(BaseModel):
     radarr_api_key: Optional[str] = None
     sabnzbd_url: Optional[str] = None
     sabnzbd_api_key: Optional[str] = None
+    tmdb_api_key: Optional[str] = None
 
 
 class Config(BaseModel):
@@ -163,6 +164,7 @@ def load_env_overrides() -> dict:
         "radarr_api_key": os.getenv("RADARR_API_KEY"),
         "sabnzbd_url": os.getenv("SABNZBD_URL"),
         "sabnzbd_api_key": os.getenv("SABNZBD_API_KEY"),
+        "tmdb_api_key": os.getenv("TMDB_API_KEY"),
     }
 
     return overrides
@@ -204,6 +206,8 @@ def redact_secrets(config: Config) -> dict:
         data["integrations"]["radarr_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("sabnzbd_api_key"):
         data["integrations"]["sabnzbd_api_key"] = "***REDACTED***"
+    if data.get("integrations", {}).get("tmdb_api_key"):
+        data["integrations"]["tmdb_api_key"] = "***REDACTED***"
 
     return data
 
@@ -225,3 +229,28 @@ def reload_config() -> Config:
     global _config
     _config = load_config()
     return _config
+
+
+def update_streaming_services(enabled_ids: list[str]) -> Config:
+    """Persist streaming service selections to settings.yaml."""
+    settings = load_yaml_file(SETTINGS_FILE)
+    config = get_config()
+    enabled_set = {str(service_id).strip().lower() for service_id in enabled_ids}
+
+    updated = []
+    for service in config.streaming_services:
+        service_id = str(service.id).strip().lower()
+        updated.append({
+            "id": service.id,
+            "name": service.name,
+            "enabled": service_id in enabled_set,
+        })
+
+    settings["streaming_services"] = updated
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            yaml.safe_dump(settings, f, sort_keys=False)
+    except Exception as e:
+        logger.error(f"Error writing settings: {e}")
+
+    return reload_config()
