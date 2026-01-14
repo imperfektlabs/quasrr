@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -10,7 +11,7 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from config import get_config, reload_config, redact_secrets, update_streaming_services
+from config import get_config, reload_config, redact_secrets, update_streaming_services, update_basic_settings
 from integrations.ai import get_ai_client
 from integrations.tmdb import get_tmdb_client
 from integrations.radarr import get_radarr_client
@@ -69,6 +70,11 @@ class AIIntentRequest(BaseModel):
 
 class StreamingServicesUpdate(BaseModel):
     enabled_ids: list[str]
+
+
+class BasicSettingsUpdate(BaseModel):
+    country: Optional[str] = None
+    ai_model: Optional[str] = None
 
 
 async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
@@ -212,6 +218,14 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
     """Update enabled streaming services in settings.yaml."""
     config = update_streaming_services(payload.enabled_ids)
     logger.info("Streaming services updated")
+    return {"status": "updated", "config": redact_secrets(config)}
+
+
+@app.post("/config/settings")
+async def update_basic_settings_config(payload: BasicSettingsUpdate):
+    """Update non-secret settings in settings.yaml."""
+    config = update_basic_settings(payload.country, payload.ai_model)
+    logger.info("Basic settings updated")
     return {"status": "updated", "config": redact_secrets(config)}
 
 

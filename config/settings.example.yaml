@@ -31,9 +31,6 @@ streaming_services:
   - id: paramount_plus
     name: "Paramount+"
     enabled: false
-  - id: cbc_gem
-    name: "CBC Gem"
-    enabled: false
 
 # --- Quality Preferences ---
 # Adjust based on your storage/bandwidth preferences
@@ -50,10 +47,9 @@ quality:
     max_size_mb: 4000
 
 # --- AI Configuration ---
-# Override model if needed
+# Model can be overridden here (env still wins). Provider/key remain env-only.
 ai:
-  provider: "openai"  # openai, anthropic, ollama
-  model: "gpt-4"
+  model: "gpt-4o-mini"
 
 # --- Feature Flags ---
 features:
