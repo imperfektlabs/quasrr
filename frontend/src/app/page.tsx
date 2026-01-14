@@ -214,12 +214,25 @@ function getBackendUrl(): string {
   return `${window.location.protocol}//${window.location.hostname}:8000`
 }
 
-function normalizeName(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+const STREAMING_LOGOS: Record<string, string> = {
+  netflix: '/logos/streaming/netflix.avif',
+  crave: '/logos/streaming/crave.avif',
+  disney_plus: '/logos/streaming/disney_plus.avif',
+  amazon_prime: '/logos/streaming/amazon_prime.avif',
+  apple_tv: '/logos/streaming/apple_tv.avif',
+  paramount_plus: '/logos/streaming/paramount_plus.avif',
+}
+
+function getStreamingLogo(id: string): string | undefined {
+  return STREAMING_LOGOS[id]
 }
 
 function getReleaseKey(release: Release): string {
   return release.guid || `${release.title}-${release.indexer}-${release.size}-${release.publish_date || ''}`
+}
+
+function sortReleasesForAi(list: Release[]): Release[] {
+  return [...list].sort((a, b) => a.size - b.size)
 }
 
 function formatTimestamp(value: number | null | undefined, mode: 'date' | 'time' = 'date'): string {
@@ -327,23 +340,13 @@ function RatingBadge({ rating, href }: { rating: Rating; href?: string | null })
 function StreamingBadges({ services }: { services: StreamingService[] }) {
   if (!services.length) return null
 
-  const logoMap: Record<string, string> = {
-    netflix: '/logos/streaming/netflix.avif',
-    crave: '/logos/streaming/crave.avif',
-    disney_plus: '/logos/streaming/disney_plus.avif',
-    amazon_prime: '/logos/streaming/amazon_prime.avif',
-    apple_tv: '/logos/streaming/apple_tv.avif',
-    paramount_plus: '/logos/streaming/paramount_plus.avif',
-    cbc_gem: '/logos/streaming/cbc_gem.svg',
-  }
-
   return (
     <div className="flex flex-wrap gap-2">
       {services.map((service) => (
         <span key={service.id} className="glass-chip px-2 py-1 rounded inline-flex items-center">
-          {logoMap[service.id] ? (
+          {getStreamingLogo(service.id) ? (
             <img
-              src={logoMap[service.id]}
+              src={getStreamingLogo(service.id)}
               alt={service.name}
               className="h-5 w-auto max-w-[64px] object-contain"
               loading="lazy"
@@ -488,12 +491,13 @@ function ReleaseView({
   aiSuggestion: AISuggestion | null
   aiSuggestBusy: boolean
   aiSuggestError: string | null
-  onAiSuggest: () => void
+  onAiSuggest: (releases: Release[]) => void
 }) {
   const [sortField, setSortField] = useState<SortField>('size')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [groupFocus, setGroupFocus] = useState<string | null>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [collapsedSeasons, setCollapsedSeasons] = useState<Set<string>>(new Set())
   const aiPickGuid = aiSuggestion?.guid || null
   const requestedSeason = data.requested_season
   const requestedEpisode = data.requested_episode
@@ -512,6 +516,7 @@ function ReleaseView({
   useEffect(() => {
     if (data.type !== 'tv') {
       setCollapsedGroups(new Set())
+      setCollapsedSeasons(new Set())
       return
     }
 
@@ -522,9 +527,66 @@ function ReleaseView({
       return
     }
 
-    const episodeGroupKeys = buildEpisodeGroups(data.releases).map((group) => group.key)
-    setCollapsedGroups(new Set(episodeGroupKeys))
-  }, [data.type, data.releases, groupFocus])
+    const seasonGroups = buildSeasonGroups(data.releases)
+    const seasonNumbers = seasonGroups.map((group) => group.season).filter((season) => season > 0)
+    const seasonCount = new Set(seasonNumbers).size
+    const isMultiSeason = seasonCount > 1 && !data.season && !requestedSeason
+
+    if (isMultiSeason) {
+      const episodeKeys = new Set<string>()
+      for (const seasonGroup of seasonGroups) {
+        for (const group of buildEpisodeGroups(seasonGroup.releases)) {
+          episodeKeys.add(`${seasonGroup.key}:${group.key}`)
+        }
+      }
+      setCollapsedGroups(episodeKeys)
+    } else {
+      const episodeGroupKeys = buildEpisodeGroups(data.releases).map((group) => group.key)
+      setCollapsedGroups(new Set(episodeGroupKeys))
+    }
+  }, [data.type, data.releases, groupFocus, data.season, requestedSeason])
+
+  useEffect(() => {
+    if (data.type !== 'tv') {
+      setCollapsedSeasons(new Set())
+      return
+    }
+
+    const seasonGroups = buildSeasonGroups(data.releases)
+    const seasonNumbers = seasonGroups.map((group) => group.season).filter((season) => season > 0)
+    const seasonCount = new Set(seasonNumbers).size
+    const isMultiSeason = seasonCount > 1 && !data.season && !requestedSeason
+
+    if (!isMultiSeason) {
+      setCollapsedSeasons(new Set())
+      return
+    }
+
+    const keepOpen = requestedSeason ? `season-${requestedSeason}` : null
+    const collapsed = new Set(
+      seasonGroups.map((group) => group.key).filter((key) => key !== keepOpen)
+    )
+    setCollapsedSeasons(collapsed)
+  }, [data.type, data.releases, data.season, requestedSeason])
+
+  useEffect(() => {
+    if (!aiPickGuid) return
+    const match = data.releases.find((release) => release.guid === aiPickGuid)
+    if (match) {
+      const baseKey = getEpisodeGroupKey(match)
+      const groupKey = isMultiSeason ? `season-${getSeason(match)}:${baseKey}` : baseKey
+      setCollapsedGroups((prev) => {
+        if (!prev.has(groupKey)) return prev
+        const next = new Set(prev)
+        next.delete(groupKey)
+        return next
+      })
+    }
+    const target = document.querySelector(`[data-release-guid="${aiPickGuid}"]`)
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [aiPickGuid, data.releases])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -602,6 +664,25 @@ function ReleaseView({
     return null
   }
 
+  const getEpisodeGroupKey = (release: Release) => {
+    const season = getSeason(release)
+    const episodes = Array.isArray(release.episode)
+      ? release.episode.filter((e) => typeof e === 'number')
+      : []
+
+    if (release.full_season) {
+      return 'full-season'
+    }
+
+    if (episodes.length > 0) {
+      const minEp = Math.min(...episodes)
+      const maxEp = Math.max(...episodes)
+      return `s${season}-e${minEp}-${maxEp}`
+    }
+
+    return 'other'
+  }
+
   const buildEpisodeGroups = (list: Release[]) => {
     type Group = {
       key: string
@@ -664,6 +745,30 @@ function ReleaseView({
     return Array.from(groups.values()).sort((a, b) => a.sortKey - b.sortKey)
   }
 
+  const buildSeasonGroups = (list: Release[]) => {
+    const groups = new Map<number, Release[]>()
+
+    for (const release of list) {
+      const season = getSeason(release)
+      const key = Number.isFinite(season) ? season : 0
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)?.push(release)
+    }
+
+    return Array.from(groups.entries())
+      .sort((a, b) => {
+        if (a[0] === 0) return 1
+        if (b[0] === 0) return -1
+        return a[0] - b[0]
+      })
+      .map(([season, releases]) => ({
+        key: `season-${season}`,
+        label: season > 0 ? `Season ${season}` : 'Other',
+        season,
+        releases,
+      }))
+  }
+
   const buildGroupMap = (list: Release[]) => {
     const groups = new Map<string, Release[]>()
 
@@ -691,6 +796,58 @@ function ReleaseView({
     return [...list].sort((a, b) => episodeSortKey(a) - episodeSortKey(b))
   }
 
+  const seasonGroups = data.type === 'tv' ? buildSeasonGroups(data.releases) : []
+  const seasonNumbers = seasonGroups.map((group) => group.season).filter((season) => season > 0)
+  const seasonCount = new Set(seasonNumbers).size
+  const isMultiSeason = data.type === 'tv' && seasonCount > 1 && !data.season && !requestedSeason && !groupFocus
+
+  const releaseAiEnabled = false
+  const getOpenEpisodeGroups = () => {
+    if (data.type !== 'tv' || groupFocus) return []
+
+    if (isMultiSeason) {
+      const expandedSeasons = seasonGroups.filter((group) => !collapsedSeasons.has(group.key))
+      const episodeGroups = []
+      for (const seasonGroup of expandedSeasons) {
+        const groups = buildEpisodeGroups(seasonGroup.releases)
+        for (const group of groups) {
+          const key = `${seasonGroup.key}:${group.key}`
+          if (!collapsedGroups.has(key)) {
+            episodeGroups.push({ key, releases: group.releases })
+          }
+        }
+      }
+      return episodeGroups
+    }
+
+    const groups = buildEpisodeGroups(data.releases)
+    return groups
+      .filter((group) => !collapsedGroups.has(group.key))
+      .map((group) => ({ key: group.key, releases: group.releases }))
+  }
+
+  const openEpisodeGroups = getOpenEpisodeGroups()
+  const aiSuggestAvailable = releaseAiEnabled && aiEnabled && (
+    data.type !== 'tv' ||
+    openEpisodeGroups.length === 1
+  )
+
+  const aiCandidateReleases = data.type === 'tv'
+    ? (openEpisodeGroups.length === 1 ? openEpisodeGroups[0].releases : [])
+    : data.releases
+
+  const toggleSeason = (key: string) => {
+    setCollapsedSeasons((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
   const sortedReleases = sortReleases(data.releases)
   const tvGroups = data.type === 'tv' ? buildEpisodeGroups(data.releases) : null
   const tvReleaseGroups = data.type === 'tv' ? buildGroupMap(data.releases) : null
@@ -705,6 +862,107 @@ function ReleaseView({
       }
       return next
     })
+  }
+
+  const renderReleaseRow = (release: Release, groupKey: string, index: number) => {
+    const warning = getSizeWarning(release, data.type)
+    const recommendation = getSizeRecommendation(release, data.type)
+    const rejectionText = release.rejected && release.rejections && release.rejections.length > 0
+      ? release.rejections.join(', ')
+      : null
+    const releaseGroup = data.type === 'tv' ? extractGroup(release.title) : null
+    const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
+    const canGrab = Boolean(release.guid && release.indexer_id)
+    const isGrabBusy = grabBusyIds.has(getReleaseKey(release))
+    const isAiPick = Boolean(aiPickGuid && release.guid === aiPickGuid)
+    const isRequested = Boolean(
+      requestedEpisode &&
+      (!requestedSeason || getSeason(release) === requestedSeason) &&
+      Array.isArray(release.episode) &&
+      release.episode.includes(requestedEpisode)
+    )
+    const rowShade = index % 2 === 0 ? 'bg-slate-900/10' : 'bg-slate-900/20'
+
+    return (
+      <div
+        key={release.guid || `${groupKey}-${index}`}
+        data-release-guid={release.guid || undefined}
+        className={`p-3 border-b border-slate-800/80 hover:bg-slate-800/40 ${rowShade} ${
+          isAiPick ? 'ring-1 ring-emerald-400/60 bg-emerald-900/10' : ''
+        } ${
+          isRequested ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
+        }`}
+      >
+        <div>
+          <p className="text-xs text-slate-100 leading-snug break-words">
+            {release.title}
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+            <span>{release.size_formatted}</span>
+            <span className="text-green-400">{release.quality}</span>
+            <span className="text-slate-400">{release.age}</span>
+            {episodeLabel && (
+              <span className="bg-slate-800/60 text-slate-200 px-1.5 rounded">
+                {episodeLabel}
+              </span>
+            )}
+            {release.full_season && (
+              <span className="bg-blue-900/60 text-blue-200 px-1.5 rounded">
+                Full Season
+              </span>
+            )}
+            <span className={`px-1.5 rounded ${
+              release.protocol === 'usenet'
+                ? 'bg-purple-900/60 text-purple-200'
+                : 'bg-orange-900/60 text-orange-200'
+            }`}>
+              {release.protocol}
+            </span>
+            {recommendation && !warning && !rejectionText && (
+              <span
+                title={recommendation.text}
+                className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-emerald-400 text-emerald-300 text-[11px]"
+              >
+                OK
+              </span>
+            )}
+            {(warning || rejectionText) && (
+              <span
+                title={warning || rejectionText || ''}
+                className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-red-400 text-red-300 text-[11px]"
+              >
+                !
+              </span>
+            )}
+            {releaseGroup && data.type === 'tv' && (
+              <button
+                type="button"
+                onClick={() => setGroupFocus(releaseGroup)}
+                className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 text-[11px]"
+              >
+                Show Group
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={!canGrab || isGrabBusy}
+              onClick={() => onGrabRelease(release)}
+              className={`px-2 py-1 rounded text-[11px] ${
+                !canGrab || isGrabBusy
+                  ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                  : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
+              }`}
+              title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
+            >
+              {isGrabBusy ? 'Grabbing...' : 'Grab'}
+            </button>
+          </div>
+
+          {/* Warnings surfaced via icon tooltip */}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -743,10 +1001,10 @@ function ReleaseView({
                     {grabFeedback.text}
                   </p>
                 )}
-                {aiSuggestError && (
+                {releaseAiEnabled && aiSuggestError && (
                   <p className="mt-2 text-xs text-red-400">AI: {aiSuggestError}</p>
                 )}
-                {aiSuggestion && (
+                {releaseAiEnabled && aiSuggestion && (
                   <div className="mt-2 text-xs text-emerald-300">
                     <div>AI pick: {aiSuggestion.title || 'Suggested release'}</div>
                     {aiSuggestion.reason && (
@@ -774,11 +1032,12 @@ function ReleaseView({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {aiEnabled && (
+              {releaseAiEnabled && aiEnabled && (
                 <button
                   type="button"
-                  onClick={onAiSuggest}
-                  disabled={aiSuggestBusy}
+                  onClick={() => onAiSuggest(aiCandidateReleases)}
+                  disabled={!aiSuggestAvailable || aiSuggestBusy}
+                  title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
                   className="text-xs px-2 py-1 rounded bg-emerald-700/70 hover:bg-emerald-600/80 disabled:opacity-50"
                 >
                   {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
@@ -802,7 +1061,7 @@ function ReleaseView({
             ) : (
               <>
                 {/* Desktop table header */}
-                <div className="hidden md:grid md:grid-cols-12 gap-2 p-2 bg-slate-900/60 text-xs border-b border-slate-700/60">
+                <div className="hidden">
                   <div className="col-span-4">
                     <SortHeader
                       label="Release"
@@ -844,7 +1103,7 @@ function ReleaseView({
                 </div>
 
                 {/* Mobile sort buttons */}
-                <div className="md:hidden p-2 bg-slate-900/60 border-b border-slate-700/60 flex gap-2 overflow-x-auto">
+                <div className="hidden">
                   <span className="text-gray-400 text-sm">Sort:</span>
                   {(['title', 'size', 'quality', 'age'] as SortField[]).map((field) => (
                     <button
@@ -864,250 +1123,116 @@ function ReleaseView({
 
                 {/* Release rows */}
                 <div className="divide-y divide-slate-800/60">
-                  {((data.type === 'tv' && groupFocus && tvReleaseGroups)
-                    ? Array.from(tvReleaseGroups.entries()).map(([key, releases]) => ({
-                        key,
-                        label: `Group: ${key}`,
-                        releases,
-                        showGrabAll: key === groupFocus,
+                  {isMultiSeason ? (
+                    seasonGroups.map((seasonGroup) => {
+                      const seasonKey = seasonGroup.key
+                      const isSeasonCollapsed = collapsedSeasons.has(seasonKey)
+                      const groups = buildEpisodeGroups(seasonGroup.releases).map((group) => ({
+                        key: `${seasonKey}:${group.key}`,
+                        label: group.label,
+                        releases: group.releases,
+                        showGrabAll: false,
                       }))
-                    : (tvGroups
-                      ? tvGroups.map((group) => ({
-                          key: group.key,
-                          label: group.label,
-                          releases: group.releases,
-                          showGrabAll: false,
-                        }))
-                      : [{ key: 'all', label: '', releases: sortedReleases, showGrabAll: false }]
-                    )
-                  ).map((group) => {
-                    const groupReleases = data.type === 'tv' && groupFocus
-                      ? sortByEpisodeOrder(group.releases)
-                      : sortReleases(group.releases)
-                    const isCollapsed = collapsedGroups.has(group.key)
 
-                    return (
-                      <div key={group.key}>
-                        {group.label && (
+                      return (
+                        <div key={seasonKey}>
                           <button
                             type="button"
-                            onClick={() => toggleGroup(group.key)}
-                            className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
+                            onClick={() => toggleSeason(seasonKey)}
+                            className="w-full px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-900/60 flex items-center justify-between"
                           >
-                            <span>{group.label} ({groupReleases.length})</span>
-                            <span className="flex items-center gap-2">
-                              {group.showGrabAll && (
-                                <button
-                                  disabled
-                                  className="px-2 py-1 bg-slate-700/60 text-slate-300 rounded text-[11px] cursor-not-allowed"
-                                  title="Download all coming soon"
-                                >
-                                  Grab All
-                                </button>
-                              )}
-                              <span className="text-slate-400">
-                                {isCollapsed ? 'Show' : 'Hide'}
-                              </span>
+                            <span>{seasonGroup.label} ({seasonGroup.releases.length})</span>
+                            <span className="text-slate-400">
+                              {isSeasonCollapsed ? 'Show' : 'Hide'}
                             </span>
                           </button>
-                        )}
 
-                        {!isCollapsed && groupReleases.map((release, index) => {
-                          const warning = getSizeWarning(release, data.type)
-                          const recommendation = getSizeRecommendation(release, data.type)
-                          const releaseGroup = data.type === 'tv' ? extractGroup(release.title) : null
-                          const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
-                          const canGrab = Boolean(release.guid && release.indexer_id)
-                          const isGrabBusy = grabBusyIds.has(getReleaseKey(release))
-                          const isAiPick = Boolean(aiPickGuid && release.guid === aiPickGuid)
-                          const isRequested = Boolean(
-                            requestedEpisode &&
-                            (!requestedSeason || getSeason(release) === requestedSeason) &&
-                            Array.isArray(release.episode) &&
-                            release.episode.includes(requestedEpisode)
-                          )
+                          {!isSeasonCollapsed && (
+                            <div className="divide-y divide-slate-800/60">
+                              {groups.map((group) => {
+                                const groupReleases = sortReleases(group.releases)
+                                const isCollapsed = collapsedGroups.has(group.key)
 
-                          return (
-                            <div
-                              key={release.guid || `${group.key}-${index}`}
-                              className={`p-2 hover:bg-slate-800/40 ${
-                                release.rejected ? 'opacity-50' : ''
-                              } ${isAiPick ? 'ring-1 ring-emerald-400/60 bg-emerald-900/10' : ''} ${
-                                isRequested ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
-                              }`}
-                            >
-                              {/* Desktop layout */}
-                              <div className="hidden md:grid md:grid-cols-12 gap-2 items-center text-xs">
-                                {/* Release name */}
-                                <div className="col-span-4 min-w-0">
-                                  <p className="text-xs truncate" title={release.title}>
-                                    {release.title}
-                                  </p>
-                                  <div className="flex gap-2 mt-1 text-[11px] flex-wrap">
-                                    {episodeLabel && (
-                                      <span className="bg-slate-800/60 text-slate-200 px-1.5 rounded">
-                                        {episodeLabel}
-                                      </span>
-                                    )}
-                                    {release.full_season && (
-                                      <span className="bg-blue-900/60 text-blue-200 px-1.5 rounded">
-                                        Full Season
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="col-span-2">
-                                  <div className="text-[11px] text-gray-300 truncate">{release.indexer}</div>
-                                  <div className={`inline-flex mt-1 px-1.5 rounded text-[10px] ${
-                                    release.protocol === 'usenet'
-                                      ? 'bg-purple-900/60 text-purple-200'
-                                      : 'bg-orange-900/60 text-orange-200'
-                                  }`}>
-                                    {release.protocol}
-                                  </div>
-                                </div>
-
-                                {/* Size */}
-                                <div className="col-span-2">
-                                  <span className="text-base font-bold text-blue-400">
-                                    {release.size_formatted}
-                                  </span>
-                                  {warning && (
-                                    <p className="text-[11px] text-red-400">{warning}</p>
-                                  )}
-                                  {recommendation && !warning && (
-                                    <p className={`text-[11px] ${recommendation.color}`}>
-                                      {recommendation.text}
-                                    </p>
-                                  )}
-                                </div>
-
-                                {/* Quality */}
-                                <div className="col-span-2">
-                                  <span className="text-green-400 font-medium text-xs">
-                                    {release.quality}
-                                  </span>
-                                </div>
-
-                                {/* Age */}
-                                <div className="col-span-1 text-gray-400 text-xs">
-                                  {release.age}
-                                </div>
-
-                                {/* Actions */}
-                                <div className="col-span-1 flex flex-col items-end gap-1">
-                                  {releaseGroup && data.type === 'tv' && (
+                                return (
+                                  <div key={group.key}>
                                     <button
                                       type="button"
-                                      onClick={() => setGroupFocus(releaseGroup)}
-                                      className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 text-[11px]"
+                                      onClick={() => toggleGroup(group.key)}
+                                      className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
                                     >
-                                      Show Group
+                                      <span>{group.label} ({groupReleases.length})</span>
+                                      <span className="text-slate-400">
+                                        {isCollapsed ? 'Show' : 'Hide'}
+                                      </span>
                                     </button>
-                                  )}
-                                  <button
-                                    disabled={!canGrab || isGrabBusy}
-                                    onClick={() => onGrabRelease(release)}
-                                    className={`px-2 py-1 rounded text-[11px] ${
-                                      !canGrab || isGrabBusy
-                                        ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                                        : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
-                                    }`}
-                                    title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
-                                  >
-                                    {isGrabBusy ? 'Grabbing...' : 'Grab'}
-                                  </button>
-                                </div>
-                              </div>
 
-                              {/* Mobile layout */}
-                              <div className="md:hidden">
-                                <p className="text-xs break-words mb-2">{release.title}</p>
-
-                                <div className="flex flex-wrap gap-2 mb-2">
-                                  <span className="text-lg font-bold text-blue-400">
-                                    {release.size_formatted}
-                                  </span>
-                                  <span className="text-green-400 font-medium self-center text-xs">
-                                    {release.quality}
-                                  </span>
-                                </div>
-
-                                {warning && (
-                                  <p className="text-[11px] text-red-400 mb-2">{warning}</p>
-                                )}
-                                {recommendation && !warning && (
-                                  <p className={`text-[11px] ${recommendation.color} mb-2`}>
-                                    {recommendation.text}
-                                  </p>
-                                )}
-
-                                <div className="flex flex-wrap gap-2 text-[11px]">
-                                  <span className="text-gray-400">{release.indexer}</span>
-                                  <span className="text-gray-400">{release.age}</span>
-                                  <span className={`px-1.5 rounded ${
-                                    release.protocol === 'usenet'
-                                      ? 'bg-purple-900/60 text-purple-200'
-                                      : 'bg-orange-900/60 text-orange-200'
-                                  }`}>
-                                    {release.protocol}
-                                  </span>
-                                  {episodeLabel && (
-                                    <span className="bg-slate-800/60 text-slate-200 px-1.5 rounded">
-                                      {episodeLabel}
-                                    </span>
-                                  )}
-                                  {release.full_season && (
-                                    <span className="bg-blue-900/60 text-blue-200 px-1.5 rounded">
-                                      Full Season
-                                    </span>
-                                  )}
-                                </div>
-
-                                {releaseGroup && data.type === 'tv' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setGroupFocus(releaseGroup)}
-                                    className="mt-2 px-2 py-1 rounded bg-slate-800/60 text-slate-200 text-[11px]"
-                                  >
-                                    Show Group
-                                  </button>
-                                )}
-
-                                <button
-                                  type="button"
-                                  disabled={!canGrab || isGrabBusy}
-                                  onClick={() => onGrabRelease(release)}
-                                  className={`mt-2 px-2 py-1 rounded text-[11px] ${
-                                    !canGrab || isGrabBusy
-                                      ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                                      : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
-                                  }`}
-                                  title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
-                                >
-                                  {isGrabBusy ? 'Grabbing...' : 'Grab'}
-                                </button>
-
-                                {release.rejected && release.rejections && release.rejections.length > 0 && (
-                                  <p className="text-[11px] text-red-400 mt-2">
-                                    Rejected: {release.rejections.join(', ')}
-                                  </p>
-                                )}
-                              </div>
-
-                              {/* Rejections (desktop) */}
-                              {release.rejected && release.rejections && release.rejections.length > 0 && (
-                                <p className="hidden md:block text-[11px] text-red-400 mt-1 col-span-12">
-                                  Rejected: {release.rejections.join(', ')}
-                                </p>
-                              )}
+                                    {!isCollapsed && groupReleases.map((release, index) => (
+                                      renderReleaseRow(release, group.key, index)
+                                    ))}
+                                  </div>
+                                )
+                              })}
                             </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })}
+                          )}
+                        </div>
+                      )
+                    })
+                  ) : (
+                    ((data.type === 'tv' && groupFocus && tvReleaseGroups)
+                      ? Array.from(tvReleaseGroups.entries()).map(([key, releases]) => ({
+                          key,
+                          label: `Group: ${key}`,
+                          releases,
+                          showGrabAll: key === groupFocus,
+                        }))
+                      : (tvGroups
+                        ? tvGroups.map((group) => ({
+                            key: group.key,
+                            label: group.label,
+                            releases: group.releases,
+                            showGrabAll: false,
+                          }))
+                        : [{ key: 'all', label: '', releases: sortedReleases, showGrabAll: false }]
+                      )
+                    ).map((group) => {
+                      const groupReleases = data.type === 'tv' && groupFocus
+                        ? sortByEpisodeOrder(group.releases)
+                        : sortReleases(group.releases)
+                      const isCollapsed = collapsedGroups.has(group.key)
+
+                      return (
+                        <div key={group.key}>
+                          {group.label && (
+                            <button
+                              type="button"
+                              onClick={() => toggleGroup(group.key)}
+                              className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
+                            >
+                              <span>{group.label} ({groupReleases.length})</span>
+                              <span className="flex items-center gap-2">
+                                {group.showGrabAll && (
+                                  <button
+                                    disabled
+                                    className="px-2 py-1 bg-slate-700/60 text-slate-300 rounded text-[11px] cursor-not-allowed"
+                                    title="Download all coming soon"
+                                  >
+                                    Grab All
+                                  </button>
+                                )}
+                                <span className="text-slate-400">
+                                  {isCollapsed ? 'Show' : 'Hide'}
+                                </span>
+                              </span>
+                            </button>
+                          )}
+
+                          {!isCollapsed && groupReleases.map((release, index) => (
+                            renderReleaseRow(release, group.key, index)
+                          ))}
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
               </>
             )}
@@ -1124,15 +1249,18 @@ function AIPlanModal({
   error,
   onConfirm,
   onCancel,
+  onSearch,
 }: {
   plan: AIIntentPlan
   busy: boolean
   error: string | null
   onConfirm: (plan: AIIntentPlan) => void
   onCancel: () => void
+  onSearch: (query: string) => void
 }) {
   const intent = plan.intent
   const availability = plan.availability
+  const [manualQuery, setManualQuery] = useState(plan.query)
   const actionLabel = plan.recommendation === 'watch'
     ? 'Search anyway'
     : (intent.action === 'download' ? 'Find releases' : 'Search')
@@ -1157,11 +1285,13 @@ function AIPlanModal({
           <div className="mt-4 grid gap-4 md:grid-cols-[120px,1fr] text-sm">
             <div>
               {availability?.poster_url ? (
-                <img
-                  src={availability.poster_url}
-                  alt={availability.title || intent.title}
-                  className="w-full max-h-48 rounded-lg object-cover"
-                />
+                <div className="w-full h-40 md:h-48 rounded-lg bg-slate-800/60 flex items-center justify-center">
+                  <img
+                    src={availability.poster_url}
+                    alt={availability.title || intent.title}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
               ) : (
                 <div className="w-full h-40 rounded-lg bg-slate-800/60 flex items-center justify-center text-xs text-gray-500">
                   No poster
@@ -1222,39 +1352,62 @@ function AIPlanModal({
                 <div>
                   <div className="text-gray-400 text-xs mb-2">Streaming options</div>
                   <div className="flex flex-wrap gap-2">
-                    {availability.flatrate.map((provider) => (
-                      <div
-                        key={provider.name}
-                        className="flex items-center gap-2 bg-slate-800/60 rounded px-2 py-1 text-xs"
-                      >
-                        {provider.logo_url ? (
-                          <img
-                            src={provider.logo_url}
-                            alt={provider.name}
-                            className="h-5 w-5 object-contain"
-                          />
-                        ) : (
-                          <span className="text-gray-500">•</span>
-                        )}
-                        <span>{provider.name}</span>
-                      </div>
-                    ))}
+                    {availability.flatrate.map((provider) => {
+                      const isSubscribed = availability.subscribed?.includes(provider.name)
+                      return (
+                        <div
+                          key={provider.name}
+                          className={`flex items-center gap-2 rounded px-2 py-1 text-xs border ${
+                            isSubscribed
+                              ? 'border-emerald-400/70 bg-emerald-900/20 text-emerald-200'
+                              : 'border-slate-700/60 bg-slate-800/60 text-slate-200'
+                          }`}
+                        >
+                          {provider.logo_url ? (
+                            <img
+                              src={provider.logo_url}
+                              alt={provider.name}
+                              className="h-5 w-5 object-contain"
+                            />
+                          ) : (
+                            <span className="text-gray-500">?</span>
+                          )}
+                          <span>{provider.name}</span>
+                        </div>
+                      )
+                    })}
                   </div>
-                </div>
-              )}
-              {availability?.subscribed && availability.subscribed.length > 0 && (
-                <div className="text-emerald-300 text-xs">
-                  Available on your services: {availability.subscribed.join(', ')}
                 </div>
               )}
               {plan.recommendation === 'watch' && (
                 <div className="text-amber-300 text-xs">
-                  Recommendation: watch instead of downloading.
+                  Recommendation: stream instead of downloading.
                 </div>
               )}
               {error && (
                 <div className="text-red-400 text-xs">AI: {error}</div>
               )}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="text-xs text-gray-400">Search a different title</label>
+            <div className="mt-1 flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={manualQuery}
+                onChange={(event) => setManualQuery(event.target.value)}
+                placeholder="Type what you actually want"
+                className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
+              />
+              <button
+                type="button"
+                onClick={() => onSearch(manualQuery)}
+                disabled={busy || !manualQuery.trim()}
+                className="bg-slate-700/60 hover:bg-slate-600/70 disabled:bg-slate-700/40 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-sm"
+              >
+                Search this
+              </button>
             </div>
           </div>
 
@@ -1276,6 +1429,14 @@ function AIPlanModal({
               className="bg-blue-600/90 hover:bg-blue-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium"
             >
               {busy ? 'Working...' : actionLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => onSearch(plan.query)}
+              disabled={busy}
+              className="bg-slate-800/70 hover:bg-slate-700/70 text-white py-2 px-4 rounded text-sm"
+            >
+              Search original query
             </button>
             <button
               type="button"
@@ -1838,9 +1999,15 @@ function HomeContent() {
   const [aiIntentBusy, setAiIntentBusy] = useState(false)
   const [aiIntentError, setAiIntentError] = useState<string | null>(null)
   const [aiIntentEnabled, setAiIntentEnabled] = useState(true)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState<'search' | 'downloads' | 'status' | 'settings'>('search')
   const [streamingUpdateBusy, setStreamingUpdateBusy] = useState(false)
   const [streamingUpdateError, setStreamingUpdateError] = useState<string | null>(null)
-  const [tmdbProviders, setTmdbProviders] = useState<Record<string, string | null>>({})
+  const [settingsCountry, setSettingsCountry] = useState('')
+  const [settingsAiModel, setSettingsAiModel] = useState('')
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
+  const [settingsSaved, setSettingsSaved] = useState(false)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const sabPollInFlight = useRef(false)
@@ -2021,28 +2188,6 @@ function HomeContent() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!config?.integrations.tmdb_api_key) return
-    const fetchProviders = async () => {
-      const backendUrl = getBackendUrl()
-      try {
-        const response = await fetch(`${backendUrl}/tmdb/providers?type=movie`)
-        if (!response.ok) return
-        const data = await response.json()
-        const providers = Array.isArray(data.providers) ? data.providers : []
-        const next: Record<string, string | null> = {}
-        for (const provider of providers) {
-          if (provider?.name) {
-            next[provider.name.toLowerCase()] = provider.logo_url || null
-          }
-        }
-        setTmdbProviders(next)
-      } catch {
-        // Ignore provider load errors.
-      }
-    }
-    fetchProviders()
-  }, [config?.integrations.tmdb_api_key])
 
   useEffect(() => {
     setSelectedResult(null)
@@ -2057,6 +2202,13 @@ function HomeContent() {
     setAiIntentError(null)
     setAiIntentBusy(false)
   }, [searchParams])
+
+  useEffect(() => {
+    if (!config) return
+    setSettingsCountry(config.user.country || '')
+    setSettingsAiModel(config.ai.model || '')
+    setSettingsSaved(false)
+  }, [config?.user.country, config?.ai.model])
 
   useEffect(() => {
     if (!activeQuery) return
@@ -2267,6 +2419,20 @@ function HomeContent() {
     }
   }
 
+  const runPlainSearch = (query: string) => {
+    const trimmed = query.trim()
+    if (!trimmed) return
+    setAiIntentPlan(null)
+    setReleaseError(null)
+    setReleaseData(null)
+    setSearchResults(null)
+    setSelectedResult(null)
+    setAiIntentError(null)
+    setSearchQuery(trimmed)
+    setActiveQuery(trimmed)
+    setPage(1)
+  }
+
   const handleGrabRelease = async (release: Release) => {
     if (!release.guid || !release.indexer_id || !releaseData) {
       setGrabFeedback({ type: 'error', text: 'Missing release identifiers for grab.' })
@@ -2317,13 +2483,18 @@ function HomeContent() {
     }
   }
 
-  const handleAiSuggest = async () => {
+  const handleAiSuggest = async (releasesForAi: Release[]) => {
     if (!releaseData) return
     setAiSuggestBusy(true)
     setAiSuggestError(null)
     setAiSuggestion(null)
 
     try {
+      const sortedCandidates = sortReleasesForAi(releasesForAi)
+      const limitedCandidates = sortedCandidates.slice(0, 6)
+      if (!limitedCandidates.length) {
+        throw new Error('Expand a single episode group to use AI')
+      }
       const backendUrl = getBackendUrl()
       const response = await fetch(`${backendUrl}/ai/release/suggest`, {
         method: 'POST',
@@ -2331,7 +2502,7 @@ function HomeContent() {
         body: JSON.stringify({
           type: releaseData.type,
           title: releaseData.title,
-          releases: releaseData.releases.map((release) => ({
+          releases: limitedCandidates.map((release) => ({
             title: release.title,
             size: release.size,
             size_formatted: release.size_formatted,
@@ -2445,10 +2616,56 @@ function HomeContent() {
     }
   }
 
+  const saveSettings = async () => {
+    if (!config) return
+    setSettingsSaving(true)
+    setSettingsError(null)
+    setSettingsSaved(false)
+
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/config/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          country: settingsCountry.trim().toUpperCase(),
+          ai_model: settingsAiModel.trim(),
+        }),
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      const data = await response.json()
+      if (data?.config) {
+        setConfig(data.config)
+      }
+      setSettingsSaved(true)
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Failed to update settings')
+    } finally {
+      setSettingsSaving(false)
+    }
+  };
+
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-6">
+    <main className="min-h-screen pt-20 p-4 md:p-8">
+      <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3 glass-panel border-b border-slate-700/40">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="px-2 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center"
+            aria-label="Toggle menu"
+            aria-expanded={menuOpen}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h16" />
+            </svg>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -2458,16 +2675,97 @@ function HomeContent() {
               setPage(1)
               router.push('/')
             }}
-            className="text-3xl font-bold mb-1 hover:text-cyan-300 transition-colors"
+            className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
             title="Go home"
           >
             Shiny Palm Tree
           </button>
+
+          
+
+        </div>
+
+        {menuOpen && (
+          <div className="mt-3 grid gap-2 text-sm text-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSection('search')
+                setMenuOpen(false)
+              }}
+              className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
+                activeSection === 'search' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              }`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="16.5" y1="16.5" x2="21" y2="21" />
+              </svg>
+              <span>Search</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSection('downloads')
+                setMenuOpen(false)
+              }}
+              className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
+                activeSection === 'downloads' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              }`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 3v12" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+              <span>Download Activity</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSection('status')
+                setMenuOpen(false)
+              }}
+              className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
+                activeSection === 'status' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              }`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12h4l2-4 4 8 2-4h4" />
+              </svg>
+              <span>System Status</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSection('settings')
+                setMenuOpen(false)
+              }}
+              className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
+                activeSection === 'settings' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              }`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16" />
+                <path d="M4 12h16" />
+                <path d="M4 18h16" />
+              </svg>
+              <span>Settings</span>
+            </button>
+          </div>
+        )}
+      </header>
+
+      <div className="max-w-4xl mx-auto">
+
+        <div className="text-center mb-6 mt-4">
           <p className="text-gray-400 text-sm">Unified media search and download management</p>
         </div>
 
         {/* Search Section */}
-        <div className="glass-panel rounded-lg p-4 mb-4">
+        {activeSection === 'search' && (
+        <section id="search" className="scroll-mt-24">
+          <div className="glass-panel rounded-lg p-4 mb-4">
           <form onSubmit={handleSearch} className="space-y-3">
             <div className="flex gap-2">
               <input
@@ -2555,40 +2853,109 @@ function HomeContent() {
                   </select>
                 </div>
               </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={aiIntentEnabled}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setAiIntentEnabled(next)
+                      try {
+                        window.localStorage.setItem('ai_intent_enabled', String(next))
+                      } catch {
+                        // Ignore storage errors.
+                      }
+                    }}
+                  />
+                  AI intent parsing
+                </label>
+                {aiIntentBusy && (
+                  <span className="text-amber-300">AI: interpreting your request...</span>
+                )}
+                {aiIntentError && (
+                  <span className="text-red-400">AI: {aiIntentError}</span>
+                )}
+                {!aiIntentEnabled && (
+                  <span className="text-gray-500">AI search disabled</span>
+                )}
+              </div>
             </details>
-            <div className="flex items-center justify-between text-xs text-slate-300">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={aiIntentEnabled}
-                  onChange={(event) => {
-                    const next = event.target.checked
-                    setAiIntentEnabled(next)
-                    try {
-                      window.localStorage.setItem('ai_intent_enabled', String(next))
-                    } catch {
-                      // Ignore storage errors.
-                    }
-                  }}
-                />
-                AI intent parsing
-              </label>
-              {!aiIntentEnabled && (
-                <span className="text-gray-500">AI search disabled</span>
-              )}
-            </div>
-            {aiIntentBusy && (
-              <div className="text-xs text-amber-300">AI: interpreting your request...</div>
-            )}
-            {aiIntentError && (
-              <div className="text-xs text-red-400">AI: {aiIntentError}</div>
-            )}
           </form>
-        </div>
+          </div>
+        </section>
+        )}
+
+        {/* Search Results */}
+        {activeSection === 'search' && searchError && (
+          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-4">
+            <p className="text-red-300">{searchError}</p>
+          </div>
+        )}
+
+        {activeSection === 'search' && searching && (
+          <div className="glass-panel rounded-lg p-8 text-center mb-4">
+            <div className="text-yellow-400">Searching titles...</div>
+          </div>
+        )}
+
+        {activeSection === 'search' && searchResults && (
+          <div className="mb-4">
+            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+              <h2 className="text-lg font-semibold">
+                Results for "{searchResults.query}"
+              </h2>
+              <span className="text-gray-400 text-sm">
+                {searchResults.total_count} total
+              </span>
+            </div>
+
+            {searchResults.results.length === 0 ? (
+              <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
+                No results found
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {searchResults.results.map((result, index) => (
+                  <DiscoveryCard
+                    key={result.tmdb_id || result.tvdb_id || index}
+                    result={result}
+                    onShowReleases={handleShowReleases}
+                    onShowDetails={setSelectedResult}
+                  />
+                ))}
+              </div>
+            )}
+
+            {searchResults.total_pages > 1 && (
+              <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <span className="text-sm text-gray-400">
+                  Page {searchResults.page} of {searchResults.total_pages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.min(searchResults.total_pages, prev + 1))}
+                  disabled={page >= searchResults.total_pages}
+                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Download Activity Section */}
-        {config && (
-          <div className="mb-4">
+        {activeSection === 'downloads' && config && (
+          <section id="downloads" className="scroll-mt-24 mb-4">
             {!sabSectionVisible ? (
               <div className="flex justify-end">
                 <button
@@ -2682,77 +3049,12 @@ function HomeContent() {
                 )}
               </>
             )}
-          </div>
-        )}
-
-        {/* Search Results */}
-        {searchError && (
-          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-4">
-            <p className="text-red-300">{searchError}</p>
-          </div>
-        )}
-
-        {searching && (
-          <div className="glass-panel rounded-lg p-8 text-center mb-4">
-            <div className="text-yellow-400">Searching titles...</div>
-          </div>
-        )}
-
-        {searchResults && (
-          <div className="mb-4">
-            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-              <h2 className="text-lg font-semibold">
-                Results for "{searchResults.query}"
-              </h2>
-              <span className="text-gray-400 text-sm">
-                {searchResults.total_count} total
-              </span>
-            </div>
-
-            {searchResults.results.length === 0 ? (
-              <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
-                No results found
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {searchResults.results.map((result, index) => (
-                  <DiscoveryCard
-                    key={result.tmdb_id || result.tvdb_id || index}
-                    result={result}
-                    onShowReleases={handleShowReleases}
-                    onShowDetails={setSelectedResult}
-                  />
-                ))}
-              </div>
-            )}
-
-            {searchResults.total_pages > 1 && (
-              <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
-                <button
-                  type="button"
-                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <span className="text-sm text-gray-400">
-                  Page {searchResults.page} of {searchResults.total_pages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPage((prev) => Math.min(searchResults.total_pages, prev + 1))}
-                  disabled={page >= searchResults.total_pages}
-                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
+          </section>
         )}
 
         {/* Status Section - Collapsible */}
+        {activeSection === 'status' && (
+        <section id="status" className="scroll-mt-24">
         <details className="glass-panel rounded-lg">
           <summary className="p-4 cursor-pointer font-semibold">
             System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
@@ -2781,25 +3083,25 @@ function HomeContent() {
                     <div className="flex justify-between">
                       <span>Sonarr</span>
                       <span className={config.integrations.sonarr_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.sonarr_url ? 'Configured' : 'Not set'}
+                        {config.integrations.sonarr_url ? 'Connected' : 'Not set'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Radarr</span>
                       <span className={config.integrations.radarr_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.radarr_url ? 'Configured' : 'Not set'}
+                        {config.integrations.radarr_url ? 'Connected' : 'Not set'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>SABnzbd</span>
                       <span className={config.integrations.sabnzbd_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.sabnzbd_url ? 'Configured' : 'Not set'}
+                        {config.integrations.sabnzbd_url ? 'Connected' : 'Not set'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>TMDB</span>
                       <span className={config.integrations.tmdb_api_key ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.tmdb_api_key ? 'Configured' : 'Not set'}
+                        {config.integrations.tmdb_api_key ? 'Connected' : 'Not set'}
                       </span>
                     </div>
                   </div>
@@ -2807,28 +3109,26 @@ function HomeContent() {
 
                 <div>
                   <h3 className="text-sm font-semibold text-gray-400 mb-2">Streaming Services</h3>
-                  {streamingUpdateError && (
-                    <div className="text-xs text-red-400 mb-2">Error: {streamingUpdateError}</div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {config.streaming_services.map((service) => (
-                      <label key={service.id} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={service.enabled}
-                          disabled={streamingUpdateBusy}
-                          onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
-                        />
-                        {(() => {
-                          const logo = tmdbProviders[normalizeName(service.name)]
-                          return logo ? (
-                            <img src={logo} alt={service.name} className="h-5 w-5 object-contain" />
-                          ) : (
-                            <span className="text-gray-500 text-xs">•</span>
-                          )
-                        })()}
+                  <div className="flex flex-wrap gap-2">
+                    {config.streaming_services.filter((service) => service.enabled).length === 0 && (
+                      <span className="text-xs text-gray-500">None enabled</span>
+                    )}
+                    {config.streaming_services.filter((service) => service.enabled).map((service) => (
+                      <span
+                        key={service.id}
+                        className="glass-chip px-2 py-1 rounded inline-flex items-center gap-2 text-xs"
+                      >
+                        {getStreamingLogo(service.id) ? (
+                          <img
+                            src={getStreamingLogo(service.id)}
+                            alt={service.name}
+                            className="h-4 w-4 object-contain"
+                          />
+                        ) : (
+                          <span className="text-gray-500 text-xs">?</span>
+                        )}
                         <span>{service.name}</span>
-                      </label>
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -2836,6 +3136,76 @@ function HomeContent() {
             )}
           </div>
         </details>
+        </section>
+        )}
+
+        {activeSection === 'settings' && config && (
+          <section id="settings" className="scroll-mt-24 mt-4 glass-panel rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-gray-300 mb-2">Settings</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              Non-secret settings only. Env vars still override these values.
+            </p>
+            {settingsError && (
+              <div className="text-xs text-red-400 mb-2">Error: {settingsError}</div>
+            )}
+            {settingsSaved && (
+              <div className="text-xs text-emerald-300 mb-2">Settings saved.</div>
+            )}
+            <div className="grid md:grid-cols-2 gap-3 text-sm">
+              <label className="grid gap-1">
+                <span className="text-xs text-gray-400">Country</span>
+                <input
+                  type="text"
+                  value={settingsCountry}
+                  onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
+                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs text-gray-400">AI Model</span>
+                <input
+                  type="text"
+                  value={settingsAiModel}
+                  onChange={(event) => setSettingsAiModel(event.target.value)}
+                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={saveSettings}
+              disabled={settingsSaving}
+              className="mt-3 px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50 text-sm"
+            >
+              {settingsSaving ? 'Saving...' : 'Save settings'}
+            </button>
+
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-gray-400 mb-2">Streaming Services</h4>
+              {streamingUpdateError && (
+                <div className="text-xs text-red-400 mb-2">Error: {streamingUpdateError}</div>
+              )}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {config.streaming_services.map((service) => (
+                  <label key={service.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={service.enabled}
+                      disabled={streamingUpdateBusy}
+                      onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
+                    />
+                    {getStreamingLogo(service.id) ? (
+                      <img src={getStreamingLogo(service.id)} alt={service.name} className="h-5 w-5 object-contain" />
+                    ) : (
+                      <span className="text-gray-500 text-xs">?</span>
+                    )}
+                    <span>{service.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Loading overlay for releases */}
@@ -2870,6 +3240,7 @@ function HomeContent() {
           busy={loadingReleases}
           error={aiIntentError}
           onConfirm={executePlan}
+          onSearch={runPlainSearch}
           onCancel={() => setAiIntentPlan(null)}
         />
       )}

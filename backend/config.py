@@ -64,7 +64,7 @@ class QualityConfig(BaseModel):
 
 class AIConfig(BaseModel):
     provider: str = "openai"
-    model: str = "gpt-4"
+    model: str = "gpt-4o-mini"
     api_key: Optional[str] = None  # From env var, redacted in output
     max_tokens: int = 1000
     temperature: float = 0.3
@@ -247,6 +247,25 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
         })
 
     settings["streaming_services"] = updated
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            yaml.safe_dump(settings, f, sort_keys=False)
+    except Exception as e:
+        logger.error(f"Error writing settings: {e}")
+
+    return reload_config()
+
+
+def update_basic_settings(country: Optional[str] = None, ai_model: Optional[str] = None) -> Config:
+    """Persist non-secret settings to settings.yaml."""
+    settings = load_yaml_file(SETTINGS_FILE)
+
+    if country:
+        settings.setdefault("user", {})["country"] = country
+
+    if ai_model:
+        settings.setdefault("ai", {})["model"] = ai_model
+
     try:
         with open(SETTINGS_FILE, "w") as f:
             yaml.safe_dump(settings, f, sort_keys=False)

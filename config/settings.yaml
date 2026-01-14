@@ -17,6 +17,7 @@ streaming_services:
 - id: paramount_plus
   name: Paramount+
   enabled: false
-- id: cbc_gem
-  name: CBC Gem
-  enabled: true
+user:
+  country: CA
+ai:
+  model: gpt-4o-mini
