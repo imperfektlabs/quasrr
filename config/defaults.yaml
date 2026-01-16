@@ -41,18 +41,18 @@ quality:
   tv:
     # 1-hour episodes
     hour_episode:
-      min_size_mb: 800
+      min_size_mb: 600
       max_size_mb: 1200
       preferred_format: "WEBDL"
       preferred_resolution: "720p"
     # 30-min episodes
     half_hour_episode:
-      min_size_mb: 400
+      min_size_mb: 200
       max_size_mb: 500
       preferred_format: "WEBDL"
       preferred_resolution: "720p"
   movies:
-    min_size_mb: 2000
+    min_size_mb: 1000
     max_size_mb: 4000
     preferred_format: "WEBDL"
     preferred_resolution: "720p"

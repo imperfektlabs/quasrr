@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -81,6 +82,12 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
     def normalize_provider(name: str) -> str:
         return "".join(ch for ch in name.lower() if ch.isalnum())
 
+    blocked_providers = {
+        normalize_provider("Netflix with Ads"),
+        normalize_provider("Netflix Basic with Ads"),
+        normalize_provider("Netflix Standard with Ads"),
+    }
+
     tmdb = get_tmdb_client()
     if not tmdb.is_configured:
         return {}
@@ -112,6 +119,8 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
         name = provider.get("provider_name")
         if not name:
             continue
+        if normalize_provider(name) in blocked_providers:
+            continue
         logo_path = provider.get("logo_path")
         logo_url = f"https://image.tmdb.org/t/p/w45{logo_path}" if logo_path else None
         provider_items.append({
@@ -139,6 +148,22 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
         "subscribed": subscribed,
         "media_type": media_type,
     }
+
+
+_ID_QUERY_RE = re.compile(r"^(imdb|tmdb|tvdb)\s*[:#]\s*(tt\d+|\d+)$", re.IGNORECASE)
+_IMDB_SHORT_RE = re.compile(r"^tt\d+$", re.IGNORECASE)
+
+
+def normalize_id_query(query: str) -> tuple[str, str | None]:
+    trimmed = query.strip()
+    match = _ID_QUERY_RE.match(trimmed)
+    if match:
+        prefix = match.group(1).lower()
+        identifier = match.group(2)
+        return f"{prefix}:{identifier}", prefix
+    if _IMDB_SHORT_RE.match(trimmed):
+        return f"imdb:{trimmed}", "imdb"
+    return query, None
 
 
 @asynccontextmanager
@@ -444,8 +469,13 @@ async def search(
     Stage 1: Discovery search - returns matching titles with metadata.
     No indexer search at this stage. Each result shows poster, title, year, library status.
     """
+    normalized_query, id_prefix = normalize_id_query(query)
+    search_type = type
+    if search_type is None and id_prefix == "tvdb":
+        search_type = SearchType.tv
+
     logger.info(
-        f"Search/discover request: query='{query}', type={type}, status={status}, "
+        f"Search/discover request: query='{normalized_query}', type={search_type}, status={status}, "
         f"page={page}, page_size={page_size}, sort_by={sort_by}, sort_dir={sort_dir}"
     )
 
@@ -473,18 +503,18 @@ async def search(
     movie_results: list[dict] = []
     tv_results: list[dict] = []
 
-    if type is None:
+    if search_type is None:
         radarr = get_radarr_client()
         sonarr = get_sonarr_client()
 
         tasks = []
         if radarr.is_configured:
-            tasks.append(radarr.discover(query))
+            tasks.append(radarr.discover(normalized_query))
         else:
             tasks.append(asyncio.sleep(0, result=[]))
 
         if sonarr.is_configured:
-            tasks.append(sonarr.discover(query))
+            tasks.append(sonarr.discover(normalized_query))
         else:
             tasks.append(asyncio.sleep(0, result=[]))
 
@@ -506,23 +536,23 @@ async def search(
         else:
             results = movie_results + tv_results
 
-    elif type == SearchType.movie:
+    elif search_type == SearchType.movie:
         radarr = get_radarr_client()
         if not radarr.is_configured:
             raise HTTPException(status_code=503, detail="Radarr not configured")
 
-        movie_results = await radarr.discover(query)
+        movie_results = await radarr.discover(normalized_query)
         for index, item in enumerate(movie_results):
             item["type"] = "movie"
             item["_rank"] = index
         results = movie_results
 
-    elif type == SearchType.tv:
+    elif search_type == SearchType.tv:
         sonarr = get_sonarr_client()
         if not sonarr.is_configured:
             raise HTTPException(status_code=503, detail="Sonarr not configured")
 
-        tv_results = await sonarr.discover(query)
+        tv_results = await sonarr.discover(normalized_query)
         for index, item in enumerate(tv_results):
             item["type"] = "tv"
             item["_rank"] = index
@@ -544,8 +574,8 @@ async def search(
     paged_results = results[start:end]
 
     return {
-        "query": query,
-        "type": type.value if type else "mixed",
+        "query": normalized_query,
+        "type": search_type.value if search_type else "mixed",
         "count": len(paged_results),
         "total_count": total_count,
         "page": page,
@@ -564,16 +594,17 @@ async def lookup(
     Lookup media info without searching for releases.
     Useful for getting movie/show details before release search.
     """
-    logger.info(f"Lookup request: query='{query}', type={type}")
+    normalized_query, _ = normalize_id_query(query)
+    logger.info(f"Lookup request: query='{normalized_query}', type={type}")
 
     if type == SearchType.movie:
         radarr = get_radarr_client()
         if not radarr.is_configured:
             raise HTTPException(status_code=503, detail="Radarr not configured")
 
-        movies = await radarr.lookup_movie(query)
+        movies = await radarr.lookup_movie(normalized_query)
         return {
-            "query": query,
+            "query": normalized_query,
             "type": "movie",
             "count": len(movies),
             "results": [
@@ -595,9 +626,9 @@ async def lookup(
         if not sonarr.is_configured:
             raise HTTPException(status_code=503, detail="Sonarr not configured")
 
-        series = await sonarr.lookup_series(query)
+        series = await sonarr.lookup_series(normalized_query)
         return {
-            "query": query,
+            "query": normalized_query,
             "type": "tv",
             "count": len(series),
             "results": [

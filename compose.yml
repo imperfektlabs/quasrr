@@ -4,7 +4,7 @@
 # --- YAML Anchor for Common Configuration ---
 x-common-config: &common-config
   env_file:
-    - ./shiny-palm-tree.env
+    - ./.env
   networks:
     - net-media
     #- net-shiny-palm-tree
@@ -62,6 +62,7 @@ services:
 networks:
   net-media:
   #net-shiny-palm-tree:
-    #driver: bridge
     name: net-media
+    external: true
+    #driver: bridge
     #name: net-${COMPOSE_PROJECT_NAME}
