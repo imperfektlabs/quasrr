@@ -227,6 +227,24 @@ function getStreamingLogo(id: string): string | undefined {
   return STREAMING_LOGOS[id]
 }
 
+function normalizeIdQuery(input: string): { query: string; isIdQuery: boolean; forcedType?: SearchType } {
+  const trimmed = input.trim()
+  const match = /^(imdb|tmdb|tvdb)\s*[:#]\s*(tt\d+|\d+)$/i.exec(trimmed)
+  if (match) {
+    const prefix = match[1].toLowerCase()
+    const value = match[2]
+    return {
+      query: `${prefix}:${value}`,
+      isIdQuery: true,
+      forcedType: prefix === 'tvdb' ? 'tv' : undefined,
+    }
+  }
+  if (/^tt\d+$/i.test(trimmed)) {
+    return { query: `imdb:${trimmed}`, isIdQuery: true }
+  }
+  return { query: input, isIdQuery: false }
+}
+
 function getReleaseKey(release: Release): string {
   return release.guid || `${release.title}-${release.indexer}-${release.size}-${release.publish_date || ''}`
 }
@@ -1285,15 +1303,15 @@ function AIPlanModal({
           <div className="mt-4 grid gap-4 md:grid-cols-[120px,1fr] text-sm">
             <div>
               {availability?.poster_url ? (
-                <div className="w-full h-40 md:h-48 rounded-lg bg-slate-800/60 flex items-center justify-center">
+                <div className="w-full rounded-lg bg-slate-800/60 overflow-hidden">
                   <img
                     src={availability.poster_url}
                     alt={availability.title || intent.title}
-                    className="max-h-full max-w-full object-contain"
+                    className="w-full h-auto object-cover"
                   />
                 </div>
               ) : (
-                <div className="w-full h-40 rounded-lg bg-slate-800/60 flex items-center justify-center text-xs text-gray-500">
+                <div className="w-full rounded-lg bg-slate-800/60 flex items-center justify-center text-xs text-gray-500 p-6">
                   No poster
                 </div>
               )}
@@ -1973,9 +1991,8 @@ function HomeContent() {
   const [sabLoading, setSabLoading] = useState(false)
   const [sabQueueError, setSabQueueError] = useState<string | null>(null)
   const [sabRecentError, setSabRecentError] = useState<string | null>(null)
-  const [sabExpanded, setSabExpanded] = useState<'queue' | 'recent' | null>(null)
   const [sabActionBusy, setSabActionBusy] = useState(false)
-  const [sabSectionVisible, setSabSectionVisible] = useState(false)
+  const [sabSectionVisible] = useState(true)
 
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
   const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
@@ -2094,7 +2111,7 @@ function HomeContent() {
   }, [])
 
   useEffect(() => {
-    if (!sabConfigured || !sabExpanded) return
+    if (!sabConfigured || !sabSectionVisible) return
 
     fetchSabData(true)
 
@@ -2107,7 +2124,7 @@ function HomeContent() {
     return () => {
       clearInterval(intervalId)
     }
-  }, [sabConfigured, sabExpanded])
+  }, [sabConfigured, sabSectionVisible])
 
   const runSearch = async (query: string, nextPage: number) => {
     setSearching(true)
@@ -2238,13 +2255,22 @@ function HomeContent() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmed = searchQuery.trim()
+    let trimmed = searchQuery.trim()
     if (!trimmed) return
+
+    const normalized = normalizeIdQuery(trimmed)
+    trimmed = normalized.query
+    if (normalized.isIdQuery && trimmed !== searchQuery) {
+      setSearchQuery(trimmed)
+    }
+    if (normalized.forcedType && filterType !== normalized.forcedType) {
+      setFilterType(normalized.forcedType)
+    }
 
     setSearchResults(null)
     setSelectedResult(null)
     setPage(1)
-    if (!aiEnabled || !aiIntentEnabled) {
+    if (normalized.isIdQuery || !aiEnabled || !aiIntentEnabled) {
       setActiveQuery(trimmed)
       return
     }
@@ -2420,8 +2446,11 @@ function HomeContent() {
   }
 
   const runPlainSearch = (query: string) => {
-    const trimmed = query.trim()
+    let trimmed = query.trim()
     if (!trimmed) return
+
+    const normalized = normalizeIdQuery(trimmed)
+    trimmed = normalized.query
     setAiIntentPlan(null)
     setReleaseError(null)
     setReleaseData(null)
@@ -2429,6 +2458,9 @@ function HomeContent() {
     setSelectedResult(null)
     setAiIntentError(null)
     setSearchQuery(trimmed)
+    if (normalized.forcedType && filterType !== normalized.forcedType) {
+      setFilterType(normalized.forcedType)
+    }
     setActiveQuery(trimmed)
     setPage(1)
   }
@@ -2571,10 +2603,6 @@ function HomeContent() {
     return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
   })()
 
-  const toggleSabPanel = (panel: 'queue' | 'recent') => {
-    setSabExpanded((current) => (current === panel ? null : panel))
-  }
-
   const handlePauseAll = () => performSabAction('/sab/queue/pause')
   const handleResumeAll = () => performSabAction('/sab/queue/resume')
   const handlePauseJob = (jobId: string) => performSabAction(`/sab/queue/item/${jobId}/pause`)
@@ -2649,7 +2677,7 @@ function HomeContent() {
   };
 
   return (
-    <main className="min-h-screen pt-20 p-4 md:p-8">
+    <main className="min-h-screen pt-24 px-4 pb-4 md:px-8 md:pb-8">
       <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3 glass-panel border-b border-slate-700/40">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <button
@@ -2757,10 +2785,6 @@ function HomeContent() {
       </header>
 
       <div className="max-w-4xl mx-auto">
-
-        <div className="text-center mb-6 mt-4">
-          <p className="text-gray-400 text-sm">Unified media search and download management</p>
-        </div>
 
         {/* Search Section */}
         {activeSection === 'search' && (
@@ -2956,106 +2980,65 @@ function HomeContent() {
         {/* Download Activity Section */}
         {activeSection === 'downloads' && config && (
           <section id="downloads" className="scroll-mt-24 mb-4">
-            {!sabSectionVisible ? (
-              <div className="flex justify-end">
+            <>
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-lg font-semibold">Download Activity</h2>
                 <button
-                  type="button"
-                  className="text-xs px-3 py-2 rounded bg-slate-800/60"
-                  onClick={() => setSabSectionVisible(true)}
+                  onClick={() => fetchSabData(false)}
+                  disabled={!sabConfigured || sabLoading}
+                  className="px-3 py-1.5 rounded bg-slate-800/60 disabled:opacity-50 text-xs"
                 >
-                  Show download activity
+                  {sabLoading ? 'Refreshing...' : 'Refresh'}
                 </button>
               </div>
-            ) : (
-              <>
-                <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-lg font-semibold">Download Activity</h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSabSectionVisible(false)
-                        setSabExpanded(null)
-                      }}
-                      className="px-3 py-1.5 rounded bg-slate-800/60 text-xs"
-                    >
-                      Hide
-                    </button>
-                    <button
-                      onClick={() => fetchSabData(false)}
-                      disabled={!sabConfigured || sabLoading}
-                      className="px-3 py-1.5 rounded bg-slate-800/60 disabled:opacity-50 text-xs"
-                    >
-                      {sabLoading ? 'Refreshing...' : 'Refresh'}
-                    </button>
+              {!sabConfigured ? (
+                <div className="glass-panel rounded-lg p-4 text-gray-400">
+                  SABnzbd not configured
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="glass-panel rounded-lg overflow-hidden">
+                    <div className="w-full text-left p-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-md font-semibold">Queue</div>
+                        <div className="text-xs text-gray-400 truncate">{queueSummary}</div>
+                      </div>
+                    </div>
+                    <div className="px-3 pb-3 overflow-hidden">
+                      <SabQueue
+                        data={sabQueue}
+                        error={sabQueueError}
+                        onRefresh={fetchSabData}
+                        onPauseAll={handlePauseAll}
+                        onResumeAll={handleResumeAll}
+                        onPauseJob={handlePauseJob}
+                        onResumeJob={handleResumeJob}
+                        onDeleteJob={handleDeleteJob}
+                        actionBusy={sabActionBusy}
+                      />
+                    </div>
+                  </div>
+                  <div className="glass-panel rounded-lg overflow-hidden">
+                    <div className="w-full text-left p-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-md font-semibold">Recent</div>
+                        <div className="text-xs text-gray-400 truncate">{recentSummary}</div>
+                      </div>
+                    </div>
+                    <div className="px-3 pb-3 overflow-hidden">
+                      <SabRecent data={sabRecent} error={sabRecentError} />
+                    </div>
                   </div>
                 </div>
-                {!sabConfigured ? (
-                  <div className="glass-panel rounded-lg p-4 text-gray-400">
-                    SABnzbd not configured
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="glass-panel rounded-lg overflow-hidden">
-                      <button
-                        type="button"
-                        className="w-full text-left p-3 flex items-center justify-between"
-                        onClick={() => toggleSabPanel('queue')}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-md font-semibold">Queue</div>
-                          <div className="text-xs text-gray-400 truncate">{queueSummary}</div>
-                        </div>
-                        <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
-                          {sabExpanded === 'queue' ? 'Collapse' : 'Expand'}
-                        </span>
-                      </button>
-                      {sabExpanded === 'queue' && (
-                        <div className="px-3 pb-3 overflow-hidden">
-                          <SabQueue
-                            data={sabQueue}
-                            error={sabQueueError}
-                            onRefresh={fetchSabData}
-                            onPauseAll={handlePauseAll}
-                            onResumeAll={handleResumeAll}
-                            onPauseJob={handlePauseJob}
-                            onResumeJob={handleResumeJob}
-                            onDeleteJob={handleDeleteJob}
-                            actionBusy={sabActionBusy}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div className="glass-panel rounded-lg overflow-hidden">
-                      <button
-                        type="button"
-                        className="w-full text-left p-3 flex items-center justify-between"
-                        onClick={() => toggleSabPanel('recent')}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-md font-semibold">Recent</div>
-                          <div className="text-xs text-gray-400 truncate">{recentSummary}</div>
-                        </div>
-                        <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
-                          {sabExpanded === 'recent' ? 'Collapse' : 'Expand'}
-                        </span>
-                      </button>
-                      {sabExpanded === 'recent' && (
-                        <div className="px-3 pb-3 overflow-hidden">
-                          <SabRecent data={sabRecent} error={sabRecentError} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+              )}
+            </>
           </section>
         )}
 
         {/* Status Section - Collapsible */}
         {activeSection === 'status' && (
         <section id="status" className="scroll-mt-24">
-        <details className="glass-panel rounded-lg">
+        <details className="glass-panel rounded-lg" open>
           <summary className="p-4 cursor-pointer font-semibold">
             System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
           </summary>
