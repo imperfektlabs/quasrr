@@ -505,24 +505,31 @@ function StatusBadge({ status }: { status: DiscoveryResult['status'] }) {
   const config = {
     'not_in_library': {
       text: 'Not in library',
+      icon: '○',
       bg: 'bg-slate-700/60',
       textColor: 'text-slate-200',
     },
     'in_library': {
       text: 'In library (not downloaded)',
+      icon: '◐',
       bg: 'bg-yellow-900/60',
       textColor: 'text-yellow-200',
     },
     'downloaded': {
       text: 'In library (downloaded)',
+      icon: '✓',
       bg: 'bg-green-900/60',
       textColor: 'text-green-200',
     },
   }[status]
 
   return (
-    <span className={`px-2 py-1 rounded text-xs ${config.bg} ${config.textColor}`}>
-      {config.text}
+    <span
+      className={`px-2 py-1 rounded text-xs ${config.bg} ${config.textColor}`}
+      title={config.text}
+      aria-label={config.text}
+    >
+      {config.icon}
     </span>
   )
 }
@@ -2207,14 +2214,14 @@ function DiscoveryCard({
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-3 grid grid-cols-1 md:grid-cols-[1fr,140px] gap-3 min-w-0">
+      <div className="flex-1 p-2 sm:p-3 grid grid-cols-1 md:grid-cols-[1fr,140px] gap-2 md:gap-3 min-w-0">
         {/* Title and year */}
         <div className="min-w-0">
-          <div className="mb-2">
-            <h3 className="font-semibold text-base leading-tight truncate">
+          <div className="mb-1">
+            <h3 className="font-semibold text-sm sm:text-base leading-tight truncate">
               {result.title}
             </h3>
-            <div className="flex items-center gap-2 mt-1 text-sm text-gray-400">
+            <div className="flex items-center gap-2 mt-0.5 text-xs sm:text-sm text-gray-400">
               {result.year && <span>{result.year}</span>}
               {result.type === 'movie' && result.runtime && (
                 <span>{result.runtime} min</span>
@@ -2228,39 +2235,11 @@ function DiscoveryCard({
             </div>
           </div>
 
-          <div className="mb-2 flex flex-wrap gap-2 items-center">
+          <div className="mb-1 flex flex-wrap gap-1.5 items-center">
             <StatusBadge status={result.status} />
             <span className="glass-chip text-xs px-2 py-1 rounded">
               {result.type === 'movie' ? 'Movie' : 'TV'}
             </span>
-          </div>
-
-          {result.overview && (
-            <p className="text-gray-400 text-xs line-clamp-2 mb-3">
-              {result.overview}
-            </p>
-          )}
-
-          {/* Season picker moved to right column */}
-        </div>
-
-        <div className="flex md:flex-col items-start md:items-end gap-2 h-full">
-          {result.ratings && result.ratings.length > 0 && (
-            <div className="flex flex-wrap justify-start md:justify-end gap-2">
-              {result.ratings
-                .filter((rating) => rating.source.toLowerCase() !== 'trakt')
-                .slice(0, 3)
-                .map((rating) => (
-                  <RatingBadge
-                    key={rating.source}
-                    rating={rating}
-                    href={getRatingLink(result, rating)}
-                  />
-                ))}
-            </div>
-          )}
-
-          <div className="mt-auto flex flex-col items-end gap-2 w-full">
             {result.type === 'tv' && result.seasons && result.seasons > 0 && (
               <select
                 value={selectedSeason}
@@ -2269,7 +2248,7 @@ function DiscoveryCard({
                   setSelectedSeason(value === 'all' ? 'all' : Number(value))
                 }}
                 onClick={(event) => event.stopPropagation()}
-                className="w-full md:w-auto bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-sm"
+                className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-[11px]"
                 title="Season"
               >
                 <option value="all">All seasons</option>
@@ -2280,14 +2259,43 @@ function DiscoveryCard({
                 ))}
               </select>
             )}
-
-            <button
-              onClick={handleReleasesClick}
-              className="bg-blue-600/90 hover:bg-blue-500 text-white py-1.5 px-3 rounded text-xs font-semibold tracking-wide transition-colors"
-            >
-              Find Releases
-            </button>
           </div>
+
+          {result.overview && (
+            <p className="text-gray-400 text-[11px] sm:text-xs line-clamp-1 sm:line-clamp-2 mb-2 sm:mb-3">
+              {result.overview}
+            </p>
+          )}
+
+          {/* Season picker moved to right column */}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
+          {result.ratings && result.ratings.length > 0 && (
+            <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
+              {result.ratings
+                .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+                .slice(0, 3)
+                .map((rating, idx) => (
+                  <span
+                    key={rating.source}
+                    className={idx === 0 ? 'inline-flex' : 'hidden sm:inline-flex'}
+                  >
+                    <RatingBadge
+                      rating={rating}
+                      href={getRatingLink(result, rating)}
+                    />
+                  </span>
+                ))}
+            </div>
+          )}
+
+          <button
+            onClick={handleReleasesClick}
+            className="bg-blue-600/90 hover:bg-blue-500 text-white py-1 px-2 sm:py-1.5 sm:px-3 rounded text-[11px] sm:text-xs font-semibold tracking-wide transition-colors ml-auto md:ml-0"
+          >
+            Find Releases
+          </button>
         </div>
       </div>
     </div>
@@ -2512,7 +2520,7 @@ function HomeContent() {
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
   const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
 
-  const pageSize = 25
+  const pageSize = 10
 
   const router = useRouter()
   const searchParams = useSearchParams()
