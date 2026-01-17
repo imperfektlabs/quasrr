@@ -25,16 +25,3 @@ Notes / Behavior
 
 Pending / Known Gaps
 - Confirm ID search results in UI with a few real IDs (imdb/tmdb/tvdb).
-
-
-TODOs (next session)
-- Search button - when clicked, greys out and turns to "..." I think.  When just pressing enter in the search box, the button does nothing.  Make ENTER do the same thing.
-- Original search - info modal does not show Streaming services items.  Only the AI modal does.  Need to make them the same.  Basically, AI modal shows what AI thinks the user is looking for.  Original search just lists the searches.
-- Add Home button to top of menu for reset/start.
-- Add menu item for Tools -> Sonarr, Radarr, SABnzbd, Plex (links to)
-- Add menu item for Streaming Services -> Link to homepage of each services that is enabled in settings
-
-TODOs (Longer Term)
-- Animate background more if possible.
-- Authentication - can we piggyback on Sonarr or Radarr?
-- Major design changes placeholder (details later).

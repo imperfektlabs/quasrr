@@ -223,8 +223,25 @@ const STREAMING_LOGOS: Record<string, string> = {
   paramount_plus: '/logos/streaming/paramount_plus.avif',
 }
 
+const STREAMING_LINKS: Record<string, string> = {
+  netflix: 'https://www.netflix.com',
+  crave: 'https://www.crave.ca',
+  disney_plus: 'https://www.disneyplus.com',
+  amazon_prime: 'https://www.primevideo.com',
+  apple_tv: 'https://tv.apple.com',
+  paramount_plus: 'https://www.paramountplus.com',
+}
+
 function getStreamingLogo(id: string): string | undefined {
   return STREAMING_LOGOS[id]
+}
+
+function getStreamingLink(id: string): string | undefined {
+  return STREAMING_LINKS[id]
+}
+
+function getLocalToolUrl(port: number, path = ''): string {
+  return `${window.location.protocol}//${window.location.hostname}:${port}${path}`
 }
 
 function normalizeIdQuery(input: string): { query: string; isIdQuery: boolean; forcedType?: SearchType } {
@@ -492,6 +509,7 @@ function ReleaseView({
   data,
   onClose,
   onGrabRelease,
+  onGrabAll,
   grabBusyIds,
   grabFeedback,
   aiEnabled,
@@ -503,6 +521,7 @@ function ReleaseView({
   data: ReleaseResponse
   onClose: () => void
   onGrabRelease: (release: Release) => void
+  onGrabAll: (releases: Release[]) => void
   grabBusyIds: Set<string>
   grabFeedback: { type: 'error' | 'success'; text: string } | null
   aiEnabled: boolean
@@ -516,6 +535,11 @@ function ReleaseView({
   const [groupFocus, setGroupFocus] = useState<string | null>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [collapsedSeasons, setCollapsedSeasons] = useState<Set<string>>(new Set())
+  const [grabAllModal, setGrabAllModal] = useState<{
+    releases: Release[]
+    selected: Set<string>
+  } | null>(null)
+  const grabAllSelectAllRef = useRef<HTMLInputElement | null>(null)
   const aiPickGuid = aiSuggestion?.guid || null
   const requestedSeason = data.requested_season
   const requestedEpisode = data.requested_episode
@@ -539,9 +563,19 @@ function ReleaseView({
     }
 
     if (groupFocus) {
-      const allGroupKeys = Array.from(buildGroupMap(data.releases).keys())
-      const collapsed = new Set(allGroupKeys.filter((key) => key !== groupFocus))
-      setCollapsedGroups(collapsed)
+      const seasonGroups = buildSeasonGroups(data.releases)
+      const bucketKeys: string[] = []
+      for (const seasonGroup of seasonGroups) {
+        const groupReleases = seasonGroup.releases.filter(
+          (release) => extractGroup(release.title) === groupFocus
+        )
+        if (!groupReleases.length) continue
+        const buckets = buildFormatBuckets(groupReleases)
+        buckets.forEach((bucket) => {
+          bucketKeys.push(`${seasonGroup.key}:${groupFocus}:${bucket.key}`)
+        })
+      }
+      setCollapsedGroups(new Set(bucketKeys))
       return
     }
 
@@ -606,6 +640,13 @@ function ReleaseView({
     }
   }, [aiPickGuid, data.releases])
 
+  useEffect(() => {
+    if (!grabAllSelectAllRef.current || !grabAllModal) return
+    const selectedCount = grabAllModal.selected.size
+    const totalCount = grabAllModal.releases.length
+    grabAllSelectAllRef.current.indeterminate = selectedCount > 0 && selectedCount < totalCount
+  }, [grabAllModal])
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       // Cycle: asc -> desc -> null (default)
@@ -656,6 +697,47 @@ function ReleaseView({
     return group
   }
 
+  const getResolutionLabel = (release: Release) => {
+    if (release.resolution) return `${release.resolution}p`
+    const match = release.title.match(/\b(2160|1080|720|480)p\b/i)
+    if (match) return `${match[1]}p`
+    const qualityMatch = release.quality.match(/\b(2160|1080|720|480)p\b/i)
+    if (qualityMatch) return `${qualityMatch[1]}p`
+    return 'Unknown'
+  }
+
+  const getSourceLabel = (release: Release) => {
+    if (release.source) return release.source.toUpperCase()
+    const match = release.title.match(/\b(webrip|webdl|web-dl|bluray|hdtv|dvdrip)\b/i)
+    if (match) return match[1].toUpperCase().replace('-', '')
+    const qualityMatch = release.quality.match(/\b(webrip|webdl|web-dl|bluray|hdtv|dvdrip)\b/i)
+    if (qualityMatch) return qualityMatch[1].toUpperCase().replace('-', '')
+    return 'Unknown'
+  }
+
+  const getCodecLabel = (release: Release) => {
+    const title = release.title.toLowerCase()
+    if (/(x265|h265|hevc)/.test(title)) return 'x265'
+    if (/(x264|h264)/.test(title)) return 'x264'
+    if (/av1/.test(title)) return 'AV1'
+    return 'Unknown'
+  }
+
+  const buildFormatBuckets = (list: Release[]) => {
+    const buckets = new Map<string, Release[]>()
+    list.forEach((release) => {
+      const key = `${getResolutionLabel(release)} ${getSourceLabel(release)} ${getCodecLabel(release)}`
+      if (!buckets.has(key)) buckets.set(key, [])
+      buckets.get(key)?.push(release)
+    })
+    return Array.from(buckets.entries()).map(([key, releases]) => ({
+      key,
+      label: key,
+      releases,
+      showGrabAll: true,
+    }))
+  }
+
   const getSeason = (release: Release) => {
     if (typeof release.season === 'number') return release.season
     if (typeof data.season === 'number') return data.season
@@ -699,6 +781,71 @@ function ReleaseView({
     }
 
     return 'other'
+  }
+
+  const getEpisodeRangeKey = (release: Release) => {
+    const season = getSeason(release)
+    if (release.full_season) return `S${season || 0}:full`
+    const episodes = Array.isArray(release.episode)
+      ? release.episode.filter((e) => typeof e === 'number')
+      : []
+    if (!episodes.length) return `S${season || 0}:other`
+    const minEp = Math.min(...episodes)
+    const maxEp = Math.max(...episodes)
+    return `S${season || 0}:E${minEp}-${maxEp}`
+  }
+
+  const pickBestRelease = (releases: Release[]) => {
+    return [...releases].sort((a, b) => {
+      if (a.rejected !== b.rejected) return a.rejected ? 1 : -1
+      const sizeA = a.size || 0
+      const sizeB = b.size || 0
+      if (sizeA !== sizeB) return sizeB - sizeA
+      return a.title.localeCompare(b.title)
+    })[0]
+  }
+
+  const openGrabAllModal = (releases: Release[]) => {
+    const eligible = releases.filter((release) => release.guid && release.indexer_id)
+    const grouped = new Map<string, Release[]>()
+    eligible.forEach((release) => {
+      const key = getEpisodeRangeKey(release)
+      if (!grouped.has(key)) grouped.set(key, [])
+      grouped.get(key)?.push(release)
+    })
+    const selected = new Set<string>()
+    grouped.forEach((groupReleases) => {
+      const best = pickBestRelease(groupReleases)
+      if (best) selected.add(getReleaseKey(best))
+    })
+    setGrabAllModal({ releases: eligible, selected })
+  }
+
+  const toggleGrabAllAll = () => {
+    setGrabAllModal((prev) => {
+      if (!prev) return prev
+      const allSelected = prev.selected.size === prev.releases.length
+      return {
+        ...prev,
+        selected: allSelected
+          ? new Set()
+          : new Set(prev.releases.map((release) => getReleaseKey(release))),
+      }
+    })
+  }
+
+  const toggleGrabAllSelection = (release: Release) => {
+    const key = getReleaseKey(release)
+    setGrabAllModal((prev) => {
+      if (!prev) return prev
+      const next = new Set(prev.selected)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return { ...prev, selected: next }
+    })
   }
 
   const buildEpisodeGroups = (list: Release[]) => {
@@ -1196,13 +1343,19 @@ function ReleaseView({
                       )
                     })
                   ) : (
-                    ((data.type === 'tv' && groupFocus && tvReleaseGroups)
-                      ? Array.from(tvReleaseGroups.entries()).map(([key, releases]) => ({
-                          key,
-                          label: `Group: ${key}`,
-                          releases,
-                          showGrabAll: key === groupFocus,
-                        }))
+                    ((data.type === 'tv' && groupFocus)
+                      ? buildSeasonGroups(data.releases).flatMap((seasonGroup) => {
+                          const groupReleases = seasonGroup.releases.filter(
+                            (release) => extractGroup(release.title) === groupFocus
+                          )
+                          if (!groupReleases.length) return []
+                          return buildFormatBuckets(groupReleases).map((bucket) => ({
+                            key: `${seasonGroup.key}:${groupFocus}:${bucket.key}`,
+                            label: `${seasonGroup.label} • ${groupFocus} • ${bucket.label}`,
+                            releases: bucket.releases,
+                            showGrabAll: true,
+                          }))
+                        })
                       : (tvGroups
                         ? tvGroups.map((group) => ({
                             key: group.key,
@@ -1229,13 +1382,34 @@ function ReleaseView({
                               <span>{group.label} ({groupReleases.length})</span>
                               <span className="flex items-center gap-2">
                                 {group.showGrabAll && (
-                                  <button
-                                    disabled
-                                    className="px-2 py-1 bg-slate-700/60 text-slate-300 rounded text-[11px] cursor-not-allowed"
-                                    title="Download all coming soon"
-                                  >
-                                    Grab All
-                                  </button>
+                                  (() => {
+                                    const grabAllCandidates = groupReleases.filter(
+                                      (release) => release.guid && release.indexer_id
+                                    )
+                                    const grabAllBusy = grabAllCandidates.some((release) =>
+                                      grabBusyIds.has(getReleaseKey(release))
+                                    )
+                                    return (
+                                      <button
+                                        type="button"
+                                        disabled={grabAllCandidates.length === 0 || grabAllBusy}
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          openGrabAllModal(grabAllCandidates)
+                                        }}
+                                        className={`px-2 py-1 rounded text-[11px] ${
+                                          grabAllCandidates.length === 0 || grabAllBusy
+                                            ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                                            : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
+                                        }`}
+                                        title={grabAllCandidates.length === 0
+                                          ? 'Missing release identifiers'
+                                          : 'Send all releases in this group'}
+                                      >
+                                        {grabAllBusy ? 'Grabbing...' : 'Grab All'}
+                                      </button>
+                                    )
+                                  })()
                                 )}
                                 <span className="text-slate-400">
                                   {isCollapsed ? 'Show' : 'Hide'}
@@ -1257,230 +1431,129 @@ function ReleaseView({
           </div>
         </div>
       </div>
-    </div>
-  )
-}
 
-function AIPlanModal({
-  plan,
-  busy,
-  error,
-  onConfirm,
-  onCancel,
-  onSearch,
-}: {
-  plan: AIIntentPlan
-  busy: boolean
-  error: string | null
-  onConfirm: (plan: AIIntentPlan) => void
-  onCancel: () => void
-  onSearch: (query: string) => void
-}) {
-  const intent = plan.intent
-  const availability = plan.availability
-  const [manualQuery, setManualQuery] = useState(plan.query)
-  const actionLabel = plan.recommendation === 'watch'
-    ? 'Search anyway'
-    : (intent.action === 'download' ? 'Find releases' : 'Search')
-
-  return (
-    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onCancel}>
-      <div className="min-h-screen p-4">
-        <div
-          className="max-w-2xl mx-auto glass-panel rounded-lg p-4 md:p-6"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Plan & Availability</h2>
-              <p className="text-gray-400 text-sm">"{plan.query}"</p>
-            </div>
-            <button onClick={onCancel} className="text-gray-400 hover:text-white text-2xl px-2">
-              X
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-[120px,1fr] text-sm">
-            <div>
-              {availability?.poster_url ? (
-                <div className="w-full rounded-lg bg-slate-800/60 overflow-hidden">
-                  <img
-                    src={availability.poster_url}
-                    alt={availability.title || intent.title}
-                    className="w-full h-auto object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-full rounded-lg bg-slate-800/60 flex items-center justify-center text-xs text-gray-500 p-6">
-                  No poster
-                </div>
-              )}
-            </div>
-            <div className="space-y-3">
-              <div className="text-slate-200 text-lg font-semibold">
-                {availability?.title || intent.title || 'Unknown'}
+          {grabAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setGrabAllModal(null)}>
+          <div
+            className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">Confirm Grab All</h3>
+                <p className="text-xs text-gray-400">
+                  Review releases to grab. Uncheck duplicates if needed.
+                </p>
               </div>
-              <div className="text-gray-400 text-xs">
-                {availability?.year || 'Unknown year'} {intent.media_type !== 'unknown' && `• ${intent.media_type}`}
-              </div>
-              {availability?.overview && (
-                <div
-                  className="text-gray-300 text-xs leading-relaxed"
-                  style={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 4,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {availability.overview}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 text-xs">
-                {intent.season && (
-                  <span className="glass-chip px-2 py-1 rounded">Season {intent.season}</span>
-                )}
-                {intent.episode && (
-                  <span className="glass-chip px-2 py-1 rounded">Episode {intent.episode}</span>
-                )}
-                {intent.episode_date && (
-                  <span className="glass-chip px-2 py-1 rounded">{intent.episode_date}</span>
-                )}
-                {intent.quality && (
-                  <span className="glass-chip px-2 py-1 rounded">{intent.quality}</span>
-                )}
-                {intent.action && (
-                  <span className="glass-chip px-2 py-1 rounded">{intent.action}</span>
-                )}
-              </div>
-              {intent.notes && (
-                <div
-                  className="text-gray-300"
-                  style={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {intent.notes}
-                </div>
-              )}
-              {availability?.flatrate && availability.flatrate.length > 0 && (
-                <div>
-                  <div className="text-gray-400 text-xs mb-2">Streaming options</div>
-                  <div className="flex flex-wrap gap-2">
-                    {availability.flatrate.map((provider) => {
-                      const isSubscribed = availability.subscribed?.includes(provider.name)
-                      return (
-                        <div
-                          key={provider.name}
-                          className={`flex items-center gap-2 rounded px-2 py-1 text-xs border ${
-                            isSubscribed
-                              ? 'border-emerald-400/70 bg-emerald-900/20 text-emerald-200'
-                              : 'border-slate-700/60 bg-slate-800/60 text-slate-200'
-                          }`}
-                        >
-                          {provider.logo_url ? (
-                            <img
-                              src={provider.logo_url}
-                              alt={provider.name}
-                              className="h-5 w-5 object-contain"
-                            />
-                          ) : (
-                            <span className="text-gray-500">?</span>
-                          )}
-                          <span>{provider.name}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              {plan.recommendation === 'watch' && (
-                <div className="text-amber-300 text-xs">
-                  Recommendation: stream instead of downloading.
-                </div>
-              )}
-              {error && (
-                <div className="text-red-400 text-xs">AI: {error}</div>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="text-xs text-gray-400">Search a different title</label>
-            <div className="mt-1 flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={manualQuery}
-                onChange={(event) => setManualQuery(event.target.value)}
-                placeholder="Type what you actually want"
-                className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
-              />
               <button
                 type="button"
-                onClick={() => onSearch(manualQuery)}
-                disabled={busy || !manualQuery.trim()}
-                className="bg-slate-700/60 hover:bg-slate-600/70 disabled:bg-slate-700/40 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-sm"
+                onClick={() => setGrabAllModal(null)}
+                className="text-gray-400 hover:text-white text-2xl px-2"
               >
-                Search this
+                X
+              </button>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                ref={grabAllSelectAllRef}
+                checked={grabAllModal.selected.size === grabAllModal.releases.length}
+                onChange={toggleGrabAllAll}
+              />
+              <span>Select all</span>
+            </div>
+
+            <div className="mt-3 max-h-[60vh] overflow-auto space-y-2">
+              {sortByEpisodeOrder(grabAllModal.releases).map((release) => {
+                const key = getReleaseKey(release)
+                const checked = grabAllModal.selected.has(key)
+                const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
+                return (
+                  <label
+                    key={key}
+                    className="flex items-start gap-3 p-2 rounded bg-slate-900/40 border border-slate-800/60"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleGrabAllSelection(release)}
+                      className="mt-1"
+                    />
+                    <div className="min-w-0">
+                      <div className="text-xs text-slate-100 break-words">{release.title}</div>
+                      <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-2">
+                        {episodeLabel && <span>{episodeLabel}</span>}
+                        <span>{release.size_formatted}</span>
+                        <span className="text-green-400">{release.quality}</span>
+                        <span className="text-slate-500">{getResolutionLabel(release)}</span>
+                        <span className="text-slate-500">{getSourceLabel(release)}</span>
+                        <span className="text-slate-500">{getCodecLabel(release)}</span>
+                      </div>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setGrabAllModal(null)}
+                className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={grabAllModal.selected.size === 0}
+                onClick={() => {
+                  const selected = grabAllModal.releases.filter((release) =>
+                    grabAllModal.selected.has(getReleaseKey(release))
+                  )
+                  setGrabAllModal(null)
+                  onGrabAll(selected)
+                }}
+                className="bg-emerald-600/90 hover:bg-emerald-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
+              >
+                Grab Selected
               </button>
             </div>
           </div>
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            {availability?.link && (
-              <a
-                href={availability.link}
-                target="_blank"
-                rel="noreferrer"
-                className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-3 rounded text-xs"
-              >
-                View streaming options
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={() => onConfirm(plan)}
-              disabled={busy}
-              className="bg-blue-600/90 hover:bg-blue-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium"
-            >
-              {busy ? 'Working...' : actionLabel}
-            </button>
-            <button
-              type="button"
-              onClick={() => onSearch(plan.query)}
-              disabled={busy}
-              className="bg-slate-800/70 hover:bg-slate-700/70 text-white py-2 px-4 rounded text-sm"
-            >
-              Search original query
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
-// Discovery details modal
-function DetailsView({
+function AvailabilityModal({
+  mode,
+  plan,
   result,
+  busy = false,
+  error = null,
+  onConfirm,
+  onSearch,
   onClose,
   onShowReleases,
 }: {
-  result: DiscoveryResult
+  mode: 'ai' | 'info'
+  plan?: AIIntentPlan
+  result?: DiscoveryResult
+  busy?: boolean
+  error?: string | null
+  onConfirm?: (plan: AIIntentPlan) => void
+  onSearch?: (query: string) => void
   onClose: () => void
-  onShowReleases: (result: DiscoveryResult, season?: number) => void
+  onShowReleases?: (result: DiscoveryResult, season?: number) => void
 }) {
+  const isAi = mode === 'ai'
+  const intent = plan?.intent
+  const [manualQuery, setManualQuery] = useState(plan?.query || '')
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
+  const [availability, setAvailability] = useState<AIAvailability | null>(plan?.availability || null)
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1493,149 +1566,384 @@ function DetailsView({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
+  useEffect(() => {
+    if (isAi) {
+      setAvailability(plan?.availability || null)
+      setAvailabilityLoading(false)
+      setAvailabilityError(null)
+      setManualQuery(plan?.query || '')
+      return
+    }
+
+    if (!result) return
+    let active = true
+
+    const fetchAvailability = async () => {
+      setAvailability(null)
+      setAvailabilityError(null)
+      setAvailabilityLoading(true)
+      try {
+        const backendUrl = getBackendUrl()
+        const params = new URLSearchParams({
+          query: result.title,
+          type: result.type,
+        })
+        const response = await fetch(`${backendUrl}/availability?${params}`)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.detail || `HTTP ${response.status}`)
+        }
+        const data = await response.json()
+        if (active) {
+          setAvailability(data.availability || null)
+        }
+      } catch (err) {
+        if (active) {
+          setAvailabilityError(err instanceof Error ? err.message : 'Failed to fetch availability')
+        }
+      } finally {
+        if (active) {
+          setAvailabilityLoading(false)
+        }
+      }
+    }
+
+    fetchAvailability()
+    return () => {
+      active = false
+    }
+  }, [isAi, plan?.availability, plan?.query, result])
+
+  const actionLabel = plan?.recommendation === 'watch'
+    ? 'Search anyway'
+    : (intent?.action === 'download' ? 'Find releases' : 'Search')
+
+  const renderStreamingOptions = () => (
+    <>
+      {availabilityLoading && (
+        <div className="text-xs text-gray-400">Loading streaming options...</div>
+      )}
+      {availability?.flatrate && availability.flatrate.length > 0 && (
+        <div>
+          <div className="text-gray-400 text-xs mb-2">Streaming options</div>
+          <div className="flex flex-wrap gap-2">
+            {availability.flatrate.map((provider) => {
+              const isSubscribed = availability.subscribed?.includes(provider.name)
+              return (
+                <div
+                  key={provider.name}
+                  className={`flex items-center gap-2 rounded px-2 py-1 text-xs border ${
+                    isSubscribed
+                      ? 'border-emerald-400/70 bg-emerald-900/20 text-emerald-200'
+                      : 'border-slate-700/60 bg-slate-800/60 text-slate-200'
+                  }`}
+                >
+                  {provider.logo_url ? (
+                    <img
+                      src={provider.logo_url}
+                      alt={provider.name}
+                      className="h-5 w-5 object-contain"
+                    />
+                  ) : (
+                    <span className="text-gray-500">?</span>
+                  )}
+                  <span>{provider.name}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {availability?.link && (
+        <a
+          href={availability.link}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center text-xs text-blue-300 hover:text-blue-200"
+        >
+          View streaming options
+        </a>
+      )}
+      {availabilityError && (
+        <div className="text-xs text-red-400">Streaming: {availabilityError}</div>
+      )}
+    </>
+  )
+
+  if (isAi && !plan) return null
+  if (!isAi && !result) return null
+
   return (
-    <div
-      className="fixed inset-0 glass-modal z-50 overflow-auto"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
       <div className="min-h-screen p-4">
         <div
-          className="max-w-3xl mx-auto glass-panel rounded-lg p-4 md:p-6"
+          className={`mx-auto glass-panel rounded-lg p-4 md:p-6 ${
+            isAi ? 'max-w-2xl' : 'max-w-3xl'
+          }`}
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex justify-between items-start gap-4">
             <div>
-              <h2 className="text-2xl font-bold">{result.title}</h2>
-              <p className="text-gray-400 text-sm">
-                {result.type === 'movie' ? 'Movie' : 'TV Series'}
-                {result.year ? ` • ${result.year}` : ''}
-              </p>
+              <h2 className="text-xl font-bold">
+                {isAi ? 'Plan & Availability' : result?.title}
+              </h2>
+              {isAi ? (
+                <p className="text-gray-400 text-sm">"{plan?.query}"</p>
+              ) : (
+                <p className="text-gray-400 text-sm">
+                  {result?.type === 'movie' ? 'Movie' : 'TV Series'}
+                  {result?.year ? ` • ${result.year}` : ''}
+                </p>
+              )}
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white text-2xl px-2"
-            >
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl px-2">
               X
             </button>
           </div>
 
-          <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
-            <div className="w-full">
-              {result.poster ? (
-                <img
-                  src={result.poster}
-                  alt={result.title}
-                  className="w-full rounded-lg object-cover"
-                />
-              ) : (
-                <div className="w-full h-56 rounded-lg bg-slate-800/60 flex items-center justify-center text-gray-500 text-xs">
-                  No poster
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge status={result.status} />
-                {result.runtime && result.type === 'movie' && (
-                  <span className="glass-chip text-xs px-2 py-1 rounded">
-                    {result.runtime} min
-                  </span>
-                )}
-                {result.type === 'tv' && result.seasons && (
-                  <span className="glass-chip text-xs px-2 py-1 rounded">
-                    {result.seasons} season{result.seasons !== 1 ? 's' : ''}
-                  </span>
-                )}
-                {result.series_status && (
-                  <span className="glass-chip text-xs px-2 py-1 rounded">
-                    {result.series_status}
-                  </span>
-                )}
-                {result.network && (
-                  <span className="glass-chip text-xs px-2 py-1 rounded">
-                    {result.network}
-                  </span>
+          {isAi ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-[120px,1fr] text-sm">
+              <div>
+                {availability?.poster_url ? (
+                  <div className="w-full rounded-lg bg-slate-800/60 overflow-hidden">
+                    <img
+                      src={availability.poster_url}
+                      alt={availability.title || intent?.title}
+                      className="w-full h-auto object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full rounded-lg bg-slate-800/60 flex items-center justify-center text-xs text-gray-500 p-6">
+                    No poster
+                  </div>
                 )}
               </div>
-
-              {result.genres && result.genres.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {result.genres.slice(0, 5).map((genre) => (
-                    <span key={genre} className="glass-chip text-xs px-2 py-1 rounded">
-                      {genre}
-                    </span>
-                  ))}
+              <div className="space-y-3">
+                <div className="text-slate-200 text-lg font-semibold">
+                  {availability?.title || intent?.title || plan?.query || 'Unknown'}
                 </div>
-              )}
-
-              {result.ratings && result.ratings.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {result.ratings
-                    .filter((rating) => rating.source.toLowerCase() !== 'trakt')
-                    .map((rating) => (
-                      <RatingBadge
-                        key={rating.source}
-                        rating={rating}
-                        href={getRatingLink(result, rating)}
-                      />
-                    ))}
+                <div className="text-gray-400 text-xs">
+                  {availability?.year || 'Unknown year'} {intent?.media_type && intent.media_type !== 'unknown' && `• ${intent.media_type}`}
                 </div>
-              )}
-
-              {result.overview && (
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  {result.overview}
-                </p>
-              )}
-
-              {result.type === 'tv' && result.seasons && result.seasons > 0 && (
-                <div>
-                  <label className="text-xs text-gray-400">Season</label>
-                  <select
-                    value={selectedSeason}
-                    onChange={(event) => {
-                      const value = event.target.value
-                      setSelectedSeason(value === 'all' ? 'all' : Number(value))
+                {availability?.overview && (
+                  <div
+                    className="text-gray-300 text-xs leading-relaxed"
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 4,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
                     }}
-                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                   >
-                    <option value="all">All seasons</option>
-                    {Array.from({ length: result.seasons }, (_, index) => index + 1).map((season) => (
-                      <option key={season} value={season}>
-                        Season {season}
-                      </option>
-                    ))}
-                  </select>
+                    {availability.overview}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {intent?.season && (
+                    <span className="glass-chip px-2 py-1 rounded">Season {intent.season}</span>
+                  )}
+                  {intent?.episode && (
+                    <span className="glass-chip px-2 py-1 rounded">Episode {intent.episode}</span>
+                  )}
+                  {intent?.episode_date && (
+                    <span className="glass-chip px-2 py-1 rounded">{intent.episode_date}</span>
+                  )}
+                  {intent?.quality && (
+                    <span className="glass-chip px-2 py-1 rounded">{intent.quality}</span>
+                  )}
+                  {intent?.action && (
+                    <span className="glass-chip px-2 py-1 rounded">{intent.action}</span>
+                  )}
                 </div>
-              )}
-
-              <div className="flex flex-wrap gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (result.type === 'tv' && selectedSeason !== 'all') {
-                      onShowReleases(result, selectedSeason)
-                    } else {
-                      onShowReleases(result)
-                    }
-                    onClose()
-                  }}
-                  className="bg-blue-600/90 hover:bg-blue-500 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
-                >
-                  Find Releases
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="bg-slate-700/60 text-slate-300 py-2 px-4 rounded text-sm cursor-not-allowed"
-                  title="Download coming soon"
-                >
-                  Grab
-                </button>
+                {intent?.notes && (
+                  <div
+                    className="text-gray-300"
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {intent.notes}
+                  </div>
+                )}
+                {renderStreamingOptions()}
+                {plan?.recommendation === 'watch' && (
+                  <div className="text-amber-300 text-xs">
+                    Recommendation: stream instead of downloading.
+                  </div>
+                )}
+                {error && (
+                  <div className="text-red-400 text-xs">AI: {error}</div>
+                )}
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
+              <div className="w-full">
+                {result?.poster ? (
+                  <img
+                    src={result.poster}
+                    alt={result.title}
+                    className="w-full rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-56 rounded-lg bg-slate-800/60 flex items-center justify-center text-gray-500 text-xs">
+                    No poster
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {result && <StatusBadge status={result.status} />}
+                  {result?.runtime && result.type === 'movie' && (
+                    <span className="glass-chip text-xs px-2 py-1 rounded">
+                      {result.runtime} min
+                    </span>
+                  )}
+                  {result?.type === 'tv' && result.seasons && (
+                    <span className="glass-chip text-xs px-2 py-1 rounded">
+                      {result.seasons} season{result.seasons !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {result?.series_status && (
+                    <span className="glass-chip text-xs px-2 py-1 rounded">
+                      {result.series_status}
+                    </span>
+                  )}
+                  {result?.network && (
+                    <span className="glass-chip text-xs px-2 py-1 rounded">
+                      {result.network}
+                    </span>
+                  )}
+                </div>
+
+                {result?.genres && result.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {result.genres.slice(0, 5).map((genre) => (
+                      <span key={genre} className="glass-chip text-xs px-2 py-1 rounded">
+                        {genre}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {result?.ratings && result.ratings.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {result.ratings
+                      .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+                      .map((rating) => (
+                        <RatingBadge
+                          key={rating.source}
+                          rating={rating}
+                          href={getRatingLink(result, rating)}
+                        />
+                      ))}
+                  </div>
+                )}
+
+                {result?.overview && (
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    {result.overview}
+                  </p>
+                )}
+
+                {renderStreamingOptions()}
+
+                {result?.type === 'tv' && result.seasons && result.seasons > 0 && (
+                  <div>
+                    <label className="text-xs text-gray-400">Season</label>
+                    <select
+                      value={selectedSeason}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setSelectedSeason(value === 'all' ? 'all' : Number(value))
+                      }}
+                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    >
+                      <option value="all">All seasons</option>
+                      {Array.from({ length: result.seasons }, (_, index) => index + 1).map((season) => (
+                        <option key={season} value={season}>
+                          Season {season}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!result || !onShowReleases) return
+                      if (result.type === 'tv' && selectedSeason !== 'all') {
+                        onShowReleases(result, selectedSeason)
+                      } else {
+                        onShowReleases(result)
+                      }
+                      onClose()
+                    }}
+                    className="bg-blue-600/90 hover:bg-blue-500 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+                  >
+                    Find Releases
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isAi && (
+            <>
+              <div className="mt-4">
+                <label className="text-xs text-gray-400">Search a different title</label>
+                <div className="mt-1 flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={manualQuery}
+                    onChange={(event) => setManualQuery(event.target.value)}
+                    placeholder="Type what you actually want"
+                    className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onSearch?.(manualQuery)}
+                    disabled={busy || !manualQuery.trim()}
+                    className="bg-slate-700/60 hover:bg-slate-600/70 disabled:bg-slate-700/40 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-sm"
+                  >
+                    Search this
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => plan && onConfirm?.(plan)}
+                  disabled={busy}
+                  className="bg-blue-600/90 hover:bg-blue-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium"
+                >
+                  {busy ? 'Working...' : actionLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => plan && onSearch?.(plan.query)}
+                  disabled={busy}
+                  className="bg-slate-800/70 hover:bg-slate-700/70 text-white py-2 px-4 rounded text-sm"
+                >
+                  Search original query
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1982,6 +2290,7 @@ function HomeContent() {
   const [page, setPage] = useState(1)
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null)
   const [searching, setSearching] = useState(false)
+  const [submittingSearch, setSubmittingSearch] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [selectedResult, setSelectedResult] = useState<DiscoveryResult | null>(null)
   
@@ -2028,6 +2337,20 @@ function HomeContent() {
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const sabPollInFlight = useRef(false)
+
+  const handleHome = () => {
+    setSearchQuery('')
+    setActiveQuery('')
+    setSearchResults(null)
+    setSelectedResult(null)
+    setReleaseData(null)
+    setReleaseError(null)
+    setAiIntentPlan(null)
+    setAiIntentError(null)
+    setPage(1)
+    setActiveSection('search')
+    router.push('/')
+  }
 
   const fetchSabData = async (silent?: boolean) => {
     if (sabPollInFlight.current) {
@@ -2127,6 +2450,7 @@ function HomeContent() {
   }, [sabConfigured, sabSectionVisible])
 
   const runSearch = async (query: string, nextPage: number) => {
+    setSubmittingSearch(true)
     setSearching(true)
     setSearchError(null)
 
@@ -2160,6 +2484,7 @@ function HomeContent() {
       setSearchResults(null)
     } finally {
       setSearching(false)
+      setSubmittingSearch(false)
     }
   }
 
@@ -2253,8 +2578,8 @@ function HomeContent() {
     router.push(`/?${next}`)
   }, [activeQuery, filterType, filterStatus, sortField, sortDirection, page, router])
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const submitSearch = async () => {
+    if (searching) return
     let trimmed = searchQuery.trim()
     if (!trimmed) return
 
@@ -2270,6 +2595,7 @@ function HomeContent() {
     setSearchResults(null)
     setSelectedResult(null)
     setPage(1)
+    setSubmittingSearch(true)
     if (normalized.isIdQuery || !aiEnabled || !aiIntentEnabled) {
       setActiveQuery(trimmed)
       return
@@ -2295,6 +2621,7 @@ function HomeContent() {
         availability: data.availability,
         recommendation: data.recommendation,
       })
+      setSubmittingSearch(false)
     } catch (err) {
       setAiIntentError(err instanceof Error ? err.message : 'AI intent failed')
       try {
@@ -2314,12 +2641,18 @@ function HomeContent() {
           availability: availability || undefined,
           recommendation: availability?.subscribed?.length ? 'watch' : 'search',
         })
+        setSubmittingSearch(false)
       } catch {
         setActiveQuery(trimmed)
       }
     } finally {
       setAiIntentBusy(false)
     }
+  }
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    submitSearch()
   }
 
   const handleShowReleases = async (result: DiscoveryResult, season?: number) => {
@@ -2515,6 +2848,73 @@ function HomeContent() {
     }
   }
 
+  const handleGrabAll = async (releases: Release[]) => {
+    if (!releaseData) return
+    const eligible = releases.filter((release) => release.guid && release.indexer_id)
+    if (!eligible.length) {
+      setGrabFeedback({ type: 'error', text: 'Missing release identifiers for grab.' })
+      return
+    }
+
+    setGrabFeedback(null)
+    setGrabBusyIds((prev) => {
+      const next = new Set(prev)
+      eligible.forEach((release) => next.add(getReleaseKey(release)))
+      return next
+    })
+
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/releases/grab-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: releaseData.type,
+          releases: eligible.map((release) => ({
+            guid: release.guid,
+            indexer_id: release.indexer_id,
+            title: release.title,
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.status === 'partial') {
+        const failureCount = Array.isArray(data.failures) ? data.failures.length : 0
+        const successCount = typeof data.success === 'number' ? data.success : eligible.length - failureCount
+        setGrabFeedback({
+          type: successCount > 0 ? 'success' : 'error',
+          text: `Grabbed ${successCount} release${successCount === 1 ? '' : 's'}, ${failureCount} failed.`,
+        })
+      } else {
+        setGrabFeedback({
+          type: 'success',
+          text: `Sent ${eligible.length} releases to download client.`,
+        })
+      }
+
+      if (sabConfigured) {
+        await fetchSabData(true)
+      }
+    } catch (err) {
+      setGrabFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to grab releases',
+      })
+    } finally {
+      setGrabBusyIds((prev) => {
+        const next = new Set(prev)
+        eligible.forEach((release) => next.delete(getReleaseKey(release)))
+        return next
+      })
+    }
+  }
+
   const handleAiSuggest = async (releasesForAi: Release[]) => {
     if (!releaseData) return
     setAiSuggestBusy(true)
@@ -2602,6 +3002,14 @@ function HomeContent() {
     const groupCount = sabRecent.groups.length
     return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
   })()
+
+  const toolLinks = [
+    { label: 'Sonarr', url: config?.integrations.sonarr_url || getLocalToolUrl(8989) },
+    { label: 'Radarr', url: config?.integrations.radarr_url || getLocalToolUrl(7878) },
+    { label: 'SABnzbd', url: config?.integrations.sabnzbd_url || getLocalToolUrl(8080) },
+    { label: 'Plex', url: getLocalToolUrl(32400, '/web') },
+  ]
+  const enabledStreamingServices = config?.streaming_services.filter((service) => service.enabled) || []
 
   const handlePauseAll = () => performSabAction('/sab/queue/pause')
   const handleResumeAll = () => performSabAction('/sab/queue/resume')
@@ -2696,13 +3104,7 @@ function HomeContent() {
 
           <button
             type="button"
-            onClick={() => {
-              setSearchQuery('')
-              setActiveQuery('')
-              setSearchResults(null)
-              setPage(1)
-              router.push('/')
-            }}
+            onClick={handleHome}
             className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
             title="Go home"
           >
@@ -2715,6 +3117,20 @@ function HomeContent() {
 
         {menuOpen && (
           <div className="mt-3 grid gap-2 text-sm text-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                handleHome()
+                setMenuOpen(false)
+              }}
+              className="px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12l9-9 9 9" />
+                <path d="M5 10v10h14V10" />
+              </svg>
+              <span>Home</span>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -2780,6 +3196,53 @@ function HomeContent() {
               </svg>
               <span>Settings</span>
             </button>
+            <div className="border-t border-slate-700/40 pt-2 mt-2">
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">Tools</div>
+              {toolLinks.map((tool) => (
+                <a
+                  key={tool.label}
+                  href={tool.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setMenuOpen(false)}
+                  className="mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60"
+                >
+                  <span>{tool.label}</span>
+                </a>
+              ))}
+            </div>
+            <div className="border-t border-slate-700/40 pt-2 mt-2">
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">Streaming Services</div>
+              {enabledStreamingServices.length === 0 ? (
+                <span className="mt-2 px-3 py-2 text-xs text-slate-500">None enabled</span>
+              ) : (
+                enabledStreamingServices.map((service) => {
+                  const link = getStreamingLink(service.id)
+                    || `https://www.${service.id.replace(/_/g, '')}.com`
+                  return (
+                    <a
+                      key={service.id}
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setMenuOpen(false)}
+                      className="mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60"
+                    >
+                      {getStreamingLogo(service.id) ? (
+                        <img
+                          src={getStreamingLogo(service.id)}
+                          alt={service.name}
+                          className="h-4 w-4 object-contain"
+                        />
+                      ) : (
+                        <span className="text-gray-500 text-xs">?</span>
+                      )}
+                      <span>{service.name}</span>
+                    </a>
+                  )
+                })
+              )}
+            </div>
           </div>
         )}
       </header>
@@ -2797,6 +3260,11 @@ function HomeContent() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                  event.preventDefault()
+                  submitSearch()
+                }}
                 placeholder="Search movies and TV shows..."
                 className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
               />
@@ -2805,7 +3273,7 @@ function HomeContent() {
                 disabled={searching || !searchQuery.trim()}
                 className="bg-blue-600/90 hover:bg-blue-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
               >
-                {searching ? '...' : 'Search'}
+                {submittingSearch || searching ? '...' : 'Search'}
               </button>
             </div>
 
@@ -3218,19 +3686,21 @@ function HomeContent() {
       )}
 
       {aiIntentPlan && (
-        <AIPlanModal
+        <AvailabilityModal
+          mode="ai"
           plan={aiIntentPlan}
           busy={loadingReleases}
           error={aiIntentError}
           onConfirm={executePlan}
           onSearch={runPlainSearch}
-          onCancel={() => setAiIntentPlan(null)}
+          onClose={() => setAiIntentPlan(null)}
         />
       )}
 
       {/* Discovery details modal */}
       {selectedResult && (
-        <DetailsView
+        <AvailabilityModal
+          mode="info"
           result={selectedResult}
           onClose={() => setSelectedResult(null)}
           onShowReleases={handleShowReleases}
@@ -3243,6 +3713,7 @@ function HomeContent() {
           data={releaseData}
           onClose={() => setReleaseData(null)}
           onGrabRelease={handleGrabRelease}
+          onGrabAll={handleGrabAll}
           grabBusyIds={grabBusyIds}
           grabFeedback={grabFeedback}
           aiEnabled={aiEnabled}

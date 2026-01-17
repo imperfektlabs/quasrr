@@ -42,6 +42,17 @@ class GrabRequest(BaseModel):
     title: Optional[str] = None
 
 
+class GrabAllItem(BaseModel):
+    guid: str
+    indexer_id: int
+    title: Optional[str] = None
+
+
+class GrabAllRequest(BaseModel):
+    type: SearchType
+    releases: list[GrabAllItem]
+
+
 class AIRelease(BaseModel):
     title: str
     size: Optional[int] = None
@@ -739,6 +750,55 @@ async def grab_release(payload: GrabRequest):
         raise HTTPException(status_code=502, detail=result.get("message", "Grab failed"))
 
     return {"status": "ok"}
+
+
+@app.post("/releases/grab-all")
+async def grab_all_releases(payload: GrabAllRequest):
+    """Grab multiple releases via Radarr or Sonarr."""
+    if not payload.releases:
+        raise HTTPException(status_code=400, detail="No releases provided")
+
+    logger.info(
+        "Grab all request: type=%s count=%s",
+        payload.type,
+        len(payload.releases),
+    )
+
+    if payload.type == SearchType.movie:
+        client = get_radarr_client()
+        if not client.is_configured:
+            raise HTTPException(status_code=503, detail="Radarr not configured")
+    else:
+        client = get_sonarr_client()
+        if not client.is_configured:
+            raise HTTPException(status_code=503, detail="Sonarr not configured")
+
+    async def grab_one(item: GrabAllItem) -> Optional[dict]:
+        try:
+            result = await client.grab_release(item.guid, item.indexer_id)
+        except Exception as exc:
+            return {
+                "guid": item.guid,
+                "indexer_id": item.indexer_id,
+                "message": str(exc),
+            }
+        if result.get("status") != "ok":
+            return {
+                "guid": item.guid,
+                "indexer_id": item.indexer_id,
+                "message": result.get("message", "Grab failed"),
+            }
+        return None
+
+    results = await asyncio.gather(*(grab_one(item) for item in payload.releases))
+    failures = [item for item in results if item]
+    success_count = len(payload.releases) - len(failures)
+
+    return {
+        "status": "ok" if not failures else "partial",
+        "success": success_count,
+        "failures": failures,
+    }
 
 
 @app.post("/ai/release/suggest")

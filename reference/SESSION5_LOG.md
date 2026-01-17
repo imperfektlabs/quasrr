@@ -38,8 +38,3 @@ Notes / gotchas
 - Provider logos now local; no TMDB provider list fetch in UI.
 - Streaming availability still depends on TMDB region data.
 
-TODOs (next session)
-- Enable searching by IDs (tmdb/tvdb/imdb). --> DONE
-- Remove subtitle line hidden by frozen title bar. --> DONE
-- Downloads and System Status: remove collapsed start since they are on their own pages. --> DONE
-- Strip out low-value streaming services (ex: Netflix with Ads) if desired. --> DONE

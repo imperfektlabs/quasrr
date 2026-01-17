@@ -35,12 +35,4 @@ User feedback / issues observed
 - Availability links are TMDB watch-provider URLs, not direct deep links.
 - Sonarr 500s observed on some season searches; air-date resolution reduced impact.
 
-Follow-ups requested for Session 5
-- Fix AI Suggest failure with real error handling.
-- Move AI intent toggle + "AI is interpreting..." into Filters row.
-- Fix plan modal poster sizing/cropping.
-- Rename copy to "Stream instead of downloading".
-- Highlight subscribed providers directly in boxes; remove "Available on your services" line.
-- Improve release list layout/readability.
-- TV library status should reflect per-episode downloaded state, not a single flag.
-- Optional: show availability modal even when AI intent toggle is off.
+
