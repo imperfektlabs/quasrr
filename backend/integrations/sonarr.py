@@ -492,6 +492,43 @@ class SonarrClient:
         series_title = existing_series.get("title", title)
         series_year = existing_series.get("year")
 
+        episode_downloaded: dict[int, dict[int, bool]] = {}
+        season_progress: list[dict] = []
+        if series_id:
+            episodes = await self.get_episode_list(series_id)
+            if episodes:
+                season_map: dict[int, dict] = {}
+                for ep in episodes:
+                    season_number = ep.get("seasonNumber")
+                    if not isinstance(season_number, int) or season_number <= 0:
+                        continue
+                    episode_number = ep.get("episodeNumber")
+                    if not isinstance(episode_number, int):
+                        continue
+                    season_entry = season_map.setdefault(
+                        season_number,
+                        {"downloaded": 0, "total": 0, "episodes": {}},
+                    )
+                    has_file = bool(ep.get("hasFile"))
+                    season_entry["episodes"][episode_number] = has_file
+                    season_entry["total"] += 1
+                    if has_file:
+                        season_entry["downloaded"] += 1
+
+                if season_map:
+                    episode_downloaded = {
+                        season_number: data["episodes"]
+                        for season_number, data in season_map.items()
+                    }
+                    season_progress = [
+                        {
+                            "season": season_number,
+                            "downloaded": data["downloaded"],
+                            "total": data["total"],
+                        }
+                        for season_number, data in sorted(season_map.items())
+                    ]
+
         logger.info(f"Searching releases for series ID {series_id}: '{series_title}'")
 
         if episode and season is None:
@@ -504,6 +541,8 @@ class SonarrClient:
                 "message": "Episode number provided without season.",
                 "requested_season": None,
                 "requested_episode": episode,
+                "episode_downloaded": episode_downloaded,
+                "season_progress": season_progress,
             }
 
         resolved_season, resolved_episode, resolved_title = await self.resolve_episode_target(
@@ -524,6 +563,8 @@ class SonarrClient:
                 "requested_season": resolved_season,
                 "requested_episode": None,
                 "requested_episode_title": resolved_title,
+                "episode_downloaded": episode_downloaded,
+                "season_progress": season_progress,
             }
 
         search_season = resolved_season if resolved_season is not None else season
@@ -560,6 +601,8 @@ class SonarrClient:
                 "message": "No releases found. Check indexers are configured.",
                 "requested_season": resolved_season,
                 "requested_episode": resolved_episode,
+                "episode_downloaded": episode_downloaded,
+                "season_progress": season_progress,
             }
 
         # Normalize releases
@@ -617,6 +660,8 @@ class SonarrClient:
             "requested_season": resolved_season,
             "requested_episode": resolved_episode,
             "requested_episode_title": resolved_title,
+            "episode_downloaded": episode_downloaded,
+            "season_progress": season_progress,
         }
 
     async def remove_download(self, download_id: str) -> dict:

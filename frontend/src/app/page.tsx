@@ -116,6 +116,8 @@ type ReleaseResponse = {
   runtime?: number
   releases: Release[]
   message?: string
+  episode_downloaded?: EpisodeDownloadMap
+  season_progress?: SeasonProgress[]
 }
 
 type AISuggestion = {
@@ -209,6 +211,56 @@ type SabRecentResponse = {
 
 type SortField = 'size' | 'quality' | 'age' | 'title'
 type SortDirection = 'asc' | 'desc' | null
+
+type EpisodeDownloadMap = Record<string, Record<string, boolean>>
+
+type SeasonProgress = {
+  season: number
+  downloaded: number
+  total: number
+}
+
+type IconProps = {
+  className?: string
+}
+
+const DownloadIcon = ({ className }: IconProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v7" />
+    <path d="M8.5 11.5 12 15l3.5-3.5" />
+    <path d="M7.5 16.5h9" />
+  </svg>
+)
+
+const DownloadAllIcon = ({ className }: IconProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v7" />
+    <path d="M8.5 11.5 12 15l3.5-3.5" />
+    <path d="M7.5 16.5h9" />
+    <path d="M16.5 7.5h3" />
+    <path d="M18 6v3" />
+  </svg>
+)
 
 function getBackendUrl(): string {
   return `${window.location.protocol}//${window.location.hostname}:8000`
@@ -1016,6 +1068,100 @@ function ReleaseView({
   const sortedReleases = sortReleases(data.releases)
   const tvGroups = data.type === 'tv' ? buildEpisodeGroups(data.releases) : null
   const tvReleaseGroups = data.type === 'tv' ? buildGroupMap(data.releases) : null
+  const episodeDownloaded = data.episode_downloaded || {}
+  const seasonProgressMap = new Map<number, SeasonProgress>()
+  if (Array.isArray(data.season_progress)) {
+    data.season_progress.forEach((progress) => {
+      if (typeof progress?.season === 'number') {
+        seasonProgressMap.set(progress.season, progress)
+      }
+    })
+  }
+
+  const getSeasonProgressLabel = (season: number) => {
+    const progress = seasonProgressMap.get(season)
+    if (!progress || progress.total <= 0) return null
+    return `${progress.downloaded}/${progress.total}`
+  }
+
+  const getEpisodeGroupStatus = (releases: Release[]) => {
+    if (data.type !== 'tv') return null
+    if (!Array.isArray(releases) || releases.length === 0) return null
+
+    const episodeKeys = new Set<string>()
+    for (const release of releases) {
+      const season = getSeason(release)
+      if (!season || season <= 0) continue
+      const episodes = Array.isArray(release.episode)
+        ? release.episode.filter((ep) => typeof ep === 'number')
+        : []
+      for (const ep of episodes) {
+        episodeKeys.add(`${season}:${ep}`)
+      }
+    }
+
+    if (episodeKeys.size === 0) return null
+
+    let downloadedCount = 0
+    episodeKeys.forEach((key) => {
+      const [seasonRaw, episodeRaw] = key.split(':')
+      const season = Number(seasonRaw)
+      const episode = Number(episodeRaw)
+      if (!Number.isFinite(season) || !Number.isFinite(episode)) return
+      if (episodeDownloaded[season]?.[episode]) {
+        downloadedCount += 1
+      }
+    })
+
+    if (downloadedCount === 0) {
+      return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
+    }
+    if (downloadedCount === episodeKeys.size) {
+      return { label: 'Downloaded', icon: '✓', className: 'bg-emerald-900/60 text-emerald-200' }
+    }
+    return { label: 'Partial', icon: '◐', className: 'bg-amber-900/60 text-amber-200' }
+  }
+
+  const getEpisodeStatus = (release: Release) => {
+    if (data.type !== 'tv') return null
+    const season = getSeason(release)
+    if (!season || season <= 0) return null
+    const seasonEpisodes = episodeDownloaded[season] || {}
+
+    if (release.full_season) {
+      const progress = seasonProgressMap.get(season)
+      if (progress && progress.total > 0) {
+        if (progress.downloaded === progress.total) {
+          return { label: 'Downloaded', icon: '✓', className: 'bg-emerald-900/60 text-emerald-200' }
+        }
+        if (progress.downloaded > 0) {
+          return { label: 'Partial', icon: '◐', className: 'bg-amber-900/60 text-amber-200' }
+        }
+        return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
+      }
+      return null
+    }
+
+    const episodes = Array.isArray(release.episode)
+      ? release.episode.filter((ep) => typeof ep === 'number')
+      : []
+    if (episodes.length === 0) return null
+
+    let downloadedCount = 0
+    for (const ep of episodes) {
+      if (seasonEpisodes[ep]) {
+        downloadedCount += 1
+      }
+    }
+
+    if (downloadedCount === 0) {
+      return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
+    }
+    if (downloadedCount === episodes.length) {
+      return { label: 'Downloaded', icon: '✓', className: 'bg-emerald-900/60 text-emerald-200' }
+    }
+    return { label: 'Partial', icon: '◐', className: 'bg-amber-900/60 text-amber-200' }
+  }
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups((prev) => {
@@ -1113,14 +1259,19 @@ function ReleaseView({
               type="button"
               disabled={!canGrab || isGrabBusy}
               onClick={() => onGrabRelease(release)}
-              className={`px-2 py-1 rounded text-[11px] ${
+              className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
                 !canGrab || isGrabBusy
                   ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
                   : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
               }`}
               title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
+              aria-label="Grab release"
             >
-              {isGrabBusy ? 'Grabbing...' : 'Grab'}
+              {isGrabBusy ? (
+                <span className="text-[10px]">...</span>
+              ) : (
+                <DownloadIcon className="h-4 w-4" />
+              )}
             </button>
           </div>
 
@@ -1138,7 +1289,7 @@ function ReleaseView({
       <div className="min-h-screen p-4">
         <div className="max-w-6xl mx-auto" onClick={(event) => event.stopPropagation()}>
           {/* Header */}
-          <div className="glass-panel rounded-t-lg p-4 flex flex-col md:flex-row gap-4 items-start sticky top-0 z-10">
+          <div className="glass-panel rounded-t-lg p-4 flex flex-col md:flex-row gap-4 items-start sticky top-0 z-10 relative">
             <div className="flex items-start gap-4 flex-1">
               {data.poster && (
                 <div className="w-20 md:w-24 flex-shrink-0">
@@ -1196,7 +1347,7 @@ function ReleaseView({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pr-8">
               {releaseAiEnabled && aiEnabled && (
                 <button
                   type="button"
@@ -1208,13 +1359,14 @@ function ReleaseView({
                   {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
                 </button>
               )}
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-white text-2xl px-2"
-              >
-                X
-              </button>
             </div>
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 text-gray-400 hover:text-white text-2xl px-2"
+              aria-label="Close"
+            >
+              X
+            </button>
           </div>
 
           {/* Release list */}
@@ -1306,7 +1458,21 @@ function ReleaseView({
                             onClick={() => toggleSeason(seasonKey)}
                             className="w-full px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-900/60 flex items-center justify-between"
                           >
-                            <span>{seasonGroup.label} ({seasonGroup.releases.length})</span>
+                            <span>
+                              {seasonGroup.label}
+                              {(() => {
+                                const progressLabel = getSeasonProgressLabel(seasonGroup.season)
+                                if (!progressLabel) return null
+                                return (
+                                  <span className="ml-2 text-emerald-200">
+                                    {progressLabel}
+                                  </span>
+                                )
+                              })()}
+                              <span className="ml-2 text-slate-400">
+                                ({seasonGroup.releases.length} releases)
+                              </span>
+                            </span>
                             <span className="text-slate-400">
                               {isSeasonCollapsed ? 'Show' : 'Hide'}
                             </span>
@@ -1325,7 +1491,21 @@ function ReleaseView({
                                       onClick={() => toggleGroup(group.key)}
                                       className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
                                     >
-                                      <span>{group.label} ({groupReleases.length})</span>
+                                      <span className="flex items-center gap-2">
+                                        <span>{group.label} ({groupReleases.length})</span>
+                                        {(() => {
+                                          const status = getEpisodeGroupStatus(group.releases)
+                                          if (!status) return null
+                                          return (
+                                            <span
+                                              className={`px-1.5 rounded ${status.className}`}
+                                              title={status.label}
+                                            >
+                                              {status.icon}
+                                            </span>
+                                          )
+                                        })()}
+                                      </span>
                                       <span className="text-slate-400">
                                         {isCollapsed ? 'Show' : 'Hide'}
                                       </span>
@@ -1379,7 +1559,21 @@ function ReleaseView({
                               onClick={() => toggleGroup(group.key)}
                               className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
                             >
-                              <span>{group.label} ({groupReleases.length})</span>
+                              <span className="flex items-center gap-2">
+                                <span>{group.label} ({groupReleases.length})</span>
+                                {(() => {
+                                  const status = getEpisodeGroupStatus(group.releases)
+                                  if (!status) return null
+                                  return (
+                                    <span
+                                      className={`px-1.5 rounded ${status.className}`}
+                                      title={status.label}
+                                    >
+                                      {status.icon}
+                                    </span>
+                                  )
+                                })()}
+                              </span>
                               <span className="flex items-center gap-2">
                                 {group.showGrabAll && (
                                   (() => {
@@ -1397,7 +1591,7 @@ function ReleaseView({
                                           event.stopPropagation()
                                           openGrabAllModal(grabAllCandidates)
                                         }}
-                                        className={`px-2 py-1 rounded text-[11px] ${
+                                        className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
                                           grabAllCandidates.length === 0 || grabAllBusy
                                             ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
                                             : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
@@ -1405,8 +1599,13 @@ function ReleaseView({
                                         title={grabAllCandidates.length === 0
                                           ? 'Missing release identifiers'
                                           : 'Send all releases in this group'}
+                                        aria-label="Grab all releases"
                                       >
-                                        {grabAllBusy ? 'Grabbing...' : 'Grab All'}
+                                        {grabAllBusy ? (
+                                          <span className="text-[10px]">...</span>
+                                        ) : (
+                                          <DownloadAllIcon className="h-4 w-4" />
+                                        )}
                                       </button>
                                     )
                                   })()
@@ -1469,6 +1668,7 @@ function ReleaseView({
                 const key = getReleaseKey(release)
                 const checked = grabAllModal.selected.has(key)
                 const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
+                const episodeStatus = getEpisodeStatus(release)
                 return (
                   <label
                     key={key}
@@ -1484,6 +1684,14 @@ function ReleaseView({
                       <div className="text-xs text-slate-100 break-words">{release.title}</div>
                       <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-2">
                         {episodeLabel && <span>{episodeLabel}</span>}
+                        {episodeStatus && (
+                          <span
+                            className={`px-1.5 rounded ${episodeStatus.className}`}
+                            title={episodeStatus.label}
+                          >
+                            {episodeStatus.icon}
+                          </span>
+                        )}
                         <span>{release.size_formatted}</span>
                         <span className="text-green-400">{release.quality}</span>
                         <span className="text-slate-500">{getResolutionLabel(release)}</span>
@@ -2301,8 +2509,6 @@ function HomeContent() {
   const [sabQueueError, setSabQueueError] = useState<string | null>(null)
   const [sabRecentError, setSabRecentError] = useState<string | null>(null)
   const [sabActionBusy, setSabActionBusy] = useState(false)
-  const [sabSectionVisible] = useState(true)
-
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
   const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
 
@@ -2418,9 +2624,6 @@ function HomeContent() {
 
         setError(null)
         
-        if (configData.integrations.sabnzbd_url) {
-          fetchSabData()
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to connect')
         setHealth(null)
@@ -2433,10 +2636,12 @@ function HomeContent() {
     fetchData()
   }, [])
 
+  const sabSectionVisible = activeSection === 'downloads'
+
   useEffect(() => {
     if (!sabConfigured || !sabSectionVisible) return
 
-    fetchSabData(true)
+    fetchSabData()
 
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
