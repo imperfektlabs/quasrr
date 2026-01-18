@@ -25,13 +25,13 @@ TODOs
 - Grab All: confirmation modal with per-episode preselect and Select All toggle. --> DONE
 - Combine AI/info modals into single availability modal with shared ESC behavior. --> DONE
 - TV library status should reflect per-episode downloaded state, not a single flag. --> DONE
+- results page - tighten card, there is space under the posters... why is that? --> DONE
+- results page - change in library (downloaded) to icons as discussed before --> DONE
+- results page - first 25 are shown - probably rarely need to go past that... maybe change 25 to 10, and allow a second page - will take make it faster? --> DONE
 
 
 
 
-- results page - tight card, there is space under the posters... why is that?
-- results page - change in library (downloaded) to icons as discussed before
-- results page - first 25 are shown, no way to get to next page - probably rarely need to go past that... maybe change 25 to 10, and allow a second page - will take make it faster?
 
 
 
