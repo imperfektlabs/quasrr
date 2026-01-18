@@ -875,7 +875,7 @@ function ReleaseView({
     const selected = new Set<string>()
     grouped.forEach((groupReleases) => {
       const best = pickBestRelease(groupReleases)
-      if (best) selected.add(getReleaseKey(best))
+      if (best && !isReleaseDownloaded(best)) selected.add(getReleaseKey(best))
     })
     setGrabAllModal({ releases: eligible, selected })
   }
@@ -1089,6 +1089,25 @@ function ReleaseView({
     const progress = seasonProgressMap.get(season)
     if (!progress || progress.total <= 0) return null
     return `${progress.downloaded}/${progress.total}`
+  }
+
+  const isReleaseDownloaded = (release: Release) => {
+    if (data.type !== 'tv') return false
+    const season = getSeason(release)
+    if (!season || season <= 0) return false
+    const seasonEpisodes = episodeDownloaded[season] || {}
+
+    if (release.full_season) {
+      const progress = seasonProgressMap.get(season)
+      return Boolean(progress && progress.total > 0 && progress.downloaded === progress.total)
+    }
+
+    const episodes = Array.isArray(release.episode)
+      ? release.episode.filter((ep) => typeof ep === 'number')
+      : []
+    if (episodes.length === 0) return false
+
+    return episodes.every((ep) => Boolean(seasonEpisodes[ep]))
   }
 
   const getEpisodeGroupStatus = (releases: Release[]) => {
