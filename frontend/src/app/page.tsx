@@ -2833,6 +2833,7 @@ function HomeContent() {
       return
     }
 
+    setActiveQuery(trimmed)
     setAiIntentBusy(true)
     setAiIntentError(null)
     try {
@@ -3028,6 +3029,16 @@ function HomeContent() {
     }
     setActiveQuery(trimmed)
     setPage(1)
+  }
+
+  const handleAiSearch = (query: string) => {
+    const trimmed = query.trim()
+    if (!trimmed) return
+    if (trimmed === activeQuery) {
+      setAiIntentPlan(null)
+      return
+    }
+    runPlainSearch(trimmed)
   }
 
   const handleGrabRelease = async (release: Release) => {
@@ -3607,6 +3618,31 @@ function HomeContent() {
             </details>
           </form>
           </div>
+          {!searchResults && !searching && !searchError && (
+            <div className="glass-panel rounded-lg p-5 md:p-6 mb-4 relative overflow-hidden">
+              <div className="absolute inset-0">
+                <div className="absolute -top-8 -right-12 h-40 w-40 rounded-full bg-cyan-900/30 blur-2xl" />
+                <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-blue-900/30 blur-2xl" />
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/30 via-transparent to-slate-900/40" />
+              </div>
+              <div className="relative">
+                <div className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  Shiny Palm Tree
+                </div>
+                <h2 className="mt-2 text-lg md:text-xl font-semibold text-slate-100">
+                  Search once. See what you already have. Grab what you do not.
+                </h2>
+                <p className="mt-2 text-sm text-slate-400 max-w-2xl">
+                  Try a title, an IMDB ID, or a quick quote like "s01e03 of The Night Manager".
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+                  <span className="glass-chip px-2 py-1 rounded">imdb:tt0933346</span>
+                  <span className="glass-chip px-2 py-1 rounded">tvdb:289127</span>
+                  <span className="glass-chip px-2 py-1 rounded">The Night Manager s01e02</span>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
         )}
 
@@ -3924,7 +3960,7 @@ function HomeContent() {
           busy={loadingReleases}
           error={aiIntentError}
           onConfirm={executePlan}
-          onSearch={runPlainSearch}
+          onSearch={handleAiSearch}
           onClose={() => setAiIntentPlan(null)}
         />
       )}
