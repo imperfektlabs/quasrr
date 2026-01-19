@@ -209,6 +209,18 @@ type SabRecentResponse = {
   groups: SabRecentGroup[]
 }
 
+type IntegrationStatus = {
+  status: string
+  message?: string
+  version?: string
+}
+
+type IntegrationsStatus = {
+  radarr: IntegrationStatus
+  sonarr: IntegrationStatus
+  sabnzbd: IntegrationStatus
+}
+
 type SortField = 'size' | 'quality' | 'age' | 'title'
 type SortDirection = 'asc' | 'desc' | null
 
@@ -512,14 +524,14 @@ function StatusBadge({ status }: { status: DiscoveryResult['status'] }) {
     'in_library': {
       text: 'In library (not downloaded)',
       icon: '◐',
-      bg: 'bg-yellow-900/60',
-      textColor: 'text-yellow-200',
+      bg: 'bg-violet-900/60',
+      textColor: 'text-violet-200',
     },
     'downloaded': {
       text: 'In library (downloaded)',
       icon: '✓',
-      bg: 'bg-green-900/60',
-      textColor: 'text-green-200',
+      bg: 'bg-cyan-900/60',
+      textColor: 'text-cyan-200',
     },
   }[status]
 
@@ -554,8 +566,8 @@ function SortHeader({
   return (
     <button
       onClick={() => onSort(field)}
-      className={`text-left font-medium hover:text-blue-400 transition-colors ${
-        isActive ? 'text-blue-400' : 'text-gray-400'
+      className={`text-left font-medium hover:text-cyan-300 transition-colors ${
+        isActive ? 'text-cyan-300' : 'text-gray-400'
       }`}
     >
       {label}{arrow}
@@ -1143,9 +1155,9 @@ function ReleaseView({
       return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
     }
     if (downloadedCount === episodeKeys.size) {
-      return { label: 'Downloaded', icon: '✓', className: 'bg-emerald-900/60 text-emerald-200' }
+      return { label: 'Downloaded', icon: '✓', className: 'bg-cyan-900/60 text-cyan-200' }
     }
-    return { label: 'Partial', icon: '◐', className: 'bg-amber-900/60 text-amber-200' }
+    return { label: 'Partial', icon: '◐', className: 'bg-fuchsia-900/60 text-fuchsia-200' }
   }
 
   const getEpisodeStatus = (release: Release) => {
@@ -1158,10 +1170,10 @@ function ReleaseView({
       const progress = seasonProgressMap.get(season)
       if (progress && progress.total > 0) {
         if (progress.downloaded === progress.total) {
-          return { label: 'Downloaded', icon: '✓', className: 'bg-emerald-900/60 text-emerald-200' }
+          return { label: 'Downloaded', icon: '✓', className: 'bg-cyan-900/60 text-cyan-200' }
         }
         if (progress.downloaded > 0) {
-          return { label: 'Partial', icon: '◐', className: 'bg-amber-900/60 text-amber-200' }
+          return { label: 'Partial', icon: '◐', className: 'bg-fuchsia-900/60 text-fuchsia-200' }
         }
         return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
       }
@@ -1184,9 +1196,9 @@ function ReleaseView({
       return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
     }
     if (downloadedCount === episodes.length) {
-      return { label: 'Downloaded', icon: '✓', className: 'bg-emerald-900/60 text-emerald-200' }
+      return { label: 'Downloaded', icon: '✓', className: 'bg-cyan-900/60 text-cyan-200' }
     }
-    return { label: 'Partial', icon: '◐', className: 'bg-amber-900/60 text-amber-200' }
+    return { label: 'Partial', icon: '◐', className: 'bg-fuchsia-900/60 text-fuchsia-200' }
   }
 
   const toggleGroup = (key: string) => {
@@ -1225,9 +1237,9 @@ function ReleaseView({
         key={release.guid || `${groupKey}-${index}`}
         data-release-guid={release.guid || undefined}
         className={`p-3 border-b border-slate-800/80 hover:bg-slate-800/40 ${rowShade} ${
-          isAiPick ? 'ring-1 ring-emerald-400/60 bg-emerald-900/10' : ''
+          isAiPick ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
         } ${
-          isRequested ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
+          isRequested ? 'ring-1 ring-fuchsia-400/60 bg-fuchsia-900/10' : ''
         }`}
       >
         <div>
@@ -1235,70 +1247,74 @@ function ReleaseView({
             {release.title}
           </p>
 
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-            <span>{release.size_formatted}</span>
-            <span className="text-green-400">{release.quality}</span>
-            <span className="text-slate-400">{release.age}</span>
-            {episodeLabel && (
-              <span className="bg-slate-800/60 text-slate-200 px-1.5 rounded">
-                {episodeLabel}
+          <div className="mt-2 grid gap-2 text-xs text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span>{release.size_formatted}</span>
+              <span className="text-cyan-300">{release.quality}</span>
+              <span className="text-slate-400">{release.age}</span>
+              {episodeLabel && (
+                <span className="bg-slate-800/60 text-slate-200 px-1.5 rounded">
+                  {episodeLabel}
+                </span>
+              )}
+              {release.full_season && (
+                <span className="bg-violet-900/60 text-violet-200 px-1.5 rounded">
+                  Full Season
+                </span>
+              )}
+              <span className={`px-1.5 rounded ${
+                release.protocol === 'usenet'
+                  ? 'bg-purple-900/60 text-purple-200'
+                  : 'bg-orange-900/60 text-orange-200'
+              }`}>
+                {release.protocol}
               </span>
-            )}
-            {release.full_season && (
-              <span className="bg-blue-900/60 text-blue-200 px-1.5 rounded">
-                Full Season
-              </span>
-            )}
-            <span className={`px-1.5 rounded ${
-              release.protocol === 'usenet'
-                ? 'bg-purple-900/60 text-purple-200'
-                : 'bg-orange-900/60 text-orange-200'
-            }`}>
-              {release.protocol}
-            </span>
-            {recommendation && !warning && !rejectionText && (
-              <span
-                title={recommendation.text}
-                className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-emerald-400 text-emerald-300 text-[11px]"
-              >
-                OK
-              </span>
-            )}
-            {(warning || rejectionText) && (
-              <span
-                title={warning || rejectionText || ''}
-                className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-red-400 text-red-300 text-[11px]"
-              >
-                !
-              </span>
-            )}
-            {releaseGroup && data.type === 'tv' && (
+              {recommendation && !warning && !rejectionText && (
+                <span
+                  title={recommendation.text}
+                  className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-cyan-400 text-cyan-300 text-[11px]"
+                >
+                  OK
+                </span>
+              )}
+              {(warning || rejectionText) && (
+                <span
+                  title={warning || rejectionText || ''}
+                  className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-red-400 text-red-300 text-[11px]"
+                >
+                  !
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {releaseGroup && data.type === 'tv' && (
+                <button
+                  type="button"
+                  onClick={() => setGroupFocus(releaseGroup)}
+                  className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 text-[11px]"
+                >
+                  Show Group
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setGroupFocus(releaseGroup)}
-                className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 text-[11px]"
+                disabled={!canGrab || isGrabBusy}
+                onClick={() => onGrabRelease(release)}
+                className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
+                  !canGrab || isGrabBusy
+                    ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                    : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
+                }`}
+                title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
+                aria-label="Grab release"
               >
-                Show Group
+                {isGrabBusy ? (
+                  <span className="text-[10px]">...</span>
+                ) : (
+                  <DownloadIcon className="h-4 w-4" />
+                )}
               </button>
-            )}
-            <button
-              type="button"
-              disabled={!canGrab || isGrabBusy}
-              onClick={() => onGrabRelease(release)}
-              className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
-                !canGrab || isGrabBusy
-                  ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                  : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
-              }`}
-              title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
-              aria-label="Grab release"
-            >
-              {isGrabBusy ? (
-                <span className="text-[10px]">...</span>
-              ) : (
-                <DownloadIcon className="h-4 w-4" />
-              )}
-            </button>
+            </div>
           </div>
 
           {/* Warnings surfaced via icon tooltip */}
@@ -1347,10 +1363,10 @@ function ReleaseView({
                   <p className="mt-2 text-xs text-red-400">AI: {aiSuggestError}</p>
                 )}
                 {releaseAiEnabled && aiSuggestion && (
-                  <div className="mt-2 text-xs text-emerald-300">
+                  <div className="mt-2 text-xs text-cyan-300">
                     <div>AI pick: {aiSuggestion.title || 'Suggested release'}</div>
                     {aiSuggestion.reason && (
-                      <div className="text-emerald-200/80">{aiSuggestion.reason}</div>
+                      <div className="text-cyan-200/80">{aiSuggestion.reason}</div>
                     )}
                     {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
                       <div className="text-amber-200/80">
@@ -1380,7 +1396,7 @@ function ReleaseView({
                   onClick={() => onAiSuggest(aiCandidateReleases)}
                   disabled={!aiSuggestAvailable || aiSuggestBusy}
                   title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
-                  className="text-xs px-2 py-1 rounded bg-emerald-700/70 hover:bg-emerald-600/80 disabled:opacity-50"
+                className="text-xs px-2 py-1 rounded bg-cyan-700/70 hover:bg-cyan-600/80 disabled:opacity-50"
                 >
                   {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
                 </button>
@@ -1454,7 +1470,7 @@ function ReleaseView({
                       onClick={() => handleSort(field)}
                       className={`px-2 py-1 rounded text-xs ${
                         sortField === field
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-cyan-600 text-white'
                           : 'bg-slate-800/60 text-slate-300'
                       }`}
                     >
@@ -1490,7 +1506,7 @@ function ReleaseView({
                                 const progressLabel = getSeasonProgressLabel(seasonGroup.season)
                                 if (!progressLabel) return null
                                 return (
-                                  <span className="ml-2 text-emerald-200">
+                                  <span className="ml-2 text-cyan-200">
                                     {progressLabel}
                                   </span>
                                 )
@@ -1620,7 +1636,7 @@ function ReleaseView({
                                         className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
                                           grabAllCandidates.length === 0 || grabAllBusy
                                             ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                                            : 'bg-emerald-600/90 hover:bg-emerald-500 text-white'
+                                            : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
                                         }`}
                                         title={grabAllCandidates.length === 0
                                           ? 'Missing release identifiers'
@@ -1719,7 +1735,7 @@ function ReleaseView({
                           </span>
                         )}
                         <span>{release.size_formatted}</span>
-                        <span className="text-green-400">{release.quality}</span>
+                        <span className="text-cyan-300">{release.quality}</span>
                         <span className="text-slate-500">{getResolutionLabel(release)}</span>
                         <span className="text-slate-500">{getSourceLabel(release)}</span>
                         <span className="text-slate-500">{getCodecLabel(release)}</span>
@@ -1748,8 +1764,8 @@ function ReleaseView({
                   setGrabAllModal(null)
                   onGrabAll(selected)
                 }}
-                className="bg-emerald-600/90 hover:bg-emerald-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
-              >
+              className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
+            >
                 Grab Selected
               </button>
             </div>
@@ -1866,9 +1882,9 @@ function AvailabilityModal({
               return (
                 <div
                   key={provider.name}
-                  className={`flex items-center gap-2 rounded px-2 py-1 text-xs border ${
+                    className={`flex items-center gap-2 rounded px-2 py-1 text-xs border ${
                     isSubscribed
-                      ? 'border-emerald-400/70 bg-emerald-900/20 text-emerald-200'
+                      ? 'border-cyan-400/70 bg-cyan-900/20 text-cyan-200'
                       : 'border-slate-700/60 bg-slate-800/60 text-slate-200'
                   }`}
                 >
@@ -1893,7 +1909,7 @@ function AvailabilityModal({
           href={availability.link}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center text-xs text-blue-300 hover:text-blue-200"
+          className="inline-flex items-center text-xs text-cyan-300 hover:text-cyan-200"
         >
           View streaming options
         </a>
@@ -2119,7 +2135,7 @@ function AvailabilityModal({
                       }
                       onClose()
                     }}
-                    className="bg-blue-600/90 hover:bg-blue-500 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+                    className="bg-cyan-500/80 hover:bg-cyan-400 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
                   >
                     Find Releases
                   </button>
@@ -2156,7 +2172,7 @@ function AvailabilityModal({
                   type="button"
                   onClick={() => plan && onConfirm?.(plan)}
                   disabled={busy}
-                  className="bg-blue-600/90 hover:bg-blue-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium"
+                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium"
                 >
                   {busy ? 'Working...' : actionLabel}
                 </button>
@@ -2311,7 +2327,7 @@ function DiscoveryCard({
 
           <button
             onClick={handleReleasesClick}
-            className="bg-blue-600/90 hover:bg-blue-500 text-white py-1 px-2 sm:py-1.5 sm:px-3 rounded text-[11px] sm:text-xs font-semibold tracking-wide transition-colors ml-auto md:ml-0"
+            className="bg-cyan-500/80 hover:bg-cyan-400 text-white py-1 px-2 sm:py-1.5 sm:px-3 rounded text-[11px] sm:text-xs font-semibold tracking-wide transition-colors ml-auto md:ml-0"
           >
             Find Releases
           </button>
@@ -2389,7 +2405,7 @@ function SabQueue({
             </div>
             <div className="w-full bg-slate-700/60 rounded-full h-2.5 mt-2">
               <div
-                className="bg-blue-600 h-2.5 rounded-full"
+                className="bg-cyan-500 h-2.5 rounded-full"
                 style={{ width: `${percent}%` }}
               ></div>
             </div>
@@ -2445,12 +2461,10 @@ function SabRecent({ data, error }: { data: SabRecentResponse | null, error: str
     })
   }
   
-  // Initially, all groups with more than one item are collapsed
+  // Initially, collapse all groups for consistent behavior
   useEffect(() => {
     if (!data || initializedRef.current) return
-    const initialCollapsed = new Set(
-      data.groups.filter(g => g.count > 1).map(g => g.groupKey)
-    )
+    const initialCollapsed = new Set(data.groups.map(g => g.groupKey))
     setCollapsedGroups(initialCollapsed)
     initializedRef.current = true
   }, [data])
@@ -2536,6 +2550,7 @@ function HomeContent() {
   const [sabQueueError, setSabQueueError] = useState<string | null>(null)
   const [sabRecentError, setSabRecentError] = useState<string | null>(null)
   const [sabActionBusy, setSabActionBusy] = useState(false)
+  const [integrationsStatus, setIntegrationsStatus] = useState<IntegrationsStatus | null>(null)
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
   const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
 
@@ -2639,15 +2654,24 @@ function HomeContent() {
       const backendUrl = getBackendUrl()
 
       try {
-        const healthRes = await fetch(`${backendUrl}/health`)
+        const [healthRes, configRes, statusRes] = await Promise.all([
+          fetch(`${backendUrl}/health`),
+          fetch(`${backendUrl}/config`),
+          fetch(`${backendUrl}/integrations/status`),
+        ])
         if (!healthRes.ok) throw new Error(`Health: HTTP ${healthRes.status}`)
         const healthData = await healthRes.json()
         setHealth(healthData)
 
-        const configRes = await fetch(`${backendUrl}/config`)
         if (!configRes.ok) throw new Error(`Config: HTTP ${configRes.status}`)
         const configData = await configRes.json()
         setConfig(configData)
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          setIntegrationsStatus(statusData)
+        } else {
+          setIntegrationsStatus(null)
+        }
 
         setError(null)
         
@@ -2655,6 +2679,7 @@ function HomeContent() {
         setError(err instanceof Error ? err.message : 'Failed to connect')
         setHealth(null)
         setConfig(null)
+        setIntegrationsStatus(null)
       } finally {
         setLoading(false)
       }
@@ -3246,11 +3271,42 @@ function HomeContent() {
     return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
   })()
 
+  const getToolIconUrl = (url: string) => `${url.replace(/\/$/, '')}/favicon.ico`
+
+  const getIntegrationStatus = (key: keyof IntegrationsStatus) => {
+    if (!integrationsStatus) return null
+    return integrationsStatus[key]?.status === 'ok'
+  }
+
   const toolLinks = [
-    { label: 'Sonarr', url: config?.integrations.sonarr_url || getLocalToolUrl(8989) },
-    { label: 'Radarr', url: config?.integrations.radarr_url || getLocalToolUrl(7878) },
-    { label: 'SABnzbd', url: config?.integrations.sabnzbd_url || getLocalToolUrl(8080) },
-    { label: 'Plex', url: getLocalToolUrl(32400, '/web') },
+    {
+      key: 'sonarr',
+      label: 'Sonarr',
+      url: config?.integrations.sonarr_url || getLocalToolUrl(8989),
+      iconUrl: getToolIconUrl(config?.integrations.sonarr_url || getLocalToolUrl(8989)),
+      status: getIntegrationStatus('sonarr'),
+    },
+    {
+      key: 'radarr',
+      label: 'Radarr',
+      url: config?.integrations.radarr_url || getLocalToolUrl(7878),
+      iconUrl: getToolIconUrl(config?.integrations.radarr_url || getLocalToolUrl(7878)),
+      status: getIntegrationStatus('radarr'),
+    },
+    {
+      key: 'sabnzbd',
+      label: 'SABnzbd',
+      url: config?.integrations.sabnzbd_url || getLocalToolUrl(8080),
+      iconUrl: getToolIconUrl(config?.integrations.sabnzbd_url || getLocalToolUrl(8080)),
+      status: getIntegrationStatus('sabnzbd'),
+    },
+    {
+      key: 'plex',
+      label: 'Plex',
+      url: getLocalToolUrl(32400, '/web'),
+      iconUrl: getToolIconUrl(getLocalToolUrl(32400, '/web')),
+      status: null,
+    },
   ]
   const enabledStreamingServices = config?.streaming_services.filter((service) => service.enabled) || []
 
@@ -3351,7 +3407,7 @@ function HomeContent() {
             className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
             title="Go home"
           >
-            Shiny Palm Tree
+            Quasrr
           </button>
 
           
@@ -3443,13 +3499,19 @@ function HomeContent() {
               <div className="text-[11px] uppercase tracking-wide text-slate-500">Tools</div>
               {toolLinks.map((tool) => (
                 <a
-                  key={tool.label}
+                  key={tool.key}
                   href={tool.url}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => setMenuOpen(false)}
                   className="mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60"
                 >
+                  <img
+                    src={tool.iconUrl}
+                    alt={`${tool.label} icon`}
+                    className={`h-4 w-4 object-contain ${tool.status === false ? 'opacity-40 grayscale' : ''}`}
+                    loading="lazy"
+                  />
                   <span>{tool.label}</span>
                 </a>
               ))}
@@ -3514,7 +3576,7 @@ function HomeContent() {
               <button
                 type="submit"
                 disabled={searching || !searchQuery.trim()}
-                className="bg-blue-600/90 hover:bg-blue-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
+                className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
               >
                 {submittingSearch || searching ? '...' : 'Search'}
               </button>
@@ -3622,12 +3684,12 @@ function HomeContent() {
             <div className="glass-panel rounded-lg p-5 md:p-6 mb-4 relative overflow-hidden">
               <div className="absolute inset-0">
                 <div className="absolute -top-8 -right-12 h-40 w-40 rounded-full bg-cyan-900/30 blur-2xl" />
-                <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-blue-900/30 blur-2xl" />
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/30 via-transparent to-slate-900/40" />
+                <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-fuchsia-900/30 blur-2xl" />
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-950/40 via-transparent to-slate-900/40" />
               </div>
               <div className="relative">
                 <div className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                  Shiny Palm Tree
+                  Quasrr
                 </div>
                 <h2 className="mt-2 text-lg md:text-xl font-semibold text-slate-100">
                   Search once. See what you already have. Grab what you do not.
@@ -3868,7 +3930,7 @@ function HomeContent() {
               <div className="text-xs text-red-400 mb-2">Error: {settingsError}</div>
             )}
             {settingsSaved && (
-              <div className="text-xs text-emerald-300 mb-2">Settings saved.</div>
+              <div className="text-xs text-cyan-300 mb-2">Settings saved.</div>
             )}
             <div className="grid md:grid-cols-2 gap-3 text-sm">
               <label className="grid gap-1">

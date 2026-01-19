@@ -1,4 +1,4 @@
-# Docker Compose for Shiny-Palm-Tree
+# Docker Compose for Quasrr
 # Unified media search and download management
 
 # --- YAML Anchor for Common Configuration ---
@@ -7,7 +7,7 @@ x-common-config: &common-config
     - ./.env
   networks:
     - net-media
-    #- net-shiny-palm-tree
+    #- net-quasrr
   restart: unless-stopped
   logging:
     driver: json-file
@@ -61,7 +61,7 @@ services:
 # ===================================================================
 networks:
   net-media:
-  #net-shiny-palm-tree:
+  #net-Quasrr:
     name: net-media
     external: true
     #driver: bridge

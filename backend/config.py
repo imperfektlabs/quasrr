@@ -1,5 +1,5 @@
 """
-Configuration system for Shiny-Palm-Tree.
+Configuration system for Quasrr.
 
 Hierarchy (highest priority first):
 1. Environment variables
@@ -82,7 +82,7 @@ class UserConfig(BaseModel):
 
 
 class AppConfig(BaseModel):
-    name: str = "Shiny Palm Tree"
+    name: str = "Quasrr"
     log_level: str = "INFO"
 
 
