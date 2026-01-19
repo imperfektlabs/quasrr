@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Shiny Palm Tree',
+  title: 'Quasrr',
   description: 'Unified media search and download management',
 }
 

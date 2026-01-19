@@ -1,12 +1,12 @@
 # ==============================================
-# SHINY-PALM-TREE DEFAULT CONFIGURATION
+# QUASRR DEFAULT CONFIGURATION
 # ==============================================
 # These are sensible defaults shipped with the app.
 # Override in settings.yaml or via environment variables.
 
 # --- Application ---
 app:
-  name: "Shiny Palm Tree"
+  name: "Quasrr"
   log_level: "INFO"
 
 # --- User Preferences ---

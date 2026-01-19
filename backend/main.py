@@ -179,7 +179,7 @@ def normalize_id_query(query: str) -> tuple[str, str | None]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Shiny-Palm-Tree backend")
+    logger.info("Starting Quasrr backend")
     logger.info(f"Database path: {DATABASE_PATH}")
 
     # Load configuration on startup
@@ -210,11 +210,11 @@ async def lifespan(app: FastAPI):
         logger.warning("SABnzbd not configured")
 
     yield
-    logger.info("Shutting down Shiny-Palm-Tree backend")
+    logger.info("Shutting down Quasrr backend")
 
 
 app = FastAPI(
-    title="Shiny-Palm-Tree",
+    title="Quasrr",
     description="Unified media search and download management",
     version="0.1.0",
     lifespan=lifespan,
