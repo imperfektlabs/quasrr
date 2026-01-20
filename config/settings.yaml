@@ -20,4 +20,4 @@ streaming_services:
 user:
   country: CA
 ai:
-  model: gpt-4o-mini
+  model: gpt-5-nano
