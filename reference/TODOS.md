@@ -31,6 +31,8 @@ TODOs
 
 
 
+- Add Gemini capabilities
+- Bug: AI search episodes by date
 
 
 
