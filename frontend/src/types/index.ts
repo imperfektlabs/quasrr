@@ -1,0 +1,265 @@
+/**
+ * Type definitions for Quasrr frontend
+ * Extracted from page.tsx for better organization and reusability
+ */
+
+// ============================================
+// API & Configuration Types
+// ============================================
+
+export type HealthStatus = {
+  status: string
+} | null
+
+export type ConfigStatus = {
+  app: { name: string; log_level: string }
+  user: { country: string; language: string }
+  ai: { provider: string; model: string; api_key: string | null }
+  streaming_services: { id: string; name: string; enabled: boolean }[]
+  integrations: {
+    sonarr_url: string | null
+    radarr_url: string | null
+    sabnzbd_url: string | null
+    tmdb_api_key?: string | null
+  }
+  features: {
+    show_download_always: boolean
+    ai_suggestions: boolean
+    auto_quality_filter: boolean
+  }
+} | null
+
+// ============================================
+// Search & Discovery Types
+// ============================================
+
+export type SearchType = 'movie' | 'tv'
+export type SearchFilterType = 'all' | SearchType
+export type SearchStatusFilter = 'all' | 'not_in_library' | 'in_library' | 'downloaded'
+export type SearchSortField = 'relevance' | 'year' | 'title' | 'rating' | 'popularity'
+export type SearchSortDirection = 'asc' | 'desc'
+
+export type Rating = {
+  source: string
+  value: number
+  votes?: number
+}
+
+export type StreamingService = {
+  id: string
+  name: string
+  enabled: boolean
+}
+
+// Discovery result from Stage 1 search
+export type DiscoveryResult = {
+  type: SearchType
+  title: string
+  year?: number
+  overview?: string
+  poster?: string
+  status: 'not_in_library' | 'in_library' | 'downloaded'
+  tmdb_id?: number
+  imdb_id?: string
+  runtime?: number
+  genres?: string[]
+  radarr_id?: number | null
+  tvdb_id?: number
+  network?: string
+  series_status?: string
+  seasons?: number
+  sonarr_id?: number | null
+  ratings?: Rating[]
+  cast?: string[]
+  popularity?: number
+}
+
+export type SearchResponse = {
+  query: string
+  type: string
+  count: number
+  total_count: number
+  page: number
+  page_size: number
+  total_pages: number
+  results: DiscoveryResult[]
+}
+
+// ============================================
+// Release Types
+// ============================================
+
+// Release from Stage 2 indexer search
+export type Release = {
+  title: string
+  size: number
+  size_formatted: string
+  size_gb: number
+  quality: string
+  resolution?: number
+  source?: string
+  indexer: string
+  indexer_id?: number
+  age: string
+  publish_date?: string
+  protocol: string
+  guid?: string
+  info_url?: string
+  rejected: boolean
+  rejections?: string[]
+  // TV-specific
+  season?: number
+  episode?: number[]
+  full_season?: boolean
+}
+
+export type ReleaseResponse = {
+  title: string
+  year?: number
+  type: string
+  season?: number
+  requested_season?: number
+  requested_episode?: number
+  requested_episode_title?: string
+  poster?: string
+  tmdb_id?: number
+  tvdb_id?: number
+  radarr_id?: number
+  sonarr_id?: number
+  runtime?: number
+  releases: Release[]
+  message?: string
+  episode_downloaded?: EpisodeDownloadMap
+  season_progress?: SeasonProgress[]
+}
+
+export type SortField = 'size' | 'quality' | 'age' | 'title'
+export type SortDirection = 'asc' | 'desc' | null
+
+export type EpisodeDownloadMap = Record<string, Record<string, boolean>>
+
+export type SeasonProgress = {
+  season: number
+  downloaded: number
+  total: number
+}
+
+// ============================================
+// AI Types
+// ============================================
+
+export type AISuggestion = {
+  index?: number
+  guid?: string | null
+  title?: string | null
+  reason?: string
+  warnings?: string[]
+}
+
+export type AIIntent = {
+  media_type: 'movie' | 'tv' | 'unknown'
+  title: string
+  season?: number | null
+  episode?: number | null
+  episode_date?: string | null
+  action?: 'search' | 'download'
+  quality?: string | null
+  confidence?: number
+  notes?: string
+}
+
+export type AIAvailability = {
+  tmdb_id?: number
+  title?: string
+  year?: string
+  overview?: string
+  poster_url?: string
+  link?: string
+  flatrate?: { name: string; logo_url?: string | null }[]
+  subscribed?: string[]
+  media_type?: 'movie' | 'tv'
+}
+
+export type AIIntentPlan = {
+  query: string
+  intent: AIIntent
+  availability?: AIAvailability
+  recommendation?: 'watch' | 'search' | 'download'
+}
+
+// ============================================
+// SABnzbd Types
+// ============================================
+
+export type SabQueueItem = {
+  id?: string
+  name: string
+  status: string
+  percentage: string
+  size_total: string
+  size_remaining: string
+  speed: string
+  eta: string
+  category: string
+  parsedTitle: string
+  mediaType: 'movie' | 'tv' | 'unknown'
+  season?: number
+  episode?: number
+  groupKey: string
+}
+
+export type SabQueueResponse = {
+  jobs: SabQueueItem[]
+  speed: string
+}
+
+export type SabRecentItem = {
+  name: string
+  status: string
+  completedTime: number | null
+  size: string
+  category: string
+  parsedTitle: string
+  mediaType: 'movie' | 'tv' | 'unknown'
+  season?: number
+  episode?: number
+  groupKey: string
+}
+
+export type SabRecentGroup = {
+  groupKey: string
+  title: string
+  mediaType: 'movie' | 'tv' | 'unknown'
+  count: number
+  totalSize: number
+  latestCompletedTime: number | null
+  items: SabRecentItem[]
+}
+
+export type SabRecentResponse = {
+  groups: SabRecentGroup[]
+}
+
+// ============================================
+// Integration Types
+// ============================================
+
+export type IntegrationStatus = {
+  status: string
+  message?: string
+  version?: string
+}
+
+export type IntegrationsStatus = {
+  radarr: IntegrationStatus
+  sonarr: IntegrationStatus
+  sabnzbd: IntegrationStatus
+}
+
+// ============================================
+// Component Props Types
+// ============================================
+
+export type IconProps = {
+  className?: string
+}
