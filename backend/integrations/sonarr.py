@@ -6,7 +6,7 @@ import asyncio
 import logging
 import re
 import time
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import Optional
 
 import httpx
@@ -60,6 +60,20 @@ def format_age(publish_date: str) -> str:
             return f"{years} year{'s' if years > 1 else ''}"
     except Exception:
         return "Unknown"
+
+
+def build_episode_date_tokens(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        target = datetime.fromisoformat(value).date()
+    except Exception:
+        return []
+    return [
+        target.strftime("%Y.%m.%d"),
+        target.strftime("%Y-%m-%d"),
+        target.strftime("%Y%m%d"),
+    ]
 
 
 def extract_ratings(raw: dict) -> list[dict]:
@@ -258,6 +272,32 @@ class SonarrClient:
             logger.error(f"Sonarr episode list error: {e}")
             return []
 
+    async def get_calendar(
+        self,
+        series_id: int,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict]:
+        """Fetch a date-range of episodes from Sonarr calendar."""
+        if not self.is_configured:
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/calendar",
+                    headers=self._get_headers(),
+                    params={
+                        "seriesId": series_id,
+                        "start": start_date.isoformat(),
+                        "end": end_date.isoformat(),
+                    },
+                )
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            logger.error(f"Sonarr calendar error: {e}")
+            return []
+
     def _parse_air_date(self, value: str | None) -> date | None:
         if not value:
             return None
@@ -307,16 +347,13 @@ class SonarrClient:
         episodes: list[dict],
         season: Optional[int],
         episode: Optional[int],
-        episode_date: Optional[str],
+        episode_date: Optional[date],
     ) -> Optional[int]:
         if season is None or episode is None:
             return None
         target_date = None
         if episode_date:
-            try:
-                target_date = datetime.fromisoformat(episode_date).date()
-            except Exception:
-                target_date = None
+            target_date = episode_date
         for ep in episodes:
             if ep.get("seasonNumber") != season:
                 continue
@@ -336,10 +373,11 @@ class SonarrClient:
         season: Optional[int],
         episode: Optional[int],
         episode_date: Optional[str],
-    ) -> tuple[Optional[int], Optional[int], Optional[str]]:
+        episodes: Optional[list[dict]] = None,
+    ) -> tuple[Optional[int], Optional[int], Optional[str], Optional[date], bool]:
         """Resolve season/episode from episode number or air date."""
         if episode and season:
-            return season, episode, None
+            return season, episode, None, None, False
 
         if episode_date:
             try:
@@ -348,11 +386,25 @@ class SonarrClient:
                 target_date = None
 
             if target_date:
-                episodes = await self.get_episode_list(series_id)
+                calendar_items = await self.get_calendar(
+                    series_id,
+                    target_date - timedelta(days=1),
+                    target_date + timedelta(days=1),
+                )
+                for ep in calendar_items:
+                    air_local = self._parse_air_date(ep.get("airDate"))
+                    air_utc = self._parse_air_date(ep.get("airDateUtc"))
+                    if air_local == target_date:
+                        return ep.get("seasonNumber"), ep.get("episodeNumber"), ep.get("title"), air_local, False
+                    if air_local is None and air_utc == target_date:
+                        return ep.get("seasonNumber"), ep.get("episodeNumber"), ep.get("title"), air_utc, False
+
+                if episodes is None:
+                    episodes = await self.get_episode_list(series_id)
                 exact = None
                 fallback = None
                 fallback_date = None
-                for ep in episodes:
+                for ep in episodes or []:
                     air_local = self._parse_air_date(ep.get("airDate"))
                     air_utc = self._parse_air_date(ep.get("airDateUtc"))
                     if air_local == target_date:
@@ -374,9 +426,11 @@ class SonarrClient:
                         chosen.get("seasonNumber"),
                         chosen.get("episodeNumber"),
                         chosen.get("title"),
+                        fallback_date if chosen is fallback else target_date,
+                        chosen is fallback,
                     )
 
-        return season, episode, None
+        return season, episode, None, None, False
 
     async def get_library_series(self) -> dict[int, dict]:
         """Get all series in Sonarr library, keyed by TVDB ID."""
@@ -670,21 +724,24 @@ class SonarrClient:
                 "season_progress": season_progress,
             }
 
-        resolved_season, resolved_episode, resolved_title = await self.resolve_episode_target(
+        resolved_season, resolved_episode, resolved_title, resolved_date, used_fallback = await self.resolve_episode_target(
             series_id,
             season,
             episode,
             episode_date,
+            episodes,
         )
 
-        episode_id = self._find_episode_id(episodes, resolved_season, resolved_episode, episode_date)
+        episode_id = self._find_episode_id(episodes, resolved_season, resolved_episode, resolved_date)
 
         logger.info(
-            "Episode resolution: season=%s, episode=%s, title=%s, episode_date=%s, episode_id=%s",
+            "Episode resolution: season=%s, episode=%s, title=%s, episode_date=%s, resolved_date=%s, fallback=%s, episode_id=%s",
             resolved_season,
             resolved_episode,
             resolved_title,
             episode_date,
+            resolved_date.isoformat() if resolved_date else None,
+            used_fallback,
             episode_id,
         )
 
@@ -702,6 +759,12 @@ class SonarrClient:
                 "episode_downloaded": episode_downloaded,
                 "season_progress": season_progress,
             }
+        fallback_message = None
+        if episode_date and used_fallback and resolved_date:
+            fallback_message = (
+                f"No episode found for {episode_date}. "
+                f"Using previous episode from {resolved_date.isoformat()}."
+            )
 
         search_season = resolved_season if resolved_season is not None else season
 
@@ -794,17 +857,24 @@ class SonarrClient:
                 "full_season": release.get("fullSeason", False),
             })
 
+        date_tokens = build_episode_date_tokens(episode_date)
         if resolved_episode and resolved_season is not None and not used_episode_id:
             logger.info(f"Filtering {len(normalized)} releases for S{resolved_season:02d}E{resolved_episode:02d}")
             filtered = []
             for release in normalized:
                 if release.get("full_season"):
                     continue
-                if release.get("season") != resolved_season:
+                season_value = release.get("season")
+                if season_value is not None and season_value != resolved_season:
                     continue
                 episodes = release.get("episode") or []
                 if resolved_episode in episodes:
                     filtered.append(release)
+                    continue
+                if episode_date and not episodes:
+                    title = (release.get("title") or "").lower()
+                    if any(token in title for token in date_tokens):
+                        filtered.append(release)
             logger.info(f"After filtering: {len(filtered)} releases matched S{resolved_season:02d}E{resolved_episode:02d}")
             normalized = filtered
 
@@ -820,6 +890,7 @@ class SonarrClient:
             "requested_season": resolved_season,
             "requested_episode": resolved_episode,
             "requested_episode_title": resolved_title,
+            "message": fallback_message,
             "episode_downloaded": episode_downloaded,
             "season_progress": season_progress,
         }
