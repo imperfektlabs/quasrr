@@ -477,8 +477,8 @@ AI suggestions use these preferences to rank releases.
 - [ ] Multi-language support
 - [ ] Dark/light theme toggle
 - [ ] PWA offline support
-- [ ] Automatic monitoring/downloads (goes against manual-only philosophy)
-- [ ] Library management (use Sonarr/Radarr directly)
+- [ ] Automatic monitoring/downloads 
+- [ ] Library management 
 
 
 ### Non-Goals ❌

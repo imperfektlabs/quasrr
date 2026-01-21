@@ -237,6 +237,9 @@ export function AvailabilityModal({
                     <span className="glass-chip px-2 py-1 rounded">{intent.action}</span>
                   )}
                 </div>
+                {releaseData?.message && (
+                  <div className="text-xs text-amber-300">{releaseData.message}</div>
+                )}
                 {intent?.notes && (
                   <div
                     className="text-gray-300"

@@ -112,5 +112,6 @@ backend/integrations/sonarr.py
 2. **Pre-fetch timing**: Modal may briefly show without episode info before pre-fetch completes
 3. Consider date-based title matching as fallback when episode number matching fails
 
+
 ## Summary
 Successfully restored episode date search functionality and fixed AI modal display logic. The feature now works end-to-end, resolving dates to episode numbers and displaying them in the modal. One remaining issue is that some daily show releases don't have proper episode number tags, causing 0 results even when releases exist in indexers.
