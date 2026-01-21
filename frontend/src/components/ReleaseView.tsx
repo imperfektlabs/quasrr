@@ -330,15 +330,25 @@ export function ReleaseView({
 
   const getSeason = (release: Release) => {
     if (typeof release.season === 'number') return release.season
+    if (typeof requestedSeason === 'number') return requestedSeason
     if (typeof data.season === 'number') return data.season
     return 0
   }
 
-  const getEpisodeLabel = (release: Release) => {
-    const season = getSeason(release)
+  const getEpisodes = (release: Release): number[] => {
     const episodes = Array.isArray(release.episode)
       ? release.episode.filter((e) => typeof e === 'number')
       : []
+    if (episodes.length > 0) return episodes
+    if (typeof requestedEpisode === 'number' && typeof requestedSeason === 'number') {
+      return [requestedEpisode]
+    }
+    return []
+  }
+
+  const getEpisodeLabel = (release: Release) => {
+    const season = getSeason(release)
+    const episodes = getEpisodes(release)
 
     if (release.full_season) {
       return season > 0 ? `S${season} Full` : 'Full Season'
@@ -356,9 +366,7 @@ export function ReleaseView({
 
   const getEpisodeGroupKey = (release: Release) => {
     const season = getSeason(release)
-    const episodes = Array.isArray(release.episode)
-      ? release.episode.filter((e) => typeof e === 'number')
-      : []
+    const episodes = getEpisodes(release)
 
     if (release.full_season) {
       return 'full-season'
@@ -376,9 +384,7 @@ export function ReleaseView({
   const getEpisodeRangeKey = (release: Release) => {
     const season = getSeason(release)
     if (release.full_season) return `S${season || 0}:full`
-    const episodes = Array.isArray(release.episode)
-      ? release.episode.filter((e) => typeof e === 'number')
-      : []
+    const episodes = getEpisodes(release)
     if (!episodes.length) return `S${season || 0}:other`
     const minEp = Math.min(...episodes)
     const maxEp = Math.max(...episodes)
@@ -464,9 +470,7 @@ export function ReleaseView({
       }
 
       const season = getSeason(release)
-      const episodes = Array.isArray(release.episode)
-        ? release.episode.filter((e) => typeof e === 'number')
-        : []
+      const episodes = getEpisodes(release)
 
       if (episodes.length > 0) {
         const minEp = Math.min(...episodes)
@@ -540,9 +544,7 @@ export function ReleaseView({
   const episodeSortKey = (release: Release) => {
     if (release.full_season) return Number.MAX_SAFE_INTEGER - 1
     const season = getSeason(release)
-    const episodes = Array.isArray(release.episode)
-      ? release.episode.filter((e) => typeof e === 'number')
-      : []
+    const episodes = getEpisodes(release)
     if (episodes.length === 0) return Number.MAX_SAFE_INTEGER
     return season * 1000 + Math.min(...episodes)
   }
@@ -633,9 +635,7 @@ export function ReleaseView({
       return Boolean(progress && progress.total > 0 && progress.downloaded === progress.total)
     }
 
-    const episodes = Array.isArray(release.episode)
-      ? release.episode.filter((ep) => typeof ep === 'number')
-      : []
+    const episodes = getEpisodes(release)
     if (episodes.length === 0) return false
 
     return episodes.every((ep) => Boolean(seasonEpisodes[ep]))
@@ -649,9 +649,7 @@ export function ReleaseView({
     for (const release of releases) {
       const season = getSeason(release)
       if (!season || season <= 0) continue
-      const episodes = Array.isArray(release.episode)
-        ? release.episode.filter((ep) => typeof ep === 'number')
-        : []
+      const episodes = getEpisodes(release)
       for (const ep of episodes) {
         episodeKeys.add(`${season}:${ep}`)
       }
@@ -699,9 +697,7 @@ export function ReleaseView({
       return null
     }
 
-    const episodes = Array.isArray(release.episode)
-      ? release.episode.filter((ep) => typeof ep === 'number')
-      : []
+    const episodes = getEpisodes(release)
     if (episodes.length === 0) return null
 
     let downloadedCount = 0
@@ -746,8 +742,7 @@ export function ReleaseView({
     const isRequested = Boolean(
       requestedEpisode &&
       (!requestedSeason || getSeason(release) === requestedSeason) &&
-      Array.isArray(release.episode) &&
-      release.episode.includes(requestedEpisode)
+      getEpisodes(release).includes(requestedEpisode)
     )
     const rowShade = index % 2 === 0 ? 'bg-slate-900/10' : 'bg-slate-900/20'
 
@@ -869,7 +864,11 @@ export function ReleaseView({
                 <p className="text-gray-400 text-sm">
                   {data.year} | {data.releases.length} releases found
                   {data.runtime && ` | ${data.runtime} min`}
-                  {data.season && ` | Season ${data.season}`}
+                  {typeof requestedSeason === 'number' && typeof requestedEpisode === 'number'
+                    ? ` | S${requestedSeason.toString().padStart(2, '0')}E${requestedEpisode.toString().padStart(2, '0')}`
+                    : typeof requestedSeason === 'number'
+                      ? ` | Season ${requestedSeason}`
+                      : data.season && ` | Season ${data.season}`}
                 </p>
                 {grabFeedback && (
                   <p className={`mt-2 text-xs ${
