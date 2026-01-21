@@ -8,10 +8,14 @@ RUN npm install
 
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
-RUN mkdir -p .next && chown -R node:node .
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node . .
+
+RUN chown -R node:node /app && \
+    mkdir -p /app/.next && \
+    chown -R node:node /app/.next
+
 USER node
 
 RUN npm run build

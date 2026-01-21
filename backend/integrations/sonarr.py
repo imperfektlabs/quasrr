@@ -552,6 +552,8 @@ class SonarrClient:
             episode_date,
         )
 
+        logger.info(f"Episode resolution: season={resolved_season}, episode={resolved_episode}, title={resolved_title}, episode_date={episode_date}")
+
         if episode_date and resolved_episode is None:
             return {
                 "title": series_title,
@@ -637,6 +639,7 @@ class SonarrClient:
             })
 
         if resolved_episode and resolved_season is not None:
+            logger.info(f"Filtering {len(normalized)} releases for S{resolved_season:02d}E{resolved_episode:02d}")
             filtered = []
             for release in normalized:
                 if release.get("full_season"):
@@ -646,6 +649,7 @@ class SonarrClient:
                 episodes = release.get("episode") or []
                 if resolved_episode in episodes:
                     filtered.append(release)
+            logger.info(f"After filtering: {len(filtered)} releases matched S{resolved_season:02d}E{resolved_episode:02d}")
             normalized = filtered
 
         logger.info(f"Returning {len(normalized)} releases for '{series_title}'")
