@@ -41,7 +41,11 @@ export function useAiIntentSearch(aiEnabled: boolean): AiIntentSearchResult {
   }, [enabled])
 
   const execute = async (query: string) => {
-    console.log('[useAiIntentSearch.execute] Called with:', { query, aiEnabled, enabled })
+    console.log('[useAiIntentSearch.execute] Called', {
+      length: query.length,
+      aiEnabled,
+      enabled,
+    })
 
     if (!aiEnabled || !enabled) {
       console.log('[useAiIntentSearch.execute] AI not enabled, clearing plan')
@@ -80,27 +84,39 @@ export function useAiIntentSearch(aiEnabled: boolean): AiIntentSearchResult {
               },
               availability: availData.availability || null,
             }
-            console.log('[useAiIntentSearch.execute] Fallback succeeded, setting plan:', fallbackPlan)
+            console.log('[useAiIntentSearch.execute] Fallback succeeded')
             setPlan(fallbackPlan)
             return
           }
         } catch (fallbackErr) {
-          console.log('[useAiIntentSearch.execute] Fallback failed:', fallbackErr)
+          console.log(
+            '[useAiIntentSearch.execute] Fallback failed:',
+            fallbackErr instanceof Error ? fallbackErr.message : 'unknown error'
+          )
           // Ignore fallback errors
         }
 
         const errorData = await res.json()
-        console.log('[useAiIntentSearch.execute] Error data:', errorData)
+        console.log(
+          '[useAiIntentSearch.execute] Error response:',
+          typeof errorData?.detail === 'string' ? errorData.detail : 'unknown'
+        )
         setError(errorData.detail || 'AI intent parsing failed')
         setPlan(null)
         return
       }
 
       const intentData = await res.json()
-      console.log('[useAiIntentSearch.execute] Success! Intent data:', intentData)
+      console.log(
+        '[useAiIntentSearch.execute] Success!',
+        intentData?.intent?.title ? `title=${intentData.intent.title}` : 'no title'
+      )
       setPlan(intentData)
     } catch (e) {
-      console.log('[useAiIntentSearch.execute] Exception:', e)
+      console.log(
+        '[useAiIntentSearch.execute] Exception:',
+        e instanceof Error ? e.message : 'unknown error'
+      )
       setError('Network error during AI intent parsing')
       setPlan(null)
     } finally {
