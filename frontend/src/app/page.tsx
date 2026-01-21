@@ -128,8 +128,7 @@ function HomeContent() {
     const intent = aiIntentPlan.intent
     if (!intent.title) return
 
-    console.log('[AI Intent Effect] Processing intent:', intent)
-    console.log('[AI Intent Effect] Availability:', aiIntentPlan.availability)
+    console.log('[AI Intent Effect] Processing intent')
 
     // Build AI translation display string
     let translation = intent.title
@@ -139,12 +138,12 @@ function HomeContent() {
     if (intent.episode_date) translation += ` • ${intent.episode_date}`
 
     setAiTranslation(translation)
-    console.log('[AI Intent Effect] Translation set to:', translation)
+    console.log('[AI Intent Effect] Translation set:', translation)
 
     // Set filter type based on AI media type
     if (intent.media_type === 'movie' || intent.media_type === 'tv') {
       setFilterType(intent.media_type)
-      console.log('[AI Intent Effect] Filter type set to:', intent.media_type)
+      console.log('[AI Intent Effect] Filter type set:', intent.media_type)
     }
 
     // Show modal for movies, or TV shows with season/episode/date specified
@@ -325,7 +324,7 @@ function HomeContent() {
     const intent = plan.intent
     if (!intent.title || intent.media_type === 'unknown') return
 
-    console.log('[handleAiConfirm] Starting with intent:', intent)
+    console.log('[handleAiConfirm] Starting intent for:', intent.title)
 
     // First, do a lookup to get full metadata (including tvdb_id for TV shows)
     try {
@@ -342,7 +341,10 @@ function HomeContent() {
       }
 
       const lookupData = await lookupRes.json()
-      console.log('[handleAiConfirm] Lookup data:', lookupData)
+      console.log(
+        '[handleAiConfirm] Lookup results:',
+        Array.isArray(lookupData.results) ? lookupData.results.length : 0
+      )
 
       const topResult = Array.isArray(lookupData.results) ? lookupData.results[0] : null
 
@@ -351,8 +353,8 @@ function HomeContent() {
         return
       }
 
-      console.log('[handleAiConfirm] Top result:', topResult)
-      console.log('[handleAiConfirm] Fetching releases for season:', intent.season)
+      console.log('[handleAiConfirm] Top result title:', topResult.title)
+      console.log('[handleAiConfirm] Fetching releases for season:', intent.season ?? 'none')
 
       // Ensure the result has the correct type field
       const resultWithType = {
@@ -360,7 +362,7 @@ function HomeContent() {
         type: intent.media_type as 'movie' | 'tv'
       }
 
-      console.log('[handleAiConfirm] Result with type:', resultWithType)
+      console.log('[handleAiConfirm] Result type set:', resultWithType.type)
 
       // Now fetch releases with the full result
       // For TV shows, pass season, episode, and episode_date if we have them
@@ -1113,7 +1115,7 @@ function HomeContent() {
       )}
 
       {/* Release view modal */}
-      {releaseData && (
+      {releaseData && !showAiAvailability && (
         <ReleaseView
           data={releaseData}
           onClose={clearReleaseData}
