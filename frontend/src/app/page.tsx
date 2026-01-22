@@ -140,12 +140,6 @@ function HomeContent() {
     setAiTranslation(translation)
     console.log('[AI Intent Effect] Translation set:', translation)
 
-    // Set filter type based on AI media type
-    if (intent.media_type === 'movie' || intent.media_type === 'tv') {
-      setFilterType(intent.media_type)
-      console.log('[AI Intent Effect] Filter type set:', intent.media_type)
-    }
-
     // Show modal for movies, or TV shows with season/episode/date specified
     if (intent.media_type === 'movie' || (intent.media_type === 'tv' && (intent.season || intent.episode_date))) {
       console.log('[AI Intent Effect] Showing modal and searching for:', intent.title)
@@ -183,6 +177,11 @@ function HomeContent() {
       submitSearch(intent.title)
     }
   }, [aiIntentPlan])
+
+  const handleTypeToggle = (type: 'movie' | 'tv') => {
+    setFilterType(filterType === type ? 'all' : type)
+    setPage(1)
+  }
 
   // SABnzbd polling
   const {
@@ -815,6 +814,7 @@ function HomeContent() {
                     result={result}
                     onShowReleases={handleShowReleases}
                     onShowDetails={setSelectedResult}
+                    onTypeToggle={handleTypeToggle}
                   />
                 ))}
               </div>

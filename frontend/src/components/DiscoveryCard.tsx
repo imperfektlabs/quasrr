@@ -10,10 +10,12 @@ export function DiscoveryCard({
   result,
   onShowReleases,
   onShowDetails,
+  onTypeToggle,
 }: {
   result: DiscoveryResult
   onShowReleases: (result: DiscoveryResult, season?: number) => void
   onShowDetails: (result: DiscoveryResult) => void
+  onTypeToggle?: (type: DiscoveryResult['type']) => void
 }) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
 
@@ -77,9 +79,17 @@ export function DiscoveryCard({
 
           <div className="mb-1 flex flex-wrap gap-1.5 items-center">
             <StatusBadge status={result.status} />
-            <span className="glass-chip text-xs px-2 py-1 rounded">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onTypeToggle?.(result.type)
+              }}
+              className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70"
+              title={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
+            >
               {result.type === 'movie' ? 'Movie' : 'TV'}
-            </span>
+            </button>
             {result.type === 'tv' && result.seasons && result.seasons > 0 && (
               <select
                 value={selectedSeason}
