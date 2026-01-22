@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import type { RadarrLibraryItem } from '@/types'
-import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { RadarrLibraryItem, StreamingService } from '@/types'
+import { getBackendUrl } from '@/utils/backend'
 import { StatusBadge } from '@/components/StatusBadge'
+import { NavigationMenu } from '@/components/NavigationMenu'
 
 type ConfigResponse = {
+  streaming_services?: StreamingService[]
   integrations?: {
+    sonarr_url?: string
     radarr_url?: string
+    sabnzbd_url?: string
   }
 }
 
@@ -25,10 +29,14 @@ const formatSize = (bytes?: number) => {
 }
 
 export default function RadarrPage() {
+  const router = useRouter()
   const [items, setItems] = useState<RadarrLibraryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [radarrUrl, setRadarrUrl] = useState<string>('')
+  const [config, setConfig] = useState<ConfigResponse | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const menuPanelRef = useRef<HTMLDivElement | null>(null)
   const [sortField, setSortField] = useState<'added' | 'title' | 'year' | 'size'>('added')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [searchText, setSearchText] = useState('')
@@ -40,17 +48,15 @@ export default function RadarrPage() {
     const fetchData = async () => {
       try {
         const backendUrl = getBackendUrl()
-        setRadarrUrl(getLocalToolUrl(7878))
-
         const [configRes, libraryRes] = await Promise.all([
           fetch(`${backendUrl}/config`),
           fetch(`${backendUrl}/radarr/library`),
         ])
 
         if (configRes.ok) {
-          const config = (await configRes.json()) as ConfigResponse
-          if (config.integrations?.radarr_url) {
-            setRadarrUrl(config.integrations.radarr_url)
+          const configData = (await configRes.json()) as ConfigResponse
+          if (active) {
+            setConfig(configData)
           }
         }
 
@@ -79,6 +85,22 @@ export default function RadarrPage() {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (menuButtonRef.current?.contains(target)) return
+      if (menuPanelRef.current?.contains(target)) return
+      setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+    }
+  }, [menuOpen])
 
   const totalSize = useMemo(
     () => items.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
@@ -133,33 +155,14 @@ export default function RadarrPage() {
 
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
-      <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3 glass-panel border-b border-slate-700/40">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="px-3 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center gap-2"
-          >
-            <span>←</span>
-            <span>Home</span>
-          </Link>
-          <Link
-            href="/"
-            className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
-            title="Go home"
-          >
-            Quasrr
-          </Link>
-          <a
-            href={radarrUrl || '#'}
-            target="_blank"
-            rel="noreferrer"
-            className="px-3 py-2 rounded bg-cyan-500/80 hover:bg-cyan-400 text-white text-sm font-semibold transition-colors disabled:opacity-60"
-            aria-disabled={!radarrUrl}
-          >
-            Open Radarr
-          </a>
-        </div>
-      </header>
+      <NavigationMenu
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        menuButtonRef={menuButtonRef}
+        menuPanelRef={menuPanelRef}
+        currentPage="radarr"
+        config={config}
+      />
 
       <div className="max-w-5xl mx-auto space-y-4">
         <section className="glass-panel rounded-lg p-4">
@@ -284,63 +287,66 @@ export default function RadarrPage() {
 
       {selectedMovie && (
         <div
-          className="fixed inset-0 glass-modal z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 glass-modal z-50 overflow-auto"
           onClick={() => setSelectedMovie(null)}
         >
-          <div
-            className="glass-panel rounded-lg p-4 md:p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex justify-between items-start gap-4">
-              <div className="flex items-start gap-4">
-                <div className="w-20 sm:w-24 flex-shrink-0">
-                  <div className="aspect-[2/3] w-full bg-slate-800/60 rounded-lg overflow-hidden">
+          <div className="min-h-screen p-4">
+            <div
+              className="glass-panel rounded-lg p-4 md:p-6 max-w-6xl mx-auto"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold">{selectedMovie.title}</h2>
+                  <p className="text-gray-400 text-sm">
+                    {selectedMovie.year || '—'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMovie(null)}
+                  className="text-gray-400 hover:text-white text-2xl px-2"
+                >
+                  X
+                </button>
+              </div>
+
+              <div className="mt-4">
+                <div className="w-full">
+                  <div className="w-full max-h-[280px] md:max-h-[360px] bg-slate-800/60 rounded-lg overflow-hidden">
                     {selectedMovie.poster ? (
                       <img
                         src={selectedMovie.poster}
                         alt={selectedMovie.title}
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-2 text-center">
+                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-6 text-center">
                         No poster
                       </div>
                     )}
                   </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold">{selectedMovie.title}</h2>
-                  <p className="text-gray-400 text-sm">
-                    {selectedMovie.year || '—'}
-                  </p>
-                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedMovie(null)}
-                className="text-gray-400 hover:text-white text-2xl px-2"
-              >
-                X
-              </button>
-            </div>
 
-            {selectedMovie.overview && (
-              <p className="text-gray-300 text-sm leading-relaxed mt-3">
-                {selectedMovie.overview}
-              </p>
-            )}
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+                <StatusBadge status={selectedMovie.hasFile ? 'downloaded' : 'not_in_library'} />
+                <span className="glass-chip px-2 py-1 rounded">
+                  {formatSize(selectedMovie.sizeOnDisk)}
+                </span>
+                {selectedMovie.path && (
+                  <span className="glass-chip px-2 py-1 rounded">{selectedMovie.path}</span>
+                )}
+                <span className="glass-chip px-2 py-1 rounded">
+                  {selectedMovie.monitored ? 'Monitored' : 'Unmonitored'}
+                </span>
+              </div>
 
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
-              <StatusBadge status={selectedMovie.hasFile ? 'downloaded' : 'not_in_library'} />
-              <span className="glass-chip px-2 py-1 rounded">
-                {formatSize(selectedMovie.sizeOnDisk)}
-              </span>
-              {selectedMovie.path && (
-                <span className="glass-chip px-2 py-1 rounded">{selectedMovie.path}</span>
+              {selectedMovie.overview && (
+                <p className="text-gray-300 text-sm leading-relaxed mt-3">
+                  {selectedMovie.overview}
+                </p>
               )}
-              <span className="glass-chip px-2 py-1 rounded">
-                {selectedMovie.monitored ? 'Monitored' : 'Unmonitored'}
-              </span>
             </div>
           </div>
         </div>

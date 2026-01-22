@@ -36,6 +36,10 @@ TODOs
 
 - Add dashboard summary at the top, that scrolls off the page, locking the rest
 - replace header with same header as the rest (are the others actual pages or just models themselves?)
+- make the releases modal look the same as the sonarr/radarr episode list modal
+- Make episode modal in sonarr/radarr pages the same width as release modal
+- Add airdate to episode modal view
+- possibly add quality profile instead of checkmark
 
 
 - investigate voice recognition for the searches
