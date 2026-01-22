@@ -194,7 +194,14 @@ class SabnzbdClient:
                     **parsed_info,
                 }
             )
-        return {"jobs": jobs, "speed": queue_data.get("kbpersec")}
+        paused_value = queue_data.get("paused", False)
+        paused = str(paused_value).lower() in {"1", "true", "yes"}
+        return {
+            "jobs": jobs,
+            "speed": queue_data.get("kbpersec"),
+            "paused": paused,
+            "status": queue_data.get("status"),
+        }
 
     async def pause_all(self) -> dict:
         """Pause the full download queue."""
