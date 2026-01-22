@@ -71,6 +71,8 @@ import {
 } from '@/components'
 
 function HomeContent() {
+  const router = useRouter()
+
   // Backend API setup (health, config, integrations)
   const { health, config, setConfig, integrationsStatus, error, loading } = useBackendApiSetup()
 
@@ -548,6 +550,41 @@ function HomeContent() {
               </svg>
               <span>Settings</span>
             </button>
+            <div className="border-t border-slate-700/40 pt-2 mt-2">
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">Libraries</div>
+              <button
+                type="button"
+                onClick={() => {
+                  router.push('/sonarr')
+                  setMenuOpen(false)
+                }}
+                className="mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60"
+              >
+                <img
+                  src={getToolIconUrl(config?.integrations.sonarr_url || getLocalToolUrl(8989))}
+                  alt="Sonarr icon"
+                  className={`h-4 w-4 object-contain ${getIntegrationStatus('sonarr') === false ? 'opacity-40 grayscale' : ''}`}
+                  loading="lazy"
+                />
+                <span>Sonarr Library</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  router.push('/radarr')
+                  setMenuOpen(false)
+                }}
+                className="mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60"
+              >
+                <img
+                  src={getToolIconUrl(config?.integrations.radarr_url || getLocalToolUrl(7878))}
+                  alt="Radarr icon"
+                  className={`h-4 w-4 object-contain ${getIntegrationStatus('radarr') === false ? 'opacity-40 grayscale' : ''}`}
+                  loading="lazy"
+                />
+                <span>Radarr Library</span>
+              </button>
+            </div>
             <div className="border-t border-slate-700/40 pt-2 mt-2">
               <div className="text-[11px] uppercase tracking-wide text-slate-500">Tools</div>
               {toolLinks.map((tool) => (
