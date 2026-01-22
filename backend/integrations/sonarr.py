@@ -120,6 +120,16 @@ def select_quality_profile_id(profiles: list[dict], target_name: str) -> int | N
     return None
 
 
+def extract_poster(images: list[dict] | None) -> str | None:
+    """Pick a poster URL from Sonarr image payload."""
+    if not images:
+        return None
+    for image in images:
+        if image.get("coverType") == "poster":
+            return image.get("remoteUrl") or image.get("url")
+    return images[0].get("remoteUrl") or images[0].get("url")
+
+
 class SonarrClient:
     """Async client for Sonarr API."""
 
@@ -459,6 +469,46 @@ class SonarrClient:
         except Exception as e:
             logger.error(f"Sonarr get library error: {e}")
             return {}
+
+    async def get_library_list(self) -> list[dict]:
+        """Get all series in Sonarr library (trimmed fields)."""
+        if not self.is_configured:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/series",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                series_list = response.json()
+                trimmed = []
+                for series in series_list:
+                    stats = series.get("statistics", {}) or {}
+                    trimmed.append(
+                        {
+                            "id": series.get("id"),
+                            "title": series.get("title"),
+                            "year": series.get("year"),
+                            "path": series.get("path"),
+                            "status": series.get("status"),
+                            "network": series.get("network"),
+                            "monitored": series.get("monitored", True),
+                            "seasonCount": len(series.get("seasons", [])),
+                            "episodeCount": stats.get("episodeCount", 0),
+                            "episodeFileCount": stats.get("episodeFileCount", 0),
+                            "sizeOnDisk": stats.get("sizeOnDisk", 0),
+                            "tvdbId": series.get("tvdbId"),
+                            "imdbId": series.get("imdbId"),
+                            "added": series.get("added"),
+                            "poster": extract_poster(series.get("images", [])),
+                        }
+                    )
+                return trimmed
+        except Exception as e:
+            logger.error(f"Sonarr get library list error: {e}")
+            return []
 
     async def discover(self, term: str) -> list[dict]:
         """
