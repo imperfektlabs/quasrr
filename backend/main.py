@@ -345,6 +345,32 @@ async def get_sab_recent(limit: int = Query(5, ge=1, le=20, description="Number 
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
+@app.get("/radarr/library")
+async def get_radarr_library():
+    """Get Radarr library list."""
+    radarr = get_radarr_client()
+    if not radarr.is_configured:
+        raise HTTPException(status_code=503, detail="Radarr not configured")
+    try:
+        return await radarr.get_library_list()
+    except Exception:
+        logger.error("Error fetching Radarr library: unexpected")
+        raise HTTPException(status_code=500, detail="Radarr request failed")
+
+
+@app.get("/sonarr/library")
+async def get_sonarr_library():
+    """Get Sonarr library list."""
+    sonarr = get_sonarr_client()
+    if not sonarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr not configured")
+    try:
+        return await sonarr.get_library_list()
+    except Exception:
+        logger.error("Error fetching Sonarr library: unexpected")
+        raise HTTPException(status_code=500, detail="Sonarr request failed")
+
+
 @app.post("/sab/queue/pause")
 async def pause_sab_queue():
     """Pause the full SABnzbd queue."""

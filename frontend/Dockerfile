@@ -13,10 +13,12 @@ COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node . .
 
 RUN chown -R node:node /app && \
-    mkdir -p /app/.next && \
+    mkdir -p /app/.next /app/.next/cache /app/.next/static /app/.next/standalone && \
     chown -R node:node /app/.next
 
 USER node
+
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 

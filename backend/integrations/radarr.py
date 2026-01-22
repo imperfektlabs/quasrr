@@ -121,6 +121,16 @@ def extract_cast(movie: dict, limit: int = 5) -> list[str]:
     return names
 
 
+def extract_poster(images: list[dict] | None) -> str | None:
+    """Pick a poster URL from Radarr image payload."""
+    if not images:
+        return None
+    for image in images:
+        if image.get("coverType") == "poster":
+            return image.get("remoteUrl") or image.get("url")
+    return images[0].get("remoteUrl") or images[0].get("url")
+
+
 def select_quality_profile_id(profiles: list[dict], target_name: str) -> int | None:
     """Find a quality profile ID by name (case-insensitive)."""
     target = target_name.strip().lower()
@@ -258,6 +268,39 @@ class RadarrClient:
         except Exception as e:
             logger.error(f"Radarr get library error: {e}")
             return {}
+
+    async def get_library_list(self) -> list[dict]:
+        """Get all movies in Radarr library (trimmed fields)."""
+        if not self.is_configured:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/movie",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                movies = response.json()
+                return [
+                    {
+                        "id": movie.get("id"),
+                        "title": movie.get("title"),
+                        "year": movie.get("year"),
+                        "path": movie.get("path"),
+                        "hasFile": movie.get("hasFile", False),
+                        "monitored": movie.get("monitored", True),
+                        "sizeOnDisk": movie.get("sizeOnDisk", 0),
+                        "tmdbId": movie.get("tmdbId"),
+                        "imdbId": movie.get("imdbId"),
+                        "added": movie.get("added"),
+                        "poster": extract_poster(movie.get("images", [])),
+                    }
+                    for movie in movies
+                ]
+        except Exception as e:
+            logger.error(f"Radarr get library list error: {e}")
+            return []
 
     async def discover(self, term: str) -> list[dict]:
         """

@@ -243,6 +243,42 @@ export type SabRecentResponse = {
 }
 
 // ============================================
+// Library Types
+// ============================================
+
+export type RadarrLibraryItem = {
+  id: number
+  title: string
+  year?: number
+  path?: string
+  hasFile: boolean
+  monitored: boolean
+  sizeOnDisk?: number
+  tmdbId?: number
+  imdbId?: string
+  added?: string
+  poster?: string
+}
+
+export type SonarrLibraryItem = {
+  id: number
+  title: string
+  year?: number
+  path?: string
+  status?: string
+  network?: string
+  monitored: boolean
+  seasonCount?: number
+  episodeCount?: number
+  episodeFileCount?: number
+  sizeOnDisk?: number
+  tvdbId?: number
+  imdbId?: string
+  added?: string
+  poster?: string
+}
+
+// ============================================
 // Integration Types
 // ============================================
 
