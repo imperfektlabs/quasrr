@@ -32,7 +32,7 @@ TODOs
 
 
 - Add Gemini capabilities
-- Bug: AI search episodes by date
+- Bug: AI search episodes by date --> DONE
 
 
 
