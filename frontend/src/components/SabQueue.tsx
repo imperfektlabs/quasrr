@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { SabQueueResponse } from '@/types'
 
 export function SabQueue({
@@ -21,6 +22,30 @@ export function SabQueue({
   onDeleteJob: (jobId: string) => void
   actionBusy: boolean
 }) {
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'pauseAll' | 'pause' | 'delete'
+    jobId?: string
+    jobName?: string
+  } | null>(null)
+
+  const handleConfirm = () => {
+    if (!confirmAction) return
+    if (confirmAction.type === 'pauseAll') {
+      onPauseAll()
+    }
+    if (confirmAction.type === 'pause' && confirmAction.jobId) {
+      onPauseJob(confirmAction.jobId)
+    }
+    if (confirmAction.type === 'delete' && confirmAction.jobId) {
+      onDeleteJob(confirmAction.jobId)
+    }
+    setConfirmAction(null)
+  }
+
+  const handleCancel = () => {
+    setConfirmAction(null)
+  }
+
   if (error) {
     return <div className="text-red-400">Error fetching queue: {error}</div>
   }
@@ -31,14 +56,46 @@ export function SabQueue({
     return <div className="text-gray-400">Nothing downloading</div>
   }
 
+  const queuePaused = Boolean(data.paused)
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-end gap-2">
+        {confirmAction?.type === 'pauseAll' ? (
+          <div className="flex items-center gap-2 mr-auto text-xs text-amber-200">
+            <span>Pause all downloads?</span>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={actionBusy}
+              className="px-2 py-1 rounded bg-amber-500/80 text-white disabled:opacity-50"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={actionBusy}
+              className="px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : queuePaused ? (
+          <div className="mr-auto text-xs text-amber-200 flex items-center gap-2">
+            <span>Queue paused</span>
+            <span className="glass-chip px-2 py-0.5 rounded text-[10px]">Resume to continue</span>
+          </div>
+        ) : (
+          <div className="mr-auto"></div>
+        )}
         <button
           type="button"
-          onClick={onPauseAll}
+          onClick={() => setConfirmAction({ type: 'pauseAll' })}
           disabled={actionBusy}
-          className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+          className={`text-xs px-2 py-1 rounded disabled:opacity-50 ${
+            queuePaused ? 'bg-amber-500/70 text-white' : 'bg-slate-800/60'
+          }`}
           title="Pause all"
           aria-label="Pause all"
         >
@@ -48,7 +105,9 @@ export function SabQueue({
           type="button"
           onClick={onResumeAll}
           disabled={actionBusy}
-          className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+          className={`text-xs px-2 py-1 rounded disabled:opacity-50 ${
+            queuePaused ? 'bg-cyan-500/70 text-white' : 'bg-slate-800/60'
+          }`}
           title="Resume all"
           aria-label="Resume all"
         >
@@ -58,6 +117,8 @@ export function SabQueue({
       {data.jobs.map((job) => {
         const percent = Number(job.percentage) || 0
         const isPaused = job.status?.toLowerCase().includes('pause')
+        const isConfirmingPause = confirmAction?.type === 'pause' && confirmAction.jobId === job.id
+        const isConfirmingDelete = confirmAction?.type === 'delete' && confirmAction.jobId === job.id
         return (
           <div key={job.name} className="glass-card rounded-lg p-3">
             <p className="text-sm truncate font-semibold" title={job.name}>{job.name}</p>
@@ -79,9 +140,21 @@ export function SabQueue({
               <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => (isPaused ? onResumeJob(job.id as string) : onPauseJob(job.id as string))}
+                  onClick={() => {
+                    if (isPaused) {
+                      onResumeJob(job.id as string)
+                      return
+                    }
+                    setConfirmAction({
+                      type: 'pause',
+                      jobId: job.id as string,
+                      jobName: job.name,
+                    })
+                  }}
                   disabled={actionBusy}
-                  className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+                  className={`text-xs px-2 py-1 rounded disabled:opacity-50 ${
+                    isPaused ? 'bg-amber-500/70 text-white' : 'bg-slate-800/60'
+                  }`}
                   title={isPaused ? 'Resume' : 'Pause'}
                   aria-label={isPaused ? 'Resume' : 'Pause'}
                 >
@@ -89,13 +162,42 @@ export function SabQueue({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onDeleteJob(job.id as string)}
+                  onClick={() =>
+                    setConfirmAction({
+                      type: 'delete',
+                      jobId: job.id as string,
+                      jobName: job.name,
+                    })
+                  }
                   disabled={actionBusy}
                   className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
                   title="Delete"
                   aria-label="Delete"
                 >
                   X
+                </button>
+              </div>
+            )}
+            {(isConfirmingPause || isConfirmingDelete) && (
+              <div className="mt-2 text-xs text-amber-200 flex flex-wrap items-center gap-2">
+                <span>
+                  {isConfirmingDelete ? 'Delete' : 'Pause'} "{job.name}"?
+                </span>
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={actionBusy}
+                  className="px-2 py-1 rounded bg-amber-500/80 text-white disabled:opacity-50"
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={actionBusy}
+                  className="px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+                >
+                  Cancel
                 </button>
               </div>
             )}

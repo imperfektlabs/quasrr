@@ -211,6 +211,8 @@ export type SabQueueItem = {
 export type SabQueueResponse = {
   jobs: SabQueueItem[]
   speed: string
+  paused?: boolean
+  status?: string
 }
 
 export type SabRecentItem = {
