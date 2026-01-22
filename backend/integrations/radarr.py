@@ -287,6 +287,7 @@ class RadarrClient:
                         "id": movie.get("id"),
                         "title": movie.get("title"),
                         "year": movie.get("year"),
+                        "overview": movie.get("overview"),
                         "path": movie.get("path"),
                         "hasFile": movie.get("hasFile", False),
                         "monitored": movie.get("monitored", True),

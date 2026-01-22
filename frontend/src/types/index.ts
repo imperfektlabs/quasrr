@@ -250,6 +250,7 @@ export type RadarrLibraryItem = {
   id: number
   title: string
   year?: number
+  overview?: string
   path?: string
   hasFile: boolean
   monitored: boolean
@@ -264,6 +265,7 @@ export type SonarrLibraryItem = {
   id: number
   title: string
   year?: number
+  overview?: string
   path?: string
   status?: string
   network?: string
@@ -276,6 +278,20 @@ export type SonarrLibraryItem = {
   imdbId?: string
   added?: string
   poster?: string
+  seasons?: Array<{
+    seasonNumber?: number
+    episodeCount?: number
+    episodeFileCount?: number
+  }>
+}
+
+export type SonarrEpisode = {
+  id?: number
+  seasonNumber?: number
+  episodeNumber?: number
+  title?: string
+  airDate?: string
+  hasFile?: boolean
 }
 
 // ============================================
