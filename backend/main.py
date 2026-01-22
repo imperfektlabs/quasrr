@@ -371,6 +371,19 @@ async def get_sonarr_library():
         raise HTTPException(status_code=500, detail="Sonarr request failed")
 
 
+@app.get("/sonarr/series/{series_id}/episodes")
+async def get_sonarr_series_episodes(series_id: int):
+    """Get episodes for a Sonarr series."""
+    sonarr = get_sonarr_client()
+    if not sonarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr not configured")
+    try:
+        return await sonarr.get_series_episodes(series_id)
+    except Exception:
+        logger.error("Error fetching Sonarr episodes: unexpected")
+        raise HTTPException(status_code=500, detail="Sonarr request failed")
+
+
 @app.post("/sab/queue/pause")
 async def pause_sab_queue():
     """Pause the full SABnzbd queue."""
