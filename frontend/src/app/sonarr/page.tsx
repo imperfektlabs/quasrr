@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import type { SonarrEpisode, SonarrLibraryItem } from '@/types'
-import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { SonarrEpisode, SonarrLibraryItem, StreamingService } from '@/types'
+import { getBackendUrl } from '@/utils/backend'
 import { StatusBadge } from '@/components/StatusBadge'
+import { NavigationMenu } from '@/components/NavigationMenu'
 
 type ConfigResponse = {
+  streaming_services?: StreamingService[]
   integrations?: {
     sonarr_url?: string
+    radarr_url?: string
+    sabnzbd_url?: string
   }
 }
 
@@ -25,10 +29,14 @@ const formatSize = (bytes?: number) => {
 }
 
 export default function SonarrPage() {
+  const router = useRouter()
   const [items, setItems] = useState<SonarrLibraryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sonarrUrl, setSonarrUrl] = useState<string>('')
+  const [config, setConfig] = useState<ConfigResponse | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const menuPanelRef = useRef<HTMLDivElement | null>(null)
   const [sortField, setSortField] = useState<'added' | 'title' | 'year' | 'size'>('added')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [searchText, setSearchText] = useState('')
@@ -43,17 +51,15 @@ export default function SonarrPage() {
     const fetchData = async () => {
       try {
         const backendUrl = getBackendUrl()
-        setSonarrUrl(getLocalToolUrl(8989))
-
         const [configRes, libraryRes] = await Promise.all([
           fetch(`${backendUrl}/config`),
           fetch(`${backendUrl}/sonarr/library`),
         ])
 
         if (configRes.ok) {
-          const config = (await configRes.json()) as ConfigResponse
-          if (config.integrations?.sonarr_url) {
-            setSonarrUrl(config.integrations.sonarr_url)
+          const configData = (await configRes.json()) as ConfigResponse
+          if (active) {
+            setConfig(configData)
           }
         }
 
@@ -82,6 +88,22 @@ export default function SonarrPage() {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (menuButtonRef.current?.contains(target)) return
+      if (menuPanelRef.current?.contains(target)) return
+      setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+    }
+  }, [menuOpen])
 
   useEffect(() => {
     if (!selectedSeries) return
@@ -180,33 +202,14 @@ export default function SonarrPage() {
 
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
-      <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3 glass-panel border-b border-slate-700/40">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="px-3 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center gap-2"
-          >
-            <span>←</span>
-            <span>Home</span>
-          </Link>
-          <Link
-            href="/"
-            className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
-            title="Go home"
-          >
-            Quasrr
-          </Link>
-          <a
-            href={sonarrUrl || '#'}
-            target="_blank"
-            rel="noreferrer"
-            className="px-3 py-2 rounded bg-cyan-500/80 hover:bg-cyan-400 text-white text-sm font-semibold transition-colors disabled:opacity-60"
-            aria-disabled={!sonarrUrl}
-          >
-            Open Sonarr
-          </a>
-        </div>
-      </header>
+      <NavigationMenu
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        menuButtonRef={menuButtonRef}
+        menuPanelRef={menuPanelRef}
+        currentPage="sonarr"
+        config={config}
+      />
 
       <div className="max-w-5xl mx-auto space-y-4">
         <section className="glass-panel rounded-lg p-4">
@@ -339,137 +342,140 @@ export default function SonarrPage() {
 
       {selectedSeries && (
         <div
-          className="fixed inset-0 glass-modal z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 glass-modal z-50 overflow-auto"
           onClick={() => setSelectedSeries(null)}
         >
-          <div
-            className="glass-panel rounded-lg p-4 md:p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex justify-between items-start gap-4">
-              <div className="flex items-start gap-4">
-                <div className="w-20 sm:w-24 flex-shrink-0">
-                  <div className="aspect-[2/3] w-full bg-slate-800/60 rounded-lg overflow-hidden">
-                    {selectedSeries.poster ? (
-                      <img
-                        src={selectedSeries.poster}
-                        alt={selectedSeries.title}
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-2 text-center">
-                        No poster
-                      </div>
-                    )}
-                  </div>
-                </div>
+          <div className="min-h-screen p-4">
+            <div
+              className="glass-panel rounded-lg p-4 md:p-6 max-w-6xl mx-auto"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold">{selectedSeries.title}</h2>
+                  <h2 className="text-2xl font-bold">{selectedSeries.title}</h2>
                   <p className="text-gray-400 text-sm">
                     {selectedSeries.year || '—'}
                     {selectedSeries.network ? ` • ${selectedSeries.network}` : ''}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSeries(null)}
+                  className="text-gray-400 hover:text-white text-2xl px-2"
+                >
+                  X
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedSeries(null)}
-                className="text-gray-400 hover:text-white text-2xl px-2"
-              >
-                X
-              </button>
-            </div>
 
-            {selectedSeries.overview && (
-              <p className="text-gray-300 text-sm leading-relaxed mt-3">
-                {selectedSeries.overview}
-              </p>
-            )}
-
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
-              <StatusBadge
-                status={
-                  selectedSeries.episodeCount &&
-                  selectedSeries.episodeFileCount === selectedSeries.episodeCount
-                    ? 'downloaded'
-                    : 'not_in_library'
-                }
-              />
-              <span className="glass-chip px-2 py-1 rounded">
-                {selectedSeries.episodeFileCount || 0}/{selectedSeries.episodeCount || 0} eps
-              </span>
-              <span className="glass-chip px-2 py-1 rounded">
-                {formatSize(selectedSeries.sizeOnDisk)}
-              </span>
-              {selectedSeries.path && (
-                <span className="glass-chip px-2 py-1 rounded">{selectedSeries.path}</span>
-              )}
-              <span className="glass-chip px-2 py-1 rounded">
-                {selectedSeries.monitored ? 'Monitored' : 'Unmonitored'}
-              </span>
-            </div>
-
-            {selectedSeries.seasons && selectedSeries.seasons.length > 0 && (
               <div className="mt-4">
-                <div className="text-xs text-slate-400 mb-2">Seasons</div>
-                <div className="grid gap-2">
-                  {selectedSeries.seasons.map((season) => {
-                    const seasonNumber = season.seasonNumber ?? 0
-                    const isExpanded = expandedSeasons.has(seasonNumber)
-                    const episodes = episodesBySeason[seasonNumber] || []
-                    return (
-                      <div key={seasonNumber} className="glass-card rounded-md px-3 py-2 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setExpandedSeasons((prev) => {
-                              const next = new Set(prev)
-                              if (next.has(seasonNumber)) {
-                                next.delete(seasonNumber)
-                              } else {
-                                next.add(seasonNumber)
-                              }
-                              return next
-                            })
-                          }}
-                          className="w-full flex items-center justify-between"
-                        >
-                          <span>Season {season.seasonNumber ?? '—'}</span>
-                          <span className="text-slate-300">
-                            {season.episodeFileCount || 0}/{season.episodeCount || 0} eps
-                          </span>
-                        </button>
-                        {isExpanded && (
-                          <div className="mt-2 space-y-1 text-[11px] text-slate-300">
-                            {episodes.length === 0 && (
-                              <div className="text-slate-500">
-                                {episodesLoading ? 'Loading episodes...' : 'No episodes found'}
-                              </div>
-                            )}
-                            {episodes.map((episode) => (
-                              <div
-                                key={episode.id}
-                                className="flex items-center justify-between"
-                              >
-                                <span className="truncate">
-                                  {episode.episodeNumber != null
-                                    ? `E${String(episode.episodeNumber).padStart(2, '0')}`
-                                    : 'E--'}{' '}
-                                  {episode.title || 'Untitled'}
-                                </span>
-                                <span className="text-slate-500">
-                                  {episode.hasFile ? '✓' : '○'}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                <div className="w-full">
+                  <div className="w-full max-h-[280px] md:max-h-[360px] bg-slate-800/60 rounded-lg overflow-hidden">
+                    {selectedSeries.poster ? (
+                      <img
+                        src={selectedSeries.poster}
+                        alt={selectedSeries.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-6 text-center">
+                        No poster
                       </div>
-                    )
-                  })}
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
+
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+                <StatusBadge
+                  status={
+                    selectedSeries.episodeCount &&
+                    selectedSeries.episodeFileCount === selectedSeries.episodeCount
+                      ? 'downloaded'
+                      : 'not_in_library'
+                  }
+                />
+                <span className="glass-chip px-2 py-1 rounded">
+                  {selectedSeries.episodeFileCount || 0}/{selectedSeries.episodeCount || 0} eps
+                </span>
+                <span className="glass-chip px-2 py-1 rounded">
+                  {formatSize(selectedSeries.sizeOnDisk)}
+                </span>
+                {selectedSeries.path && (
+                  <span className="glass-chip px-2 py-1 rounded">{selectedSeries.path}</span>
+                )}
+                <span className="glass-chip px-2 py-1 rounded">
+                  {selectedSeries.monitored ? 'Monitored' : 'Unmonitored'}
+                </span>
+              </div>
+
+              {selectedSeries.overview && (
+                <p className="text-gray-300 text-sm leading-relaxed mt-3">
+                  {selectedSeries.overview}
+                </p>
+              )}
+
+              {selectedSeries.seasons && selectedSeries.seasons.length > 0 && (
+                <div className="mt-6">
+                  <div className="text-xs text-slate-400 mb-2">Seasons</div>
+                  <div className="grid gap-2">
+                    {selectedSeries.seasons.map((season) => {
+                      const seasonNumber = season.seasonNumber ?? 0
+                      const isExpanded = expandedSeasons.has(seasonNumber)
+                      const episodes = episodesBySeason[seasonNumber] || []
+                      return (
+                        <div key={seasonNumber} className="glass-card rounded-md px-3 py-2 text-sm">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExpandedSeasons((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(seasonNumber)) {
+                                  next.delete(seasonNumber)
+                                } else {
+                                  next.add(seasonNumber)
+                                }
+                                return next
+                              })
+                            }}
+                            className="w-full flex items-center justify-between"
+                          >
+                            <span>Season {season.seasonNumber ?? '—'}</span>
+                            <span className="text-slate-300">
+                              {season.episodeFileCount || 0}/{season.episodeCount || 0} eps
+                            </span>
+                          </button>
+                          {isExpanded && (
+                            <div className="mt-2 space-y-1 text-xs text-slate-300">
+                              {episodes.length === 0 && (
+                                <div className="text-slate-500">
+                                  {episodesLoading ? 'Loading episodes...' : 'No episodes found'}
+                                </div>
+                              )}
+                              {episodes.map((episode) => (
+                                <div
+                                  key={episode.id}
+                                  className="flex items-center justify-between"
+                                >
+                                  <span className="truncate">
+                                    {episode.episodeNumber != null
+                                      ? `E${String(episode.episodeNumber).padStart(2, '0')}`
+                                      : 'E--'}{' '}
+                                    {episode.title || 'Untitled'}
+                                  </span>
+                                  <span className="text-slate-500">
+                                    {episode.hasFile ? '✓' : '○'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

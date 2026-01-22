@@ -8,9 +8,11 @@ import type {
   SortField,
   SortDirection,
   SeasonProgress,
+  DiscoveryResult,
 } from '@/types'
 import { getReleaseKey } from '@/utils/formatting'
 import { DownloadIcon, DownloadAllIcon } from './Icons'
+import { StatusBadge } from './StatusBadge'
 
 // Check for size red flags per PROJECT_BRIEF
 function getSizeWarning(release: Release, mediaType: string): string | null {
@@ -97,6 +99,7 @@ function SortHeader({
 // Release list modal/view
 export function ReleaseView({
   data,
+  result,
   onClose,
   onGrabRelease,
   onGrabAll,
@@ -109,6 +112,7 @@ export function ReleaseView({
   onAiSuggest,
 }: {
   data: ReleaseResponse
+  result?: DiscoveryResult
   onClose: () => void
   onGrabRelease: (release: Release) => void
   onGrabAll: (releases: Release[]) => void
@@ -133,6 +137,7 @@ export function ReleaseView({
   const aiPickGuid = aiSuggestion?.guid || null
   const requestedSeason = data.requested_season
   const requestedEpisode = data.requested_episode
+  const posterUrl = data.poster || result?.poster
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -839,28 +844,18 @@ export function ReleaseView({
 
   return (
     <div
-      className="fixed inset-0 glass-modal z-50 overflow-auto"
+      className="fixed inset-0 glass-modal z-50 flex items-start justify-center p-4"
       onClick={onClose}
     >
-      <div className="min-h-screen p-4">
-        <div className="max-w-6xl mx-auto" onClick={(event) => event.stopPropagation()}>
-          {/* Header */}
-          <div className="glass-panel rounded-t-lg p-4 flex flex-col md:flex-row gap-4 items-start sticky top-0 z-10 relative">
-            <div className="flex items-start gap-4 flex-1">
-              {data.poster && (
-                <div className="w-20 md:w-24 flex-shrink-0">
-                  <div className="aspect-[2/3] w-full bg-slate-800/60 rounded">
-                    <img
-                      src={data.poster}
-                      alt={data.title}
-                      className="w-full h-full object-contain rounded"
-                      loading="lazy"
-                    />
-                  </div>
-                </div>
-              )}
+      <div
+        className="glass-panel rounded-lg p-4 max-w-6xl w-full max-h-[85vh] overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="relative">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold">{data.title}</h2>
+                <h2 className="text-2xl font-bold">{data.title}</h2>
                 <p className="text-gray-400 text-sm">
                   {data.year} | {data.releases.length} releases found
                   {data.runtime && ` | ${data.runtime} min`}
@@ -906,31 +901,82 @@ export function ReleaseView({
                   </div>
                 )}
               </div>
-            </div>
-            <div className="flex items-center gap-2 pr-8">
-              {releaseAiEnabled && aiEnabled && (
+              <div className="flex items-center gap-2">
+                {releaseAiEnabled && aiEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => onAiSuggest(aiCandidateReleases)}
+                    disabled={!aiSuggestAvailable || aiSuggestBusy}
+                    title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
+                    className="text-xs px-2 py-1 rounded bg-cyan-700/70 hover:bg-cyan-600/80 disabled:opacity-50"
+                  >
+                    {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
+                  </button>
+                )}
                 <button
-                  type="button"
-                  onClick={() => onAiSuggest(aiCandidateReleases)}
-                  disabled={!aiSuggestAvailable || aiSuggestBusy}
-                  title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
-                className="text-xs px-2 py-1 rounded bg-cyan-700/70 hover:bg-cyan-600/80 disabled:opacity-50"
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-white text-2xl px-2"
+                  aria-label="Close"
                 >
-                  {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
+                  X
                 </button>
+              </div>
+            </div>
+            <div className="mt-4">
+              {posterUrl ? (
+                <div className="w-full max-h-[280px] md:max-h-[360px] rounded-lg bg-slate-800/60 overflow-hidden">
+                  <img
+                    src={posterUrl}
+                    alt={data.title}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-56 rounded-lg bg-slate-800/60 flex items-center justify-center text-gray-500 text-xs">
+                  No poster
+                </div>
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400 hover:text-white text-2xl px-2"
-              aria-label="Close"
-            >
-              X
-            </button>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+              {result?.status && <StatusBadge status={result.status} />}
+              {data.runtime && data.type === 'movie' && (
+                <span className="glass-chip px-2 py-1 rounded">
+                  {data.runtime} min
+                </span>
+              )}
+              {data.type === 'tv' && result?.seasons && (
+                <span className="glass-chip px-2 py-1 rounded">
+                  {result.seasons} season{result.seasons !== 1 ? 's' : ''}
+                </span>
+              )}
+              {result?.series_status && (
+                <span className="glass-chip px-2 py-1 rounded">
+                  {result.series_status}
+                </span>
+              )}
+              {result?.network && (
+                <span className="glass-chip px-2 py-1 rounded">
+                  {result.network}
+                </span>
+              )}
+              {typeof requestedSeason === 'number' && (
+                <span className="glass-chip px-2 py-1 rounded">
+                  S{requestedSeason.toString().padStart(2, '0')}
+                  {typeof requestedEpisode === 'number' &&
+                    `E${requestedEpisode.toString().padStart(2, '0')}`}
+                </span>
+              )}
+            </div>
+            {result?.overview && (
+              <p className="text-gray-300 text-sm leading-relaxed mt-3">
+                {result.overview}
+              </p>
+            )}
           </div>
 
-          {/* Release list */}
-          <div className="glass-panel rounded-b-lg">
+        {/* Release list */}
+        <div className="mt-4">
             {data.releases.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                 {data.message || 'No releases found. Check indexer configuration.'}
@@ -999,7 +1045,7 @@ export function ReleaseView({
                 </div>
 
                 {/* Release rows */}
-                <div className="divide-y divide-slate-800/60">
+                <div className="p-3 space-y-2">
                   {isMultiSeason ? (
                     seasonGroups.map((seasonGroup) => {
                       const seasonKey = seasonGroup.key
@@ -1012,11 +1058,11 @@ export function ReleaseView({
                       }))
 
                       return (
-                        <div key={seasonKey}>
+                        <div key={seasonKey} className="glass-card rounded-md px-3 py-2 text-sm">
                           <button
                             type="button"
                             onClick={() => toggleSeason(seasonKey)}
-                            className="w-full px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-900/60 flex items-center justify-between"
+                            className="w-full flex items-center justify-between text-slate-200"
                           >
                             <span>
                               {seasonGroup.label}
@@ -1039,13 +1085,13 @@ export function ReleaseView({
                           </button>
 
                           {!isSeasonCollapsed && (
-                            <div className="divide-y divide-slate-800/60">
+                            <div className="mt-2 space-y-2">
                               {groups.map((group) => {
                                 const groupReleases = sortReleases(group.releases)
                                 const isCollapsed = collapsedGroups.has(group.key)
 
                                 return (
-                                  <div key={group.key}>
+                                  <div key={group.key} className="rounded-md border border-slate-800/60 overflow-hidden">
                                     <button
                                       type="button"
                                       onClick={() => toggleGroup(group.key)}
@@ -1071,9 +1117,13 @@ export function ReleaseView({
                                       </span>
                                     </button>
 
-                                    {!isCollapsed && groupReleases.map((release, index) => (
-                                      renderReleaseRow(release, group.key, index)
-                                    ))}
+                                    {!isCollapsed && (
+                                      <div className="divide-y divide-slate-800/60">
+                                        {groupReleases.map((release, index) => (
+                                          renderReleaseRow(release, group.key, index)
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )
                               })}
@@ -1112,12 +1162,12 @@ export function ReleaseView({
                       const isCollapsed = collapsedGroups.has(group.key)
 
                       return (
-                        <div key={group.key}>
+                        <div key={group.key} className="glass-card rounded-md px-3 py-2 text-sm">
                           {group.label && (
                             <button
                               type="button"
                               onClick={() => toggleGroup(group.key)}
-                              className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
+                              className="w-full px-2 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between rounded-md"
                             >
                               <span className="flex items-center gap-2">
                                 <span>{group.label} ({groupReleases.length})</span>
@@ -1177,9 +1227,15 @@ export function ReleaseView({
                             </button>
                           )}
 
-                          {!isCollapsed && groupReleases.map((release, index) => (
-                            renderReleaseRow(release, group.key, index)
-                          ))}
+                          {!isCollapsed && (
+                            <div className={`mt-2 ${group.label ? 'rounded-md border border-slate-800/60 overflow-hidden' : ''}`}>
+                              <div className={group.label ? 'divide-y divide-slate-800/60' : ''}>
+                                {groupReleases.map((release, index) => (
+                                  renderReleaseRow(release, group.key, index)
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })
@@ -1187,11 +1243,10 @@ export function ReleaseView({
                 </div>
               </>
             )}
-          </div>
         </div>
       </div>
 
-          {grabAllModal && (
+      {grabAllModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setGrabAllModal(null)}>
           <div
             className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
