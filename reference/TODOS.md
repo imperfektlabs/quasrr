@@ -34,6 +34,13 @@ TODOs
 - Add Gemini capabilities
 - Bug: AI search episodes by date --> DONE
 
+- Add dashboard summary at the top, that scrolls off the page, locking the rest
+- replace header with same header as the rest (are the others actual pages or just models themselves?)
+
+
+- investigate voice recognition for the searches
+
+
 
 
 

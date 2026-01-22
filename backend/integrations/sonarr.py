@@ -486,11 +486,22 @@ class SonarrClient:
                 trimmed = []
                 for series in series_list:
                     stats = series.get("statistics", {}) or {}
+                    seasons = []
+                    for season in series.get("seasons", []) or []:
+                        season_stats = season.get("statistics", {}) or {}
+                        seasons.append(
+                            {
+                                "seasonNumber": season.get("seasonNumber"),
+                                "episodeCount": season_stats.get("episodeCount", 0),
+                                "episodeFileCount": season_stats.get("episodeFileCount", 0),
+                            }
+                        )
                     trimmed.append(
                         {
                             "id": series.get("id"),
                             "title": series.get("title"),
                             "year": series.get("year"),
+                            "overview": series.get("overview"),
                             "path": series.get("path"),
                             "status": series.get("status"),
                             "network": series.get("network"),
@@ -503,11 +514,41 @@ class SonarrClient:
                             "imdbId": series.get("imdbId"),
                             "added": series.get("added"),
                             "poster": extract_poster(series.get("images", [])),
+                            "seasons": seasons,
                         }
                     )
                 return trimmed
         except Exception as e:
             logger.error(f"Sonarr get library list error: {e}")
+            return []
+
+    async def get_series_episodes(self, series_id: int) -> list[dict]:
+        """Get episodes for a series."""
+        if not self.is_configured:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/episode",
+                    headers=self._get_headers(),
+                    params={"seriesId": series_id},
+                )
+                response.raise_for_status()
+                episodes = response.json()
+                return [
+                    {
+                        "id": episode.get("id"),
+                        "seasonNumber": episode.get("seasonNumber"),
+                        "episodeNumber": episode.get("episodeNumber"),
+                        "title": episode.get("title"),
+                        "airDate": episode.get("airDate"),
+                        "hasFile": episode.get("hasFile", False),
+                    }
+                    for episode in episodes
+                ]
+        except Exception as e:
+            logger.error(f"Sonarr get episodes error: {e}")
             return []
 
     async def discover(self, term: str) -> list[dict]:
