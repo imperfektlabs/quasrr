@@ -2,12 +2,12 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { SonarrEpisode, SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
+import type { SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
 import { formatSize } from '@/utils/formatting'
-import { StatusBadge } from '@/components/StatusBadge'
 import { NavigationMenu } from '@/components/NavigationMenu'
 import { MediaCard } from '@/components/MediaCard'
+import { DetailModal } from '@/components/DetailModal'
 
 type ConfigResponse = {
   streaming_services?: StreamingService[]
@@ -38,9 +38,6 @@ function LibraryContent() {
   const [filterMode, setFilterMode] = useState<'all' | 'downloaded' | 'missing' | 'monitored' | 'unmonitored'>('all')
   const [mediaType, setMediaType] = useState<MediaType>((searchParams.get('type') as MediaType) || 'all')
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
-  const [episodesBySeason, setEpisodesBySeason] = useState<Record<number, SonarrEpisode[]>>({})
-  const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(new Set())
-  const [episodesLoading, setEpisodesLoading] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -99,47 +96,6 @@ function LibraryContent() {
       document.removeEventListener('touchstart', handlePointerDown)
     }
   }, [menuOpen])
-
-  useEffect(() => {
-    if (!selectedItem || selectedItem.mediaType !== 'tv') return
-    let active = true
-
-    const fetchEpisodes = async () => {
-      setEpisodesLoading(true)
-      try {
-        const backendUrl = getBackendUrl()
-        const response = await fetch(`${backendUrl}/sonarr/series/${selectedItem.id}/episodes`)
-        if (!response.ok) {
-          return
-        }
-        const episodes = (await response.json()) as SonarrEpisode[]
-        if (!active) return
-        const grouped: Record<number, SonarrEpisode[]> = {}
-        episodes.forEach((episode) => {
-          const seasonNumber = episode.seasonNumber ?? 0
-          if (!grouped[seasonNumber]) grouped[seasonNumber] = []
-          grouped[seasonNumber].push(episode)
-        })
-        Object.keys(grouped).forEach((key) => {
-          const seasonNumber = Number(key)
-          grouped[seasonNumber].sort((a, b) => (a.episodeNumber || 0) - (b.episodeNumber || 0))
-        })
-        setEpisodesBySeason(grouped)
-      } finally {
-        if (active) {
-          setEpisodesLoading(false)
-        }
-      }
-    }
-
-    setEpisodesBySeason({})
-    setExpandedSeasons(new Set())
-    fetchEpisodes()
-
-    return () => {
-      active = false
-    }
-  }, [selectedItem])
 
   const combinedItems = useMemo<LibraryItem[]>(() => {
     const sonarr = sonarrItems.map((item) => ({ ...item, mediaType: 'tv' as const }))
@@ -375,159 +331,11 @@ function LibraryContent() {
       </div>
 
       {selectedItem && (
-        <div
-          className="fixed inset-0 glass-modal z-50 overflow-auto"
-          onClick={() => setSelectedItem(null)}
-        >
-          <div className="min-h-screen p-4">
-            <div
-              className="glass-panel rounded-lg p-4 md:p-6 max-w-6xl mx-auto"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold">{selectedItem.title}</h2>
-                  <p className="text-gray-400 text-sm">
-                    {selectedItem.year || '—'}
-                    {selectedItem.mediaType === 'tv' && 'network' in selectedItem && selectedItem.network
-                      ? ` • ${selectedItem.network}`
-                      : ''}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedItem(null)}
-                  className="text-gray-400 hover:text-white text-2xl px-2"
-                >
-                  X
-                </button>
-              </div>
-
-              <div className="mt-4">
-                <div className="w-full">
-                  <div className="w-full max-h-[280px] md:max-h-[360px] bg-slate-800/60 rounded-lg overflow-hidden">
-                    {selectedItem.poster ? (
-                      <img
-                        src={selectedItem.poster}
-                        alt={selectedItem.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-6 text-center">
-                        No poster
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
-                {selectedItem.mediaType === 'movies' ? (
-                  <>
-                    <StatusBadge status={selectedItem.hasFile ? 'downloaded' : 'not_in_library'} />
-                    <span className="glass-chip px-2 py-1 rounded">
-                      {formatSize(selectedItem.sizeOnDisk)}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <StatusBadge
-                      status={
-                        selectedItem.episodeCount &&
-                        selectedItem.episodeFileCount === selectedItem.episodeCount
-                          ? 'downloaded'
-                          : 'not_in_library'
-                      }
-                    />
-                    <span className="glass-chip px-2 py-1 rounded">
-                      {selectedItem.episodeFileCount || 0}/{selectedItem.episodeCount || 0} eps
-                    </span>
-                    <span className="glass-chip px-2 py-1 rounded">
-                      {formatSize(selectedItem.sizeOnDisk)}
-                    </span>
-                  </>
-                )}
-                {selectedItem.path && (
-                  <span className="glass-chip px-2 py-1 rounded">{selectedItem.path}</span>
-                )}
-                <span className="glass-chip px-2 py-1 rounded">
-                  {selectedItem.monitored ? 'Monitored' : 'Unmonitored'}
-                </span>
-              </div>
-
-              {selectedItem.overview && (
-                <p className="text-gray-300 text-sm leading-relaxed mt-3">
-                  {selectedItem.overview}
-                </p>
-              )}
-
-              {selectedItem.mediaType === 'tv' &&
-                'seasons' in selectedItem &&
-                selectedItem.seasons &&
-                selectedItem.seasons.length > 0 && (
-                  <div className="mt-6">
-                    <div className="text-xs text-slate-400 mb-2">Seasons</div>
-                    <div className="grid gap-2">
-                      {selectedItem.seasons.map((season) => {
-                        const seasonNumber = season.seasonNumber ?? 0
-                        const isExpanded = expandedSeasons.has(seasonNumber)
-                        const episodes = episodesBySeason[seasonNumber] || []
-                        return (
-                          <div key={seasonNumber} className="glass-card rounded-md px-3 py-2 text-sm">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setExpandedSeasons((prev) => {
-                                  const next = new Set(prev)
-                                  if (next.has(seasonNumber)) {
-                                    next.delete(seasonNumber)
-                                  } else {
-                                    next.add(seasonNumber)
-                                  }
-                                  return next
-                                })
-                              }}
-                              className="w-full flex items-center justify-between"
-                            >
-                              <span>Season {season.seasonNumber ?? '—'}</span>
-                              <span className="text-slate-300">
-                                {season.episodeFileCount || 0}/{season.episodeCount || 0} eps
-                              </span>
-                            </button>
-                            {isExpanded && (
-                              <div className="mt-2 space-y-1 text-xs text-slate-300">
-                                {episodes.length === 0 && (
-                                  <div className="text-slate-500">
-                                    {episodesLoading ? 'Loading episodes...' : 'No episodes found'}
-                                  </div>
-                                )}
-                                {episodes.map((episode) => (
-                                  <div
-                                    key={episode.id}
-                                    className="flex items-center justify-between"
-                                  >
-                                    <span className="truncate">
-                                      {episode.episodeNumber != null
-                                        ? `E${String(episode.episodeNumber).padStart(2, '0')}`
-                                        : 'E--'}{' '}
-                                      {episode.title || 'Untitled'}
-                                    </span>
-                                    <span className="text-slate-500">
-                                      {episode.hasFile ? '✓' : '○'}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-            </div>
-          </div>
-        </div>
+        <DetailModal
+          mode="library"
+          libraryItem={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
       )}
     </main>
   )
