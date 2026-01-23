@@ -7,7 +7,6 @@ x-common-config: &common-config
     - ./.env
   networks:
     - net-media
-    #- net-quasrr
   restart: unless-stopped
   logging:
     driver: json-file
@@ -61,8 +60,5 @@ services:
 # ===================================================================
 networks:
   net-media:
-  #net-Quasrr:
     name: net-media
     external: true
-    #driver: bridge
-    #name: net-${COMPOSE_PROJECT_NAME}
