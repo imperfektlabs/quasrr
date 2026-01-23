@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
 import { formatSize } from '@/utils/formatting'
+import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
 import { MediaCard } from '@/components/MediaCard'
 import { DetailModal } from '@/components/DetailModal'
@@ -81,21 +82,8 @@ function LibraryContent() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!menuOpen) return
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node
-      if (menuButtonRef.current?.contains(target)) return
-      if (menuPanelRef.current?.contains(target)) return
-      setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('touchstart', handlePointerDown)
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('touchstart', handlePointerDown)
-    }
-  }, [menuOpen])
+  // Close menu when clicking outside
+  useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
   const combinedItems = useMemo<LibraryItem[]>(() => {
     const sonarr = sonarrItems.map((item) => ({ ...item, mediaType: 'tv' as const }))

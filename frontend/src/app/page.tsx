@@ -36,8 +36,8 @@ import type {
 } from '@/types'
 
 // Utility imports
-import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
-import { getStreamingLogo, getStreamingLink } from '@/utils/streaming'
+import { getBackendUrl } from '@/utils/backend'
+import { getStreamingLogo } from '@/utils/streaming'
 import {
   normalizeIdQuery,
   getReleaseKey,
@@ -59,6 +59,7 @@ import {
   useReleaseGrab,
   useAiSuggest,
   useSabActions,
+  useClickOutside,
 } from '@/hooks'
 
 // Component imports
@@ -135,21 +136,8 @@ function HomeContent() {
     }
   }, [searchParams])
 
-  useEffect(() => {
-    if (!menuOpen) return
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node
-      if (menuButtonRef.current?.contains(target)) return
-      if (menuPanelRef.current?.contains(target)) return
-      setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('touchstart', handlePointerDown)
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('touchstart', handlePointerDown)
-    }
-  }, [menuOpen])
+  // Close menu when clicking outside
+  useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
   // When AI intent returns, show translation and optionally show modal
   useEffect(() => {
