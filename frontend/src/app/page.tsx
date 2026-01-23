@@ -65,7 +65,7 @@ import {
 import {
   ReleaseView,
   AvailabilityModal,
-  DiscoveryCard,
+  MediaCard,
   SabQueue,
   SabRecent,
   NavigationMenu,
@@ -652,11 +652,11 @@ function HomeContent() {
             ) : (
               <div className="grid gap-3">
                 {searchResults.results.map((result, index) => (
-                  <DiscoveryCard
+                  <MediaCard
                     key={result.tmdb_id || result.tvdb_id || index}
-                    result={result}
+                    item={{ source: 'discovery', data: result }}
+                    onClick={() => setSelectedResult(result)}
                     onShowReleases={handleShowReleases}
-                    onShowDetails={setSelectedResult}
                     onTypeToggle={handleTypeToggle}
                   />
                 ))}

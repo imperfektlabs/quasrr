@@ -4,8 +4,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { SonarrEpisode, SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
+import { formatSize } from '@/utils/formatting'
 import { StatusBadge } from '@/components/StatusBadge'
 import { NavigationMenu } from '@/components/NavigationMenu'
+import { MediaCard } from '@/components/MediaCard'
 
 type ConfigResponse = {
   streaming_services?: StreamingService[]
@@ -18,18 +20,6 @@ type ConfigResponse = {
 
 type MediaType = 'all' | 'movies' | 'tv'
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
-
-const formatSize = (bytes?: number) => {
-  if (!bytes || bytes <= 0) return '—'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let size = bytes
-  let unitIndex = 0
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex += 1
-  }
-  return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
-}
 
 function LibraryContent() {
   const router = useRouter()
@@ -372,62 +362,13 @@ function LibraryContent() {
 
           {!loading && !error && sortedItems.length > 0 && (
             <div className="grid gap-2">
-              {sortedItems.map((item) => {
-                const isMovie = item.mediaType === 'movies'
-                const isDownloaded = isMovie
-                  ? item.hasFile
-                  : (item.episodeCount || 0) > 0 && item.episodeFileCount === item.episodeCount
-
-                return (
-                  <button
-                    key={`${item.mediaType}-${item.id}`}
-                    type="button"
-                    onClick={() => setSelectedItem(item)}
-                    className="glass-card rounded-lg overflow-hidden flex w-full text-left transition hover:border-slate-400/40"
-                  >
-                    <div className="w-24 md:w-32 flex-shrink-0">
-                      <div className="aspect-[2/3] w-full bg-slate-800/60">
-                        {item.poster ? (
-                          <img
-                            src={item.poster}
-                            alt={item.title}
-                            className="w-full h-full object-contain"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-2 text-center">
-                            No poster
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex-1 p-2 sm:p-3 flex flex-col justify-between min-w-0">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-sm sm:text-base leading-tight truncate">
-                          {item.title}
-                        </div>
-                        {item.overview && (
-                          <p className="text-gray-400 text-[11px] sm:text-xs line-clamp-2 mt-1">
-                            {item.overview}
-                          </p>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
-                        <StatusBadge status={isDownloaded ? 'downloaded' : 'not_in_library'} />
-                        <span className="glass-chip px-1.5 py-0.5 rounded text-[10px]">
-                          {isMovie ? 'Movie' : 'TV'}
-                        </span>
-                        {!isMovie && (
-                          <span className="text-slate-400">
-                            {item.episodeFileCount || 0}/{item.episodeCount || 0} eps
-                          </span>
-                        )}
-                        <span className="text-slate-400">{formatSize(item.sizeOnDisk)}</span>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
+              {sortedItems.map((item) => (
+                <MediaCard
+                  key={`${item.mediaType}-${item.id}`}
+                  item={{ source: 'library', data: item }}
+                  onClick={() => setSelectedItem(item)}
+                />
+              ))}
             </div>
           )}
         </section>
