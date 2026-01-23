@@ -64,7 +64,7 @@ import {
 // Component imports
 import {
   ReleaseView,
-  AvailabilityModal,
+  DetailModal,
   MediaCard,
   SabQueue,
   SabRecent,
@@ -357,14 +357,21 @@ function HomeContent() {
     setShowAiAvailability(false)
 
     const intent = plan.intent
-    if (!intent.title || intent.media_type === 'unknown') return
+    if (!intent.title) return
+
+    // Infer media type if unknown - if we have season/episode info, it's TV
+    let mediaType = intent.media_type
+    if (mediaType === 'unknown') {
+      mediaType = (intent.season || intent.episode) ? 'tv' : 'movie'
+      console.log('[handleAiConfirm] Inferred media_type:', mediaType)
+    }
 
     console.log('[handleAiConfirm] Starting intent for:', intent.title)
 
     // First, do a lookup to get full metadata (including tvdb_id for TV shows)
     try {
       const backendUrl = getBackendUrl()
-      const lookupUrl = `${backendUrl}/lookup?type=${intent.media_type}&query=${encodeURIComponent(intent.title)}`
+      const lookupUrl = `${backendUrl}/lookup?type=${mediaType}&query=${encodeURIComponent(intent.title)}`
       console.log('[handleAiConfirm] Lookup URL:', lookupUrl)
 
       const lookupRes = await fetch(lookupUrl)
@@ -391,10 +398,11 @@ function HomeContent() {
       console.log('[handleAiConfirm] Top result title:', topResult.title)
       console.log('[handleAiConfirm] Fetching releases for season:', intent.season ?? 'none')
 
-      // Ensure the result has the correct type field
+      // Ensure the result has the correct type and status fields
       const resultWithType = {
         ...topResult,
-        type: intent.media_type as 'movie' | 'tv'
+        type: mediaType as 'movie' | 'tv',
+        status: topResult.status || 'not_in_library' as const,
       }
 
       console.log('[handleAiConfirm] Result type set:', resultWithType.type)
@@ -931,8 +939,8 @@ function HomeContent() {
 
       {/* Discovery details modal */}
       {selectedResult && (
-        <AvailabilityModal
-          mode="info"
+        <DetailModal
+          mode="discovery"
           result={selectedResult}
           onClose={() => setSelectedResult(null)}
           onShowReleases={handleShowReleases}
@@ -941,7 +949,7 @@ function HomeContent() {
 
       {/* AI Availability Modal - for specific episode/movie requests */}
       {showAiAvailability && aiIntentPlan && (
-        <AvailabilityModal
+        <DetailModal
           mode="ai"
           plan={aiIntentPlan}
           releaseData={releaseData}

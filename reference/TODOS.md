@@ -43,7 +43,7 @@ TODOs
 
 
 - investigate voice recognition for the searches
-
+- add search to top of library
 
 
 
