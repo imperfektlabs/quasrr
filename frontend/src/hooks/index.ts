@@ -32,3 +32,6 @@ export type { ReleaseGrabResult, GrabFeedback } from './releases/useReleaseGrab'
 
 export { useAiSuggest } from './releases/useAiSuggest'
 export type { AiSuggestResult } from './releases/useAiSuggest'
+
+// UI hooks
+export { useClickOutside } from './ui/useClickOutside'

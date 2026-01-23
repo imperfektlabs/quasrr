@@ -28,28 +28,31 @@ TODOs
 - results page - tighten card, there is space under the posters... why is that? --> DONE
 - results page - change in library (downloaded) to icons as discussed before --> DONE
 - results page - first 25 are shown - probably rarely need to go past that... maybe change 25 to 10, and allow a second page - will take make it faster? --> DONE
-
-
-
-- Add Gemini capabilities
 - Bug: AI search episodes by date --> DONE
 
+
+
+
+
+Overall
 - Add dashboard summary at the top, that scrolls off the page, locking the rest
-- replace header with same header as the rest (are the others actual pages or just models themselves?)
+- replace header with same header as the rest (are the others actual pages or just models themselves?) --> DONE
+- add search to top of library
+- apply clickTV or clickMovie chip filtering to library cards
+- tighten up the search card - and lock it to the top when scrolling - just move the searchfield into the header when scrolling if possible
+
+
+Modals
+- Make episode modal in sonarr/radarr pages the same width as release modal --> DONE
 - make the releases modal look the same as the sonarr/radarr episode list modal
-- Make episode modal in sonarr/radarr pages the same width as release modal
 - Add airdate to episode modal view
 - possibly add quality profile instead of checkmark
 
 
-- investigate voice recognition for the searches
-- add search to top of library
-
-
-
 
 TODOs (Longer Term)
-
+- investigate voice recognition for the searches
+- Add Gemini capabilities
 - Animate background more if possible.
 - Authentication - can we piggyback on Sonarr or Radarr?
 - Major design changes placeholder (details later).

@@ -782,3 +782,135 @@ Now ready to proceed with final cleanup:
 - Estimated savings: ~50-100 lines
 
 **User will commit before proceeding to Phase 4.**
+
+---
+
+## PHASE 4 COMPLETE: Final Utilities Cleanup ✅
+
+### Date Completed
+January 23, 2026
+
+### Summary
+Final cleanup phase - extracted reusable `useClickOutside` hook and removed unused imports across the codebase.
+
+### Files Created
+1. **`frontend/src/hooks/ui/useClickOutside.ts`** (40 lines)
+   - Reusable hook for click-outside detection
+   - Supports multiple ref elements
+   - Configurable enabled state
+   - Handles both mouse and touch events
+
+### Files Modified
+1. **`frontend/src/hooks/index.ts`**
+   - Added `useClickOutside` export under new "UI hooks" section
+
+2. **`frontend/src/app/page.tsx`**
+   - Replaced 15-line inline `useEffect` with 1-line `useClickOutside` hook call
+   - Removed unused imports: `getLocalToolUrl`, `getStreamingLink`
+   - Net savings: ~16 lines
+
+3. **`frontend/src/app/library/page.tsx`**
+   - Replaced 15-line inline `useEffect` with 1-line `useClickOutside` hook call
+   - Added `useClickOutside` import
+   - Net savings: ~14 lines
+
+### Code Reduction Summary
+- **Before:**
+  - Duplicate click-outside logic in page.tsx: 15 lines
+  - Duplicate click-outside logic in library/page.tsx: 15 lines
+  - Unused imports: 2 functions
+  - Total duplicate: ~32 lines
+- **After:**
+  - useClickOutside hook: 40 lines (reusable)
+  - Hook usage: 2 lines (1 per page)
+  - Total: 42 lines
+- **Net change:** +10 lines for reusable hook, but eliminates duplication
+- **Duplication Eliminated:** 100%
+
+### Key Features Implemented
+1. **useClickOutside Hook**
+   ```typescript
+   export function useClickOutside(
+     refs: RefObject<HTMLElement | null>[],
+     callback: () => void,
+     enabled: boolean = true
+   ): void
+   ```
+   - Accepts array of refs (e.g., menu button + menu panel)
+   - Only active when `enabled` is true
+   - Cleans up event listeners properly
+
+2. **Usage Pattern**
+   ```typescript
+   // Before: 15 lines of useEffect
+   useEffect(() => {
+     if (!menuOpen) return
+     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+       const target = event.target as Node
+       if (menuButtonRef.current?.contains(target)) return
+       if (menuPanelRef.current?.contains(target)) return
+       setMenuOpen(false)
+     }
+     document.addEventListener('mousedown', handlePointerDown)
+     document.addEventListener('touchstart', handlePointerDown)
+     return () => {
+       document.removeEventListener('mousedown', handlePointerDown)
+       document.removeEventListener('touchstart', handlePointerDown)
+     }
+   }, [menuOpen])
+
+   // After: 1 line
+   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+   ```
+
+3. **Import Cleanup**
+   - Removed `getLocalToolUrl` (not used in page.tsx)
+   - Removed `getStreamingLink` (not used in page.tsx)
+
+### Verification Completed
+- ✅ No stale `AvailabilityModal` references
+- ✅ No stale `DiscoveryCard` references
+- ✅ All component exports match existing files
+- ✅ All hooks properly exported
+- ✅ No unused imports remaining
+
+### Final Cumulative Progress - All Phases
+
+**Total Lines Eliminated:**
+- Phase 1 (Navigation): ~348 lines
+- Library Merge: ~842 lines
+- Phase 2 (MediaCard): ~195 lines
+- Phase 3 (DetailModal): ~95 lines net
+- Phase 4 (Utilities): ~30 lines duplicate code
+- **Grand Total: ~1,510 lines of duplicate code eliminated**
+
+**Files Deleted (Total):**
+- `frontend/src/app/sonarr/page.tsx` (485 lines)
+- `frontend/src/app/radarr/page.tsx` (357 lines)
+- `frontend/src/components/DiscoveryCard.tsx` (154 lines)
+- `frontend/src/components/AvailabilityModal.tsx` (437 lines)
+- **Total: 1,433 lines of code removed**
+
+**New Consolidated Components:**
+- `NavigationMenu.tsx` - Unified navigation across all pages
+- `MediaCard.tsx` - Unified card for discovery and library items
+- `DetailModal.tsx` - Unified modal for AI, discovery, and library
+- `useClickOutside.ts` - Reusable click-outside detection hook
+
+**Architecture Improvements:**
+- Single `/library` page instead of separate `/sonarr` and `/radarr`
+- Discriminated union pattern for type-safe multi-mode components
+- Compute-once-render-once pattern for unified layouts
+- Centralized utilities in `/utils` folder
+- Organized hooks by domain (`/hooks/api`, `/hooks/sab`, `/hooks/releases`, `/hooks/ui`)
+
+### Refactor Complete 🎉
+
+All four phases of the REFACTOR2 plan have been completed:
+1. ✅ Phase 1: Navigation Menu consolidation
+2. ✅ Library Merge: Combined Sonarr/Radarr into unified `/library`
+3. ✅ Phase 2: MediaCard component consolidation
+4. ✅ Phase 3: DetailModal component consolidation
+5. ✅ Phase 4: Utilities cleanup and hook extraction
+
+The codebase is now significantly cleaner with zero duplication across pages and components.
