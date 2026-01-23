@@ -33,7 +33,7 @@ export type NavigationMenuProps = {
   menuPanelRef: React.RefObject<HTMLDivElement>
 
   // Page context
-  currentPage: 'home' | 'sonarr' | 'radarr'
+  currentPage: 'home' | 'sonarr' | 'radarr' | 'library'
   activeSection?: 'search' | 'downloads' | 'status' | 'settings'
   onSectionChange?: (section: 'search' | 'downloads' | 'status' | 'settings') => void
 
@@ -231,38 +231,23 @@ export function NavigationMenu({
             <span>Settings</span>
           </button>
 
-          {/* Libraries Section */}
+          {/* Library Section */}
           <div className="border-t border-slate-700/40 pt-2 mt-2">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">Libraries</div>
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Library</div>
             <Link
-              href="/sonarr"
+              href="/library"
               onClick={() => setMenuOpen(false)}
               className={`mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-                currentPage === 'sonarr' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
+                currentPage === 'library' || currentPage === 'sonarr' || currentPage === 'radarr'
+                  ? 'bg-slate-700/60'
+                  : 'bg-slate-800/50 hover:bg-slate-700/60'
               }`}
             >
-              <img
-                src={getToolIconUrl(config?.integrations?.sonarr_url || getLocalToolUrl(8989))}
-                alt="Sonarr icon"
-                className={`h-4 w-4 object-contain ${getIntegrationStatus('sonarr') === false ? 'opacity-40 grayscale' : ''}`}
-                loading="lazy"
-              />
-              <span>Sonarr Library</span>
-            </Link>
-            <Link
-              href="/radarr"
-              onClick={() => setMenuOpen(false)}
-              className={`mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-                currentPage === 'radarr' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
-              }`}
-            >
-              <img
-                src={getToolIconUrl(config?.integrations?.radarr_url || getLocalToolUrl(7878))}
-                alt="Radarr icon"
-                className={`h-4 w-4 object-contain ${getIntegrationStatus('radarr') === false ? 'opacity-40 grayscale' : ''}`}
-                loading="lazy"
-              />
-              <span>Radarr Library</span>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+              <span>Library</span>
             </Link>
           </div>
 
