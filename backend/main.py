@@ -324,18 +324,26 @@ async def get_dashboard_summary():
     """Get summary metrics for dashboard cards."""
     radarr = get_radarr_client()
     sonarr = get_sonarr_client()
+    sab = get_sabnzbd_client()
     plex = get_plex_client()
 
     summary = {
         "sonarr": {
             "configured": sonarr.is_configured,
-            "total_count": 0,
+            "series_count": 0,
+            "episode_count": 0,
             "size_on_disk": 0,
         },
         "radarr": {
             "configured": radarr.is_configured,
-            "total_count": 0,
+            "movie_files_count": 0,
+            "movies_count": 0,
             "size_on_disk": 0,
+        },
+        "sabnzbd": {
+            "configured": sab.is_configured,
+            "download_today": 0,
+            "download_month": 0,
         },
         "plex": {
             "configured": plex.is_configured,
@@ -346,13 +354,20 @@ async def get_dashboard_summary():
 
     if sonarr.is_configured:
         series_list = await sonarr.get_library_list()
-        summary["sonarr"]["total_count"] = len(series_list)
+        summary["sonarr"]["series_count"] = len(series_list)
+        summary["sonarr"]["episode_count"] = sum(series.get("episodeCount", 0) or 0 for series in series_list)
         summary["sonarr"]["size_on_disk"] = sum(series.get("sizeOnDisk", 0) or 0 for series in series_list)
 
     if radarr.is_configured:
         movie_list = await radarr.get_library_list()
-        summary["radarr"]["total_count"] = len(movie_list)
+        summary["radarr"]["movies_count"] = len(movie_list)
+        summary["radarr"]["movie_files_count"] = sum(1 for movie in movie_list if movie.get("hasFile"))
         summary["radarr"]["size_on_disk"] = sum(movie.get("sizeOnDisk", 0) or 0 for movie in movie_list)
+
+    if sab.is_configured:
+        totals = await sab.get_download_totals()
+        summary["sabnzbd"]["download_today"] = totals["today"]
+        summary["sabnzbd"]["download_month"] = totals["month"]
 
     if plex.is_configured:
         summary["plex"]["recently_added"] = await plex.get_recently_added_count(7)
