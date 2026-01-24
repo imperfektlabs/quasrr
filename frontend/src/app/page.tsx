@@ -36,7 +36,7 @@ import type {
 } from '@/types'
 
 // Utility imports
-import { getBackendUrl } from '@/utils/backend'
+import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
 import { getStreamingLogo } from '@/utils/streaming'
 import {
   normalizeIdQuery,
@@ -241,6 +241,11 @@ function HomeContent() {
   }
 
   // SABnzbd polling
+  const sabPollingEnabled = sabConfigured && (
+    activeSection === 'downloads'
+    || (activeSection === 'search' && dashboardConfig.show_sabnzbd)
+  )
+
   const {
     queue: sabQueue,
     recent: sabRecent,
@@ -248,7 +253,7 @@ function HomeContent() {
     queueError: sabQueueError,
     recentError: sabRecentError,
     refetch: fetchSabData,
-  } = useSabPolling(sabConfigured && activeSection === 'downloads', 2000)
+  } = useSabPolling(sabPollingEnabled, 2000)
 
   // SABnzbd actions
   const {
@@ -458,6 +463,7 @@ function HomeContent() {
 
 
   const queueSummary = (() => {
+    if (!sabConfigured) return 'Not configured'
     if (sabQueueError) return `Error: ${sabQueueError}`
     if (!sabQueue) return 'Loading queue...'
     const activeCount = sabQueue.jobs.length
@@ -465,11 +471,41 @@ function HomeContent() {
   })()
 
   const recentSummary = (() => {
+    if (!sabConfigured) return 'Not configured'
     if (sabRecentError) return `Error: ${sabRecentError}`
     if (!sabRecent) return 'Loading recent...'
     const groupCount = sabRecent.groups.length
     return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
   })()
+
+  const getToolIconUrl = (url: string) => `${url.replace(/\/$/, '')}/favicon.ico`
+
+  const toolLinks = {
+    sonarr: {
+      label: 'TV Shows',
+      url: config?.integrations?.sonarr_url || getLocalToolUrl(8989),
+      iconUrl: getToolIconUrl(config?.integrations?.sonarr_url || getLocalToolUrl(8989)),
+      status: integrationsStatus?.sonarr?.status === 'ok',
+    },
+    radarr: {
+      label: 'Movies',
+      url: config?.integrations?.radarr_url || getLocalToolUrl(7878),
+      iconUrl: getToolIconUrl(config?.integrations?.radarr_url || getLocalToolUrl(7878)),
+      status: integrationsStatus?.radarr?.status === 'ok',
+    },
+    sabnzbd: {
+      label: 'Downloads',
+      url: config?.integrations?.sabnzbd_url || getLocalToolUrl(8080),
+      iconUrl: getToolIconUrl(config?.integrations?.sabnzbd_url || getLocalToolUrl(8080)),
+      status: integrationsStatus?.sabnzbd?.status === 'ok',
+    },
+    plex: {
+      label: 'Plex',
+      url: getLocalToolUrl(32400, '/web'),
+      iconUrl: getToolIconUrl(getLocalToolUrl(32400, '/web')),
+      status: null,
+    },
+  }
 
   const handlePauseAll = () => pauseSabQueue()
   const handleResumeAll = () => resumeSabQueue()
@@ -488,7 +524,6 @@ function HomeContent() {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         config={config}
-        integrationsStatus={integrationsStatus}
         onHomeClick={handleHome}
       />
 
@@ -497,18 +532,31 @@ function HomeContent() {
           <section id="dashboard" className="mb-4 -mt-4">
             <div className="glass-panel rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-300">Dashboard</h2>
-                <span className="text-xs text-gray-500">
-                  {dashboardLoading ? 'Updating…' : 'At a glance'}
-                </span>
+                <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
               </div>
+              {dashboardLoading && (
+                <div className="text-xs text-gray-500 mb-2">Updating…</div>
+              )}
               {dashboardError && (
                 <div className="text-xs text-amber-300 mb-3">{dashboardError}</div>
               )}
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {dashboardConfig.show_sonarr && (
-                  <div className="rounded-lg p-3 border bg-emerald-500/15 border-emerald-400/40">
-                    <div className="text-sm font-semibold text-emerald-100">Sonarr</div>
+                  <a
+                    href={toolLinks.sonarr.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-3 border bg-emerald-500/15 border-emerald-400/40 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    <div className="text-sm font-semibold text-emerald-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.sonarr.iconUrl}
+                        alt="Sonarr icon"
+                        className={`h-4 w-4 object-contain ${toolLinks.sonarr.status === false ? 'opacity-40 grayscale' : ''}`}
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.sonarr.label}</span>
+                    </div>
                     <div className="mt-2 space-y-1 text-xs text-emerald-100/80">
                       <div>
                         Total: {dashboardSummary?.sonarr?.configured ? dashboardSummary.sonarr.total_count : '—'}
@@ -517,11 +565,24 @@ function HomeContent() {
                         Size: {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
                       </div>
                     </div>
-                  </div>
+                  </a>
                 )}
                 {dashboardConfig.show_radarr && (
-                  <div className="rounded-lg p-3 border bg-sky-500/15 border-sky-400/40">
-                    <div className="text-sm font-semibold text-sky-100">Radarr</div>
+                  <a
+                    href={toolLinks.radarr.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-3 border bg-sky-500/15 border-sky-400/40 hover:bg-sky-500/20 transition-colors"
+                  >
+                    <div className="text-sm font-semibold text-sky-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.radarr.iconUrl}
+                        alt="Radarr icon"
+                        className={`h-4 w-4 object-contain ${toolLinks.radarr.status === false ? 'opacity-40 grayscale' : ''}`}
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.radarr.label}</span>
+                    </div>
                     <div className="mt-2 space-y-1 text-xs text-sky-100/80">
                       <div>
                         Total: {dashboardSummary?.radarr?.configured ? dashboardSummary.radarr.total_count : '—'}
@@ -530,25 +591,51 @@ function HomeContent() {
                         Size: {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
                       </div>
                     </div>
-                  </div>
+                  </a>
                 )}
                 {dashboardConfig.show_sabnzbd && (
-                  <div className="rounded-lg p-3 border bg-amber-500/15 border-amber-400/40">
-                    <div className="text-sm font-semibold text-amber-100">SABnzbd</div>
+                  <a
+                    href={toolLinks.sabnzbd.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-3 border bg-amber-500/15 border-amber-400/40 hover:bg-amber-500/20 transition-colors"
+                  >
+                    <div className="text-sm font-semibold text-amber-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.sabnzbd.iconUrl}
+                        alt="SABnzbd icon"
+                        className={`h-4 w-4 object-contain ${toolLinks.sabnzbd.status === false ? 'opacity-40 grayscale' : ''}`}
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.sabnzbd.label}</span>
+                    </div>
                     <div className="mt-2 space-y-1 text-xs text-amber-100/80">
                       <div>Queue: {queueSummary}</div>
                       <div>Recent: {recentSummary}</div>
                     </div>
-                  </div>
+                  </a>
                 )}
                 {dashboardConfig.show_plex && (
-                  <div className="rounded-lg p-3 border bg-yellow-500/15 border-yellow-400/40">
-                    <div className="text-sm font-semibold text-yellow-100">Plex</div>
+                  <a
+                    href={toolLinks.plex.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-3 border bg-yellow-500/15 border-yellow-400/40 hover:bg-yellow-500/20 transition-colors"
+                  >
+                    <div className="text-sm font-semibold text-yellow-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.plex.iconUrl}
+                        alt="Plex icon"
+                        className="h-4 w-4 object-contain"
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.plex.label}</span>
+                    </div>
                     <div className="mt-2 space-y-1 text-xs text-yellow-100/80">
                       <div>Recently added (7d): —</div>
                       <div>Active streams: —</div>
                     </div>
-                  </div>
+                  </a>
                 )}
               </div>
             </div>
