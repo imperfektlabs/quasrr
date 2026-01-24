@@ -599,18 +599,18 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sonarr.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-[11px] text-emerald-100/80">
-                      <div className="inline-flex items-center gap-2">
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-emerald-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span>
+                        <span className="min-w-0 truncate whitespace-nowrap">
                           {dashboardSummary?.sonarr?.configured
                             ? `${dashboardSummary.sonarr.series_count} / ${dashboardSummary.sonarr.episode_count}`
                             : '—'}
                         </span>
                       </div>
-                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
-                        <DiskIcon className="h-3 w-3 ml-0.5" />
-                        <span>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <DiskIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
                           {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
                         </span>
                       </div>
@@ -633,18 +633,18 @@ function HomeContent() {
                       />
                       <span>{toolLinks.radarr.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-[11px] text-sky-100/80">
-                      <div className="inline-flex items-center gap-2">
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-sky-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span>
+                        <span className="min-w-0 truncate whitespace-nowrap">
                           {dashboardSummary?.radarr?.configured
                             ? `${dashboardSummary.radarr.movie_files_count} / ${dashboardSummary.radarr.movies_count}`
                             : '—'}
                         </span>
                       </div>
-                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
-                        <DiskIcon className="h-3 w-3 ml-0.5" />
-                        <span>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <DiskIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
                           {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
                         </span>
                       </div>
@@ -667,14 +667,14 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sabnzbd.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-[11px] text-amber-100/80">
-                      <div className="inline-flex items-center gap-2">
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-amber-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span>{sabQueueCount !== null ? sabQueueCount : '—'}</span>
+                        <span className="min-w-0 truncate whitespace-nowrap">{sabQueueCount !== null ? sabQueueCount : '—'}</span>
                       </div>
-                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
-                        <DiskIcon className="h-3 w-3 ml-0.5" />
-                        <span>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <DiskIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
                           {dashboardSummary?.sabnzbd?.configured
                             ? formatDownloadTotals(dashboardSummary.sabnzbd.download_today, dashboardSummary.sabnzbd.download_month)
                             : '—'}
@@ -699,16 +699,16 @@ function HomeContent() {
                       />
                       <span>{toolLinks.plex.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-[11px] text-yellow-100/80">
-                      <div className="inline-flex items-center gap-2">
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-yellow-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span>
+                        <span className="min-w-0 truncate whitespace-nowrap">
                           {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
                         </span>
                       </div>
-                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
-                        <CountIcon className="h-3 w-3 ml-0.5" />
-                        <span>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <CountIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
                           {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
                         </span>
                       </div>
