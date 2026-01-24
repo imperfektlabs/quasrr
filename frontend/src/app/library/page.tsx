@@ -202,15 +202,17 @@ function LibraryContent() {
         <section className="space-y-3">
           <div className="sticky top-20 z-20">
             <div className="glass-panel rounded-lg p-3 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">
-                    {mediaType === 'movies' ? 'Movies' : mediaType === 'tv' ? 'Series' : 'Library'}
-                  </span>
-                  <span className="text-lg font-semibold text-slate-100">{sortedItems.length}</span>
+              <div className="space-y-2 text-xs text-slate-300">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-base font-semibold text-slate-100">
+                      {mediaType === 'movies' ? 'Movies' : mediaType === 'tv' ? 'Series' : 'Library'}
+                    </span>
+                    <span className="text-xl font-semibold text-slate-100">{sortedItems.length}</span>
+                  </div>
+                  <span>Total size: {formatSize(totalSize)}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span>Total size: {formatSize(totalSize)}</span>
                   <span className="glass-chip px-2 py-1 rounded">Downloaded: {totalDownloaded}</span>
                   <span className="glass-chip px-2 py-1 rounded">Missing: {totalMissing}</span>
                   <span className="glass-chip px-2 py-1 rounded">Monitored: {totalMonitored}</span>
