@@ -470,6 +470,19 @@ function HomeContent() {
     return activeCount > 0 ? `${activeCount} active` : '0 active'
   })()
 
+  const sabQueueCount = (() => {
+    if (!sabConfigured) return null
+    if (!sabQueue) return null
+    return sabQueue.jobs.length
+  })()
+
+  const formatDownloadTotals = (today: number | null, month: number | null) => {
+    if (today === null || month === null) return '—'
+    const todayGb = today / (1024 ** 3)
+    const monthGb = month / (1024 ** 3)
+    return `${todayGb.toFixed(2)}/${monthGb.toFixed(1)}`
+  }
+
   const recentSummary = (() => {
     if (!sabConfigured) return 'Not configured'
     if (sabRecentError) return `Error: ${sabRecentError}`
@@ -482,7 +495,7 @@ function HomeContent() {
 
   const toolLinks = {
     sonarr: {
-      label: 'TV Shows',
+      label: 'TV',
       url: config?.integrations?.sonarr_url || getLocalToolUrl(8989),
       iconUrl: getToolIconUrl(config?.integrations?.sonarr_url || getLocalToolUrl(8989)),
       status: integrationsStatus?.sonarr?.status === 'ok',
@@ -494,7 +507,7 @@ function HomeContent() {
       status: integrationsStatus?.radarr?.status === 'ok',
     },
     sabnzbd: {
-      label: 'Downloads',
+      label: 'D/Ls',
       url: config?.integrations?.sabnzbd_url || getLocalToolUrl(8080),
       iconUrl: getToolIconUrl(config?.integrations?.sabnzbd_url || getLocalToolUrl(8080)),
       status: integrationsStatus?.sabnzbd?.status === 'ok',
@@ -513,6 +526,25 @@ function HomeContent() {
     dashboardConfig.show_sabnzbd,
     dashboardConfig.show_plex,
   ].filter(Boolean).length || 1
+
+  const CountIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3 6h1" />
+      <path d="M3 12h1" />
+      <path d="M3 18h1" />
+    </svg>
+  )
+
+  const DiskIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <ellipse cx="12" cy="5" rx="8" ry="3" />
+      <path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+      <path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" />
+    </svg>
+  )
 
   const handlePauseAll = () => pauseSabQueue()
   const handleResumeAll = () => resumeSabQueue()
@@ -556,9 +588,9 @@ function HomeContent() {
                     href={toolLinks.sonarr.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-lg p-3 border bg-emerald-500/15 border-emerald-400/40 hover:bg-emerald-500/20 transition-colors"
+                    className="rounded-lg p-2 border bg-emerald-500/15 border-emerald-400/40 hover:bg-emerald-500/20 transition-colors"
                   >
-                    <div className="text-sm font-semibold text-emerald-100 inline-flex items-center gap-2">
+                    <div className="text-xs font-semibold text-emerald-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.sonarr.iconUrl}
                         alt="Sonarr icon"
@@ -567,12 +599,20 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sonarr.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-xs text-emerald-100/80">
-                      <div>
-                        Count: {dashboardSummary?.sonarr?.configured ? dashboardSummary.sonarr.total_count : '—'}
+                    <div className="mt-2 space-y-1 text-[11px] text-emerald-100/80">
+                      <div className="inline-flex items-center gap-2">
+                        <CountIcon className="h-3 w-3" />
+                        <span>
+                          {dashboardSummary?.sonarr?.configured
+                            ? `${dashboardSummary.sonarr.series_count} / ${dashboardSummary.sonarr.episode_count}`
+                            : '—'}
+                        </span>
                       </div>
-                      <div>
-                        Disk: {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
+                      <div className="inline-flex items-center gap-2">
+                        <DiskIcon className="h-3 w-3" />
+                        <span>
+                          {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
+                        </span>
                       </div>
                     </div>
                   </a>
@@ -582,9 +622,9 @@ function HomeContent() {
                     href={toolLinks.radarr.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-lg p-3 border bg-sky-500/15 border-sky-400/40 hover:bg-sky-500/20 transition-colors"
+                    className="rounded-lg p-2 border bg-sky-500/15 border-sky-400/40 hover:bg-sky-500/20 transition-colors"
                   >
-                    <div className="text-sm font-semibold text-sky-100 inline-flex items-center gap-2">
+                    <div className="text-xs font-semibold text-sky-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.radarr.iconUrl}
                         alt="Radarr icon"
@@ -593,12 +633,20 @@ function HomeContent() {
                       />
                       <span>{toolLinks.radarr.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-xs text-sky-100/80">
-                      <div>
-                        Count: {dashboardSummary?.radarr?.configured ? dashboardSummary.radarr.total_count : '—'}
+                    <div className="mt-2 space-y-1 text-[11px] text-sky-100/80">
+                      <div className="inline-flex items-center gap-2">
+                        <CountIcon className="h-3 w-3" />
+                        <span>
+                          {dashboardSummary?.radarr?.configured
+                            ? `${dashboardSummary.radarr.movie_files_count} / ${dashboardSummary.radarr.movies_count}`
+                            : '—'}
+                        </span>
                       </div>
-                      <div>
-                        Disk: {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
+                      <div className="inline-flex items-center gap-2">
+                        <DiskIcon className="h-3 w-3" />
+                        <span>
+                          {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
+                        </span>
                       </div>
                     </div>
                   </a>
@@ -608,9 +656,9 @@ function HomeContent() {
                     href={toolLinks.sabnzbd.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-lg p-3 border bg-amber-500/15 border-amber-400/40 hover:bg-amber-500/20 transition-colors"
+                    className="rounded-lg p-2 border bg-amber-500/15 border-amber-400/40 hover:bg-amber-500/20 transition-colors"
                   >
-                    <div className="text-sm font-semibold text-amber-100 inline-flex items-center gap-2">
+                    <div className="text-xs font-semibold text-amber-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.sabnzbd.iconUrl}
                         alt="SABnzbd icon"
@@ -619,9 +667,19 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sabnzbd.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-xs text-amber-100/80">
-                      <div>Queue: {queueSummary}</div>
-                      <div>Recent: {recentSummary}</div>
+                    <div className="mt-2 space-y-1 text-[11px] text-amber-100/80">
+                      <div className="inline-flex items-center gap-2">
+                        <CountIcon className="h-3 w-3" />
+                        <span>{sabQueueCount !== null ? sabQueueCount : '—'}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-2">
+                        <DiskIcon className="h-3 w-3" />
+                        <span>
+                          {dashboardSummary?.sabnzbd?.configured
+                            ? formatDownloadTotals(dashboardSummary.sabnzbd.download_today, dashboardSummary.sabnzbd.download_month)
+                            : '—'}
+                        </span>
+                      </div>
                     </div>
                   </a>
                 )}
@@ -630,9 +688,9 @@ function HomeContent() {
                     href={toolLinks.plex.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-lg p-3 border bg-yellow-500/15 border-yellow-400/40 hover:bg-yellow-500/20 transition-colors"
+                    className="rounded-lg p-2 border bg-yellow-500/15 border-yellow-400/40 hover:bg-yellow-500/20 transition-colors"
                   >
-                    <div className="text-sm font-semibold text-yellow-100 inline-flex items-center gap-2">
+                    <div className="text-xs font-semibold text-yellow-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.plex.iconUrl}
                         alt="Plex icon"
@@ -641,12 +699,18 @@ function HomeContent() {
                       />
                       <span>{toolLinks.plex.label}</span>
                     </div>
-                    <div className="mt-2 space-y-1 text-xs text-yellow-100/80">
-                      <div>
-                        Recent (7d): {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
+                    <div className="mt-2 space-y-1 text-[11px] text-yellow-100/80">
+                      <div className="inline-flex items-center gap-2">
+                        <CountIcon className="h-3 w-3" />
+                        <span>
+                          {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
+                        </span>
                       </div>
-                      <div>
-                        Streams: {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
+                      <div className="inline-flex items-center gap-2">
+                        <CountIcon className="h-3 w-3" />
+                        <span>
+                          {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
+                        </span>
                       </div>
                     </div>
                   </a>
@@ -659,7 +723,7 @@ function HomeContent() {
         {/* Search Section */}
         {activeSection === 'search' && (
         <section id="search" className="scroll-mt-24">
-          <div className="sticky top-24 z-20">
+          <div className="sticky top-20 z-20">
             <div className="glass-panel rounded-lg p-4 mb-4">
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
