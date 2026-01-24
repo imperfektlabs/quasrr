@@ -27,7 +27,6 @@ import type {
   SabRecentItem,
   SabRecentGroup,
   SabRecentResponse,
-  IntegrationStatus,
   IntegrationsStatus,
   SortField,
   SortDirection,
@@ -279,6 +278,7 @@ function HomeContent() {
     streamingBusy: streamingUpdateBusy,
     streamingError: streamingUpdateError,
     toggleStreaming: handleStreamingToggle,
+    saveDashboard: saveDashboardSettings,
     saveSettings,
   } = useSettings(config, setConfig)
 
@@ -437,26 +437,6 @@ function HomeContent() {
     return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
   })()
 
-  const formatIntegrationStatus = (configured: boolean, status?: IntegrationStatus | null) => {
-    if (!configured) {
-      return { label: 'Not configured', tone: 'text-gray-500' }
-    }
-    if (!status) {
-      return { label: 'Checking...', tone: 'text-amber-300' }
-    }
-    if (status.status === 'ok') {
-      return { label: 'Connected', tone: 'text-green-400' }
-    }
-    if (status.status === 'error') {
-      return { label: status.message || 'Error', tone: 'text-red-400' }
-    }
-    return { label: status.status, tone: 'text-gray-300' }
-  }
-
-  const sonarrStatus = formatIntegrationStatus(Boolean(config?.integrations.sonarr_url), integrationsStatus?.sonarr)
-  const radarrStatus = formatIntegrationStatus(Boolean(config?.integrations.radarr_url), integrationsStatus?.radarr)
-  const sabnzbdStatus = formatIntegrationStatus(Boolean(config?.integrations.sabnzbd_url), integrationsStatus?.sabnzbd)
-
   const handlePauseAll = () => pauseSabQueue()
   const handleResumeAll = () => resumeSabQueue()
   const handlePauseJob = (jobId: string) => pauseSabJob(jobId)
@@ -480,41 +460,47 @@ function HomeContent() {
 
       <div className="max-w-4xl mx-auto">
         {activeSection === 'search' && (
-          <section id="dashboard" className="mb-4">
+          <section id="dashboard" className="mb-4 -mt-4">
             <div className="glass-panel rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-300">Dashboard</h2>
-                <span className="text-xs text-gray-500">Quick status</span>
+                <span className="text-xs text-gray-500">At a glance</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {dashboardConfig.show_sonarr && (
                   <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
                     <div className="text-sm font-semibold">Sonarr</div>
-                    <div className={`text-xs mt-1 ${sonarrStatus.tone}`}>
-                      {sonarrStatus.label}
+                    <div className="mt-2 space-y-1 text-xs text-gray-400">
+                      <div>Upcoming: —</div>
+                      <div>Activity: —</div>
                     </div>
                   </div>
                 )}
                 {dashboardConfig.show_radarr && (
                   <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
                     <div className="text-sm font-semibold">Radarr</div>
-                    <div className={`text-xs mt-1 ${radarrStatus.tone}`}>
-                      {radarrStatus.label}
+                    <div className="mt-2 space-y-1 text-xs text-gray-400">
+                      <div>Upcoming: —</div>
+                      <div>Activity: —</div>
                     </div>
                   </div>
                 )}
                 {dashboardConfig.show_sabnzbd && (
                   <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
                     <div className="text-sm font-semibold">SABnzbd</div>
-                    <div className={`text-xs mt-1 ${sabnzbdStatus.tone}`}>
-                      {sabnzbdStatus.label}
+                    <div className="mt-2 space-y-1 text-xs text-gray-400">
+                      <div>Queue: {queueSummary}</div>
+                      <div>Recent: {recentSummary}</div>
                     </div>
                   </div>
                 )}
                 {dashboardConfig.show_plex && (
                   <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
                     <div className="text-sm font-semibold">Plex</div>
-                    <div className="text-xs mt-1 text-gray-500">Not configured</div>
+                    <div className="mt-2 space-y-1 text-xs text-gray-400">
+                      <div>Recently added: —</div>
+                      <div>Activity: —</div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -692,75 +678,73 @@ function HomeContent() {
               </div>
             </div>
           )}
-        </section>
-        )}
-
-        {/* Search Results */}
-        {activeSection === 'search' && searchError && (
-          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-4">
-            <p className="text-red-300">{searchError}</p>
-          </div>
-        )}
-
-        {activeSection === 'search' && searching && (
-          <div className="glass-panel rounded-lg p-8 text-center mb-4">
-            <div className="text-yellow-400">Searching titles...</div>
-          </div>
-        )}
-
-        {activeSection === 'search' && searchResults && (
-          <div className="mb-4">
-            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-              <h2 className="text-lg font-semibold">
-                Results for "{searchResults.query}"
-              </h2>
-              <span className="text-gray-400 text-sm">
-                {searchResults.total_count} total
-              </span>
+          {searchError && (
+            <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-4">
+              <p className="text-red-300">{searchError}</p>
             </div>
+          )}
 
-            {searchResults.results.length === 0 ? (
-              <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
-                No results found
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {searchResults.results.map((result, index) => (
-                  <MediaCard
-                    key={result.tmdb_id || result.tvdb_id || index}
-                    item={{ source: 'discovery', data: result }}
-                    onClick={() => setSelectedResult(result)}
-                    onShowReleases={handleShowReleases}
-                    onTypeToggle={handleTypeToggle}
-                  />
-                ))}
-              </div>
-            )}
+          {searching && (
+            <div className="glass-panel rounded-lg p-8 text-center mb-4">
+              <div className="text-yellow-400">Searching titles...</div>
+            </div>
+          )}
 
-            {searchResults.total_pages > 1 && (
-              <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
-                <button
-                  type="button"
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <span className="text-sm text-gray-400">
-                  Page {searchResults.page} of {searchResults.total_pages}
+          {searchResults && (
+            <div className="mb-4">
+              <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                <h2 className="text-lg font-semibold">
+                  Results for "{searchResults.query}"
+                </h2>
+                <span className="text-gray-400 text-sm">
+                  {searchResults.total_count} total
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setPage(Math.min(searchResults.total_pages, page + 1))}
-                  disabled={page >= searchResults.total_pages}
-                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                >
-                  Next
-                </button>
               </div>
-            )}
-          </div>
+
+              {searchResults.results.length === 0 ? (
+                <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
+                  No results found
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {searchResults.results.map((result, index) => (
+                    <MediaCard
+                      key={result.tmdb_id || result.tvdb_id || index}
+                      item={{ source: 'discovery', data: result }}
+                      onClick={() => setSelectedResult(result)}
+                      onShowReleases={handleShowReleases}
+                      onTypeToggle={handleTypeToggle}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {searchResults.total_pages > 1 && (
+                <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
+                  <button
+                    type="button"
+                    onClick={() => setPage(Math.max(1, page - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <span className="text-sm text-gray-400">
+                    Page {searchResults.page} of {searchResults.total_pages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage(Math.min(searchResults.total_pages, page + 1))}
+                    disabled={page >= searchResults.total_pages}
+                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
         )}
 
         {/* Download Activity Section */}
@@ -920,6 +904,9 @@ function HomeContent() {
             {settingsSaved && (
               <div className="text-xs text-cyan-300 mb-2">Settings saved.</div>
             )}
+            {settingsSaving && (
+              <div className="text-xs text-amber-300 mb-2">Saving settings...</div>
+            )}
             <div className="grid md:grid-cols-2 gap-3 text-sm">
               <label className="grid gap-1">
                 <span className="text-xs text-gray-400">Country</span>
@@ -927,6 +914,7 @@ function HomeContent() {
                   type="text"
                   value={settingsCountry}
                   onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
+                  onBlur={saveSettings}
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
@@ -936,18 +924,11 @@ function HomeContent() {
                   type="text"
                   value={settingsAiModel}
                   onChange={(event) => setSettingsAiModel(event.target.value)}
+                  onBlur={saveSettings}
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
             </div>
-            <button
-              type="button"
-              onClick={saveSettings}
-              disabled={settingsSaving}
-              className="mt-3 px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50 text-sm"
-            >
-              {settingsSaving ? 'Saving...' : 'Save settings'}
-            </button>
 
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
@@ -956,7 +937,11 @@ function HomeContent() {
                   <input
                     type="checkbox"
                     checked={settingsShowSonarr}
-                    onChange={(event) => setSettingsShowSonarr(event.target.checked)}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowSonarr(next)
+                      void saveDashboardSettings({ show_sonarr: next })
+                    }}
                   />
                   <span>Sonarr</span>
                 </label>
@@ -964,7 +949,11 @@ function HomeContent() {
                   <input
                     type="checkbox"
                     checked={settingsShowRadarr}
-                    onChange={(event) => setSettingsShowRadarr(event.target.checked)}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowRadarr(next)
+                      void saveDashboardSettings({ show_radarr: next })
+                    }}
                   />
                   <span>Radarr</span>
                 </label>
@@ -972,7 +961,11 @@ function HomeContent() {
                   <input
                     type="checkbox"
                     checked={settingsShowSabnzbd}
-                    onChange={(event) => setSettingsShowSabnzbd(event.target.checked)}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowSabnzbd(next)
+                      void saveDashboardSettings({ show_sabnzbd: next })
+                    }}
                   />
                   <span>SABnzbd</span>
                 </label>
@@ -980,7 +973,11 @@ function HomeContent() {
                   <input
                     type="checkbox"
                     checked={settingsShowPlex}
-                    onChange={(event) => setSettingsShowPlex(event.target.checked)}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowPlex(next)
+                      void saveDashboardSettings({ show_plex: next })
+                    }}
                   />
                   <span>Plex</span>
                 </label>
