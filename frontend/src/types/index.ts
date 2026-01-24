@@ -27,6 +27,12 @@ export type ConfigStatus = {
     ai_suggestions: boolean
     auto_quality_filter: boolean
   }
+  dashboard: {
+    show_sonarr: boolean
+    show_radarr: boolean
+    show_sabnzbd: boolean
+    show_plex: boolean
+  }
 } | null
 
 // ============================================
