@@ -501,8 +501,8 @@ function HomeContent() {
     },
     plex: {
       label: 'Plex',
-      url: getLocalToolUrl(32400, '/web'),
-      iconUrl: getToolIconUrl(getLocalToolUrl(32400, '/web')),
+      url: config?.integrations?.plex_url || getLocalToolUrl(32400, '/web'),
+      iconUrl: getToolIconUrl(config?.integrations?.plex_url || getLocalToolUrl(32400, '/web')),
       status: null,
     },
   }
@@ -632,8 +632,12 @@ function HomeContent() {
                       <span>{toolLinks.plex.label}</span>
                     </div>
                     <div className="mt-2 space-y-1 text-xs text-yellow-100/80">
-                      <div>Recently added (7d): —</div>
-                      <div>Active streams: —</div>
+                      <div>
+                        Recently added (7d): {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
+                      </div>
+                      <div>
+                        Active streams: {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
+                      </div>
                     </div>
                   </a>
                 )}
