@@ -5,6 +5,7 @@ SABnzbd API client for queue and history.
 import asyncio
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -283,6 +284,35 @@ class SabnzbdClient:
 
         groups_list = list(groups.values())[:group_limit]
         return {"groups": groups_list}
+
+    async def get_download_totals(self) -> dict:
+        """Get download totals for today and this month."""
+        if not self.is_configured:
+            return {"today": 0, "month": 0}
+
+        try:
+            history_data = await self._api_request({"mode": "history", "limit": 100})
+            slots = history_data.get("history", {}).get("slots", [])
+            now = datetime.now(timezone.utc)
+            start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_month = start_today.replace(day=1)
+            totals = {"today": 0, "month": 0}
+
+            for slot in slots:
+                completed_time = parse_completed_time(slot.get("completed"))
+                if completed_time is None:
+                    continue
+                completed_dt = datetime.fromtimestamp(completed_time, tz=timezone.utc)
+                size_bytes = parse_size_to_bytes(slot.get("size")) or 0
+                if completed_dt >= start_month:
+                    totals["month"] += size_bytes
+                if completed_dt >= start_today:
+                    totals["today"] += size_bytes
+
+            return totals
+        except Exception as e:
+            logger.error(f"SABnzbd history totals error: {e}")
+            return {"today": 0, "month": 0}
 
 
 def get_sabnzbd_client() -> SabnzbdClient:
