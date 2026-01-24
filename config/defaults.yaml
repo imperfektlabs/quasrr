@@ -72,3 +72,10 @@ features:
   show_download_always: false  # Show download option even when streaming available
   ai_suggestions: true         # Enable AI-assisted release suggestions
   auto_quality_filter: true    # Auto-filter releases outside quality preferences
+
+# --- Dashboard Cards ---
+dashboard:
+  show_sonarr: true
+  show_radarr: true
+  show_sabnzbd: true
+  show_plex: false

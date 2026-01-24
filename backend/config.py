@@ -76,6 +76,13 @@ class FeaturesConfig(BaseModel):
     auto_quality_filter: bool = True
 
 
+class DashboardConfig(BaseModel):
+    show_sonarr: bool = True
+    show_radarr: bool = True
+    show_sabnzbd: bool = True
+    show_plex: bool = False
+
+
 class UserConfig(BaseModel):
     country: str = "CA"
     language: str = "en"
@@ -105,6 +112,7 @@ class Config(BaseModel):
     quality: QualityConfig = Field(default_factory=QualityConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
+    dashboard: DashboardConfig = Field(default_factory=DashboardConfig)
     integrations: IntegrationConfig = Field(default_factory=IntegrationConfig)
 
 
@@ -256,7 +264,11 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
     return reload_config()
 
 
-def update_basic_settings(country: Optional[str] = None, ai_model: Optional[str] = None) -> Config:
+def update_basic_settings(
+    country: Optional[str] = None,
+    ai_model: Optional[str] = None,
+    dashboard: Optional[dict] = None
+) -> Config:
     """Persist non-secret settings to settings.yaml."""
     settings = load_yaml_file(SETTINGS_FILE)
 
@@ -265,6 +277,9 @@ def update_basic_settings(country: Optional[str] = None, ai_model: Optional[str]
 
     if ai_model:
         settings.setdefault("ai", {})["model"] = ai_model
+
+    if dashboard:
+        settings.setdefault("dashboard", {}).update(dashboard)
 
     try:
         with open(SETTINGS_FILE, "w") as f:

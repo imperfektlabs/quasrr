@@ -12,6 +12,14 @@ export type SettingsResult = {
   setCountry: (c: string) => void
   aiModel: string
   setAiModel: (m: string) => void
+  showSonarr: boolean
+  setShowSonarr: (next: boolean) => void
+  showRadarr: boolean
+  setShowRadarr: (next: boolean) => void
+  showSabnzbd: boolean
+  setShowSabnzbd: (next: boolean) => void
+  showPlex: boolean
+  setShowPlex: (next: boolean) => void
   saving: boolean
   error: string | null
   saved: boolean
@@ -33,6 +41,10 @@ export function useSettings(
 ): SettingsResult {
   const [country, setCountry] = useState('')
   const [aiModel, setAiModel] = useState('')
+  const [showSonarr, setShowSonarr] = useState(true)
+  const [showRadarr, setShowRadarr] = useState(true)
+  const [showSabnzbd, setShowSabnzbd] = useState(true)
+  const [showPlex, setShowPlex] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -45,6 +57,10 @@ export function useSettings(
     if (config) {
       setCountry(config.user.country)
       setAiModel(config.ai.model)
+      setShowSonarr(config.dashboard.show_sonarr)
+      setShowRadarr(config.dashboard.show_radarr)
+      setShowSabnzbd(config.dashboard.show_sabnzbd)
+      setShowPlex(config.dashboard.show_plex)
     }
   }, [config])
 
@@ -92,8 +108,14 @@ export function useSettings(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user: { country },
-          ai: { model: aiModel },
+          country,
+          ai_model: aiModel,
+          dashboard: {
+            show_sonarr: showSonarr,
+            show_radarr: showRadarr,
+            show_sabnzbd: showSabnzbd,
+            show_plex: showPlex,
+          },
         }),
       })
 
@@ -121,6 +143,14 @@ export function useSettings(
     setCountry,
     aiModel,
     setAiModel,
+    showSonarr,
+    setShowSonarr,
+    showRadarr,
+    setShowRadarr,
+    showSabnzbd,
+    setShowSabnzbd,
+    showPlex,
+    setShowPlex,
     saving,
     error,
     saved,
