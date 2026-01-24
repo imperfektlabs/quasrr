@@ -182,6 +182,11 @@ function LibraryContent() {
     router.push(newUrl)
   }
 
+  const handleTypeToggle = (type: 'movie' | 'tv') => {
+    const nextType = type === 'movie' ? 'movies' : 'tv'
+    handleMediaTypeChange(mediaType === nextType ? 'all' : nextType)
+  }
+
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
       <NavigationMenu
@@ -214,8 +219,15 @@ function LibraryContent() {
         </section>
 
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Library</h2>
+            <input
+              type="text"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search library..."
+              className="bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
+            />
           </div>
 
           <div className="flex flex-wrap gap-2 text-sm">
@@ -259,13 +271,6 @@ function LibraryContent() {
               Filters
             </summary>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-              <input
-                type="text"
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Filter titles..."
-                className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs text-slate-200 placeholder-slate-500"
-              />
               <select
                 value={filterMode}
                 onChange={(event) => setFilterMode(event.target.value as typeof filterMode)}
@@ -311,6 +316,7 @@ function LibraryContent() {
                   key={`${item.mediaType}-${item.id}`}
                   item={{ source: 'library', data: item }}
                   onClick={() => setSelectedItem(item)}
+                  onTypeToggle={handleTypeToggle}
                 />
               ))}
             </div>

@@ -145,9 +145,17 @@ export function MediaCard({ item, onClick, onShowReleases, onTypeToggle }: Media
     statusBadge = (
       <div className="flex flex-wrap gap-1.5 items-center">
         <StatusBadge status={status} />
-        <span className="glass-chip text-xs px-2 py-1 rounded">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onTypeToggle?.(libItem.mediaType === 'movies' ? 'movie' : 'tv')
+          }}
+          className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70"
+          title={`Filter to ${libItem.mediaType === 'movies' ? 'movies' : 'TV shows'}`}
+        >
           {libItem.mediaType === 'movies' ? 'Movie' : 'TV'}
-        </span>
+        </button>
         {libItem.mediaType === 'tv' && (
           <span className="text-xs text-slate-400">
             {libItem.episodeFileCount || 0}/{libItem.episodeCount || 0} eps
