@@ -40,19 +40,141 @@ class AIClient:
         self.provider = (config.ai.provider or "").lower().strip()
         self.model = config.ai.model
         self.api_key = config.ai.api_key
+        self.gemini_api_key = config.ai.gemini_api_key
+        self.openrouter_api_key = config.ai.openrouter_api_key
+        self.openrouter_base_url = config.ai.openrouter_base_url
+        self.deepseek_api_key = config.ai.deepseek_api_key
+        self.deepseek_base_url = config.ai.deepseek_base_url
+        self.local_endpoint_url = config.ai.local_endpoint_url
+        self.local_api_key = config.ai.local_api_key
         self.max_tokens = config.ai.max_tokens
         self.temperature = config.ai.temperature
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.provider and self.api_key and self.model)
+        if not self.provider or not self.model:
+            return False
+        if self.provider == "openai":
+            return bool(self.api_key)
+        if self.provider == "gemini":
+            return bool(self.gemini_api_key)
+        if self.provider == "openrouter":
+            return bool(self.openrouter_api_key)
+        if self.provider == "deepseek":
+            return bool(self.deepseek_api_key)
+        if self.provider == "local":
+            return bool(self.local_endpoint_url)
+        return False
+
+    def configuration_error(self) -> str | None:
+        if not self.provider:
+            return "AI provider not selected"
+        if not self.model:
+            return "AI model not configured"
+        if self.provider == "openai" and not self.api_key:
+            return "OpenAI API key not configured"
+        if self.provider == "gemini" and not self.gemini_api_key:
+            return "Gemini API key not configured"
+        if self.provider == "openrouter" and not self.openrouter_api_key:
+            return "OpenRouter API key not configured"
+        if self.provider == "deepseek" and not self.deepseek_api_key:
+            return "DeepSeek API key not configured"
+        if self.provider == "local" and not self.local_endpoint_url:
+            return "Local AI endpoint not configured"
+        if self.provider not in {"openai", "gemini", "openrouter", "deepseek", "local"}:
+            return f"Unsupported AI provider: {self.provider}"
+        return None
+
+    async def _request_openai_chat(
+        self,
+        endpoint: str,
+        api_key: str | None,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict:
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    endpoint,
+                    headers=headers,
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    },
+                )
+                response.raise_for_status()
+                return response.json()
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "AI request timeout"}
+        except httpx.HTTPStatusError as e:
+            try:
+                err = e.response.json().get("error", {}).get("message", "")[:200]
+            except Exception:
+                err = str(e.response.text)[:200]
+            return {"status": "error", "message": f"AI error: {err}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def _local_chat_endpoint(self) -> str:
+        base = (self.local_endpoint_url or "").rstrip("/")
+        if base.endswith("/chat/completions"):
+            return base
+        return f"{base}/chat/completions"
+
+    async def _request_gemini(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict:
+        if not self.gemini_api_key:
+            return {"status": "error", "message": "Gemini API key not configured"}
+        endpoint = (
+            "https://generativelanguage.googleapis.com/v1beta"
+            f"/models/{self.model}:generateContent"
+        )
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    endpoint,
+                    params={"key": self.gemini_api_key},
+                    json={
+                        "system_instruction": {"parts": [{"text": system_prompt}]},
+                        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+                        "generationConfig": {
+                            "temperature": temperature,
+                            "maxOutputTokens": max_tokens,
+                        },
+                    },
+                )
+                response.raise_for_status()
+                return response.json()
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "AI request timeout"}
+        except httpx.HTTPStatusError as e:
+            try:
+                err = e.response.json().get("error", {}).get("message", "")[:200]
+            except Exception:
+                err = str(e.response.text)[:200]
+            return {"status": "error", "message": f"AI error: {err}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     async def suggest_release(self, payload: dict, context: dict) -> dict:
         """Suggest the best release from a list using the configured AI provider."""
-        if not self.is_configured:
-            return {"status": "error", "message": "AI not configured"}
-        if self.provider != "openai":
-            return {"status": "error", "message": f"Unsupported AI provider: {self.provider}"}
+        if config_error := self.configuration_error():
+            return {"status": "error", "message": config_error}
 
         system_prompt = (
             "You are a media download assistant. Choose the single best release from the list "
@@ -67,42 +189,63 @@ class AIClient:
             f"Releases:\n{json.dumps(payload, ensure_ascii=True, indent=2)}"
         )
 
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self.model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt},
-                        ],
-                        "temperature": self.temperature,
-                        "max_tokens": self.max_tokens,
-                    },
-                )
-                response.raise_for_status()
-                data = response.json()
-        except httpx.TimeoutException:
-            return {"status": "error", "message": "AI request timeout"}
-        except httpx.HTTPStatusError as e:
-            try:
-                err = e.response.json().get("error", {}).get("message", "")[:200]
-            except Exception:
-                err = str(e.response.text)[:200]
-            return {"status": "error", "message": f"AI error: {err}"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        if self.provider == "openai":
+            data = await self._request_openai_chat(
+                "https://api.openai.com/v1/chat/completions",
+                self.api_key or "",
+                system_prompt,
+                user_prompt,
+                self.temperature,
+                self.max_tokens,
+            )
+        elif self.provider == "gemini":
+            data = await self._request_gemini(system_prompt, user_prompt, self.temperature, self.max_tokens)
+        elif self.provider == "openrouter":
+            base_url = (self.openrouter_base_url or "https://openrouter.ai/api/v1").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self.openrouter_api_key or "",
+                system_prompt,
+                user_prompt,
+                self.temperature,
+                self.max_tokens,
+            )
+        elif self.provider == "deepseek":
+            base_url = (self.deepseek_base_url or "https://api.deepseek.com/v1").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self.deepseek_api_key or "",
+                system_prompt,
+                user_prompt,
+                self.temperature,
+                self.max_tokens,
+            )
+        elif self.provider == "local":
+            data = await self._request_openai_chat(
+                self._local_chat_endpoint(),
+                self.local_api_key,
+                system_prompt,
+                user_prompt,
+                self.temperature,
+                self.max_tokens,
+            )
+        else:
+            return {"status": "error", "message": f"Unsupported AI provider: {self.provider}"}
+
+        if data.get("status") == "error":
+            return data
 
         content = None
-        try:
-            content = data["choices"][0]["message"]["content"]
-        except Exception:
-            pass
+        if self.provider == "gemini":
+            try:
+                content = data["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception:
+                content = None
+        else:
+            try:
+                content = data["choices"][0]["message"]["content"]
+            except Exception:
+                content = None
 
         if not content:
             logger.warning("AI response missing content")
@@ -117,10 +260,8 @@ class AIClient:
 
     async def parse_intent(self, query: str, context: dict) -> dict:
         """Parse a natural language query into a structured intent."""
-        if not self.is_configured:
-            return {"status": "error", "message": "AI not configured"}
-        if self.provider != "openai":
-            return {"status": "error", "message": f"Unsupported AI provider: {self.provider}"}
+        if config_error := self.configuration_error():
+            return {"status": "error", "message": config_error}
 
         system_prompt = (
             "You interpret media search requests. Return JSON only with fields: "
@@ -135,42 +276,63 @@ class AIClient:
             f"Context:\n{json.dumps(context, ensure_ascii=True, indent=2)}"
         )
 
-        try:
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self.model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt},
-                        ],
-                        "temperature": 0.1,
-                        "max_tokens": 600,
-                    },
-                )
-                response.raise_for_status()
-                data = response.json()
-        except httpx.TimeoutException:
-            return {"status": "error", "message": "AI request timeout"}
-        except httpx.HTTPStatusError as e:
-            try:
-                err = e.response.json().get("error", {}).get("message", "")[:200]
-            except Exception:
-                err = str(e.response.text)[:200]
-            return {"status": "error", "message": f"AI error: {err}"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        if self.provider == "openai":
+            data = await self._request_openai_chat(
+                "https://api.openai.com/v1/chat/completions",
+                self.api_key or "",
+                system_prompt,
+                user_prompt,
+                0.1,
+                600,
+            )
+        elif self.provider == "gemini":
+            data = await self._request_gemini(system_prompt, user_prompt, 0.1, 600)
+        elif self.provider == "openrouter":
+            base_url = (self.openrouter_base_url or "https://openrouter.ai/api/v1").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self.openrouter_api_key or "",
+                system_prompt,
+                user_prompt,
+                0.1,
+                600,
+            )
+        elif self.provider == "deepseek":
+            base_url = (self.deepseek_base_url or "https://api.deepseek.com/v1").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self.deepseek_api_key or "",
+                system_prompt,
+                user_prompt,
+                0.1,
+                600,
+            )
+        elif self.provider == "local":
+            data = await self._request_openai_chat(
+                self._local_chat_endpoint(),
+                self.local_api_key,
+                system_prompt,
+                user_prompt,
+                0.1,
+                600,
+            )
+        else:
+            return {"status": "error", "message": f"Unsupported AI provider: {self.provider}"}
+
+        if data.get("status") == "error":
+            return data
 
         content = None
-        try:
-            content = data["choices"][0]["message"]["content"]
-        except Exception:
-            pass
+        if self.provider == "gemini":
+            try:
+                content = data["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception:
+                content = None
+        else:
+            try:
+                content = data["choices"][0]["message"]["content"]
+            except Exception:
+                content = None
 
         if not content:
             logger.warning("AI intent response missing content")

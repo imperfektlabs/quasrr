@@ -14,7 +14,7 @@ export type HealthStatus = {
 export type ConfigStatus = {
   app: { name: string; log_level: string }
   user: { country: string; language: string }
-  ai: { provider: string; model: string; api_key: string | null }
+  ai: { provider: string; model: string; api_key: string | null; available_providers?: string[] }
   streaming_services: { id: string; name: string; enabled: boolean }[]
   integrations: {
     sonarr_url: string | null
