@@ -20,4 +20,9 @@ streaming_services:
 user:
   country: CA
 ai:
-  model: gpt-5-nano
+  model: gpt-4.1-nano
+dashboard:
+  show_sonarr: true
+  show_radarr: true
+  show_sabnzbd: true
+  show_plex: true
