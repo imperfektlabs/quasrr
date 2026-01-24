@@ -18,6 +18,7 @@ from integrations.tmdb import get_tmdb_client
 from integrations.radarr import get_radarr_client
 from integrations.sonarr import get_sonarr_client
 from integrations.sabnzbd import get_sabnzbd_client, SabnzbdError
+from integrations.plex import get_plex_client
 
 # Configure logging
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -84,9 +85,17 @@ class StreamingServicesUpdate(BaseModel):
     enabled_ids: list[str]
 
 
+class DashboardSettingsUpdate(BaseModel):
+    show_sonarr: Optional[bool] = None
+    show_radarr: Optional[bool] = None
+    show_sabnzbd: Optional[bool] = None
+    show_plex: Optional[bool] = None
+
+
 class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
     ai_model: Optional[str] = None
+    dashboard: Optional[DashboardSettingsUpdate] = None
 
 
 async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
@@ -260,7 +269,8 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
 @app.post("/config/settings")
 async def update_basic_settings_config(payload: BasicSettingsUpdate):
     """Update non-secret settings in settings.yaml."""
-    config = update_basic_settings(payload.country, payload.ai_model)
+    dashboard_settings = payload.dashboard.model_dump(exclude_unset=True) if payload.dashboard else None
+    config = update_basic_settings(payload.country, payload.ai_model, dashboard_settings)
     logger.info("Basic settings updated")
     return {"status": "updated", "config": redact_secrets(config)}
 
@@ -307,6 +317,63 @@ async def get_integrations_status():
         "sonarr": sonarr_status,
         "sabnzbd": sab_status,
     }
+
+
+@app.get("/dashboard/summary")
+async def get_dashboard_summary():
+    """Get summary metrics for dashboard cards."""
+    radarr = get_radarr_client()
+    sonarr = get_sonarr_client()
+    sab = get_sabnzbd_client()
+    plex = get_plex_client()
+
+    summary = {
+        "sonarr": {
+            "configured": sonarr.is_configured,
+            "series_count": 0,
+            "episode_count": 0,
+            "size_on_disk": 0,
+        },
+        "radarr": {
+            "configured": radarr.is_configured,
+            "movie_files_count": 0,
+            "movies_count": 0,
+            "size_on_disk": 0,
+        },
+        "sabnzbd": {
+            "configured": sab.is_configured,
+            "download_today": 0,
+            "download_month": 0,
+        },
+        "plex": {
+            "configured": plex.is_configured,
+            "recently_added": 0,
+            "active_streams": 0,
+        },
+    }
+
+    if sonarr.is_configured:
+        series_list = await sonarr.get_library_list()
+        summary["sonarr"]["series_count"] = len(series_list)
+        summary["sonarr"]["episode_count"] = sum(series.get("episodeCount", 0) or 0 for series in series_list)
+        summary["sonarr"]["size_on_disk"] = sum(series.get("sizeOnDisk", 0) or 0 for series in series_list)
+
+    if radarr.is_configured:
+        movie_list = await radarr.get_library_list()
+        summary["radarr"]["movies_count"] = len(movie_list)
+        summary["radarr"]["movie_files_count"] = sum(1 for movie in movie_list if movie.get("hasFile"))
+        summary["radarr"]["size_on_disk"] = sum(movie.get("sizeOnDisk", 0) or 0 for movie in movie_list)
+
+    if sab.is_configured:
+        totals = await sab.get_download_totals()
+        summary["sabnzbd"]["download_today"] = totals["today"]
+        summary["sabnzbd"]["download_month"] = totals["month"]
+
+    if plex.is_configured:
+        summary["plex"]["recently_added"] = await plex.get_recently_added_count(7)
+        summary["plex"]["active_streams"] = await plex.get_active_streams()
+
+    return summary
 
 
 @app.get("/sab/queue")

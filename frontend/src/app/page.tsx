@@ -27,8 +27,8 @@ import type {
   SabRecentItem,
   SabRecentGroup,
   SabRecentResponse,
-  IntegrationStatus,
   IntegrationsStatus,
+  DashboardSummary,
   SortField,
   SortDirection,
   EpisodeDownloadMap,
@@ -36,7 +36,7 @@ import type {
 } from '@/types'
 
 // Utility imports
-import { getBackendUrl } from '@/utils/backend'
+import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
 import { getStreamingLogo } from '@/utils/streaming'
 import {
   normalizeIdQuery,
@@ -46,6 +46,7 @@ import {
   formatRating,
   formatRatingSource,
   getRatingLink,
+  formatSize,
 } from '@/utils/formatting'
 
 // Custom hooks
@@ -82,6 +83,12 @@ function HomeContent() {
   // Derived values from config
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
   const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
+  const dashboardConfig = config?.dashboard ?? {
+    show_sonarr: true,
+    show_radarr: true,
+    show_sabnzbd: true,
+    show_plex: false,
+  }
 
   // Local UI state (declared early as hooks depend on these)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -91,6 +98,9 @@ function HomeContent() {
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
   const [releaseContext, setReleaseContext] = useState<DiscoveryResult | null>(null)
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
 
   // Discovery search (query, filters, results, pagination)
   const {
@@ -135,6 +145,35 @@ function HomeContent() {
       setActiveSection(section)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (activeSection !== 'search') return
+
+    const controller = new AbortController()
+    const fetchSummary = async () => {
+      setDashboardLoading(true)
+      setDashboardError(null)
+      try {
+        const backendUrl = getBackendUrl()
+        const res = await fetch(`${backendUrl}/dashboard/summary`, { signal: controller.signal })
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}))
+          setDashboardError(errorData.detail || 'Unable to load dashboard summary')
+          return
+        }
+        const data = await res.json()
+        setDashboardSummary(data)
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        setDashboardError('Unable to load dashboard summary')
+      } finally {
+        setDashboardLoading(false)
+      }
+    }
+
+    void fetchSummary()
+    return () => controller.abort()
+  }, [activeSection])
 
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
@@ -202,6 +241,11 @@ function HomeContent() {
   }
 
   // SABnzbd polling
+  const sabPollingEnabled = sabConfigured && (
+    activeSection === 'downloads'
+    || (activeSection === 'search' && dashboardConfig.show_sabnzbd)
+  )
+
   const {
     queue: sabQueue,
     recent: sabRecent,
@@ -209,7 +253,7 @@ function HomeContent() {
     queueError: sabQueueError,
     recentError: sabRecentError,
     refetch: fetchSabData,
-  } = useSabPolling(sabConfigured && activeSection === 'downloads', 2000)
+  } = useSabPolling(sabPollingEnabled, 2000)
 
   // SABnzbd actions
   const {
@@ -258,6 +302,14 @@ function HomeContent() {
     setCountry: setSettingsCountry,
     aiModel: settingsAiModel,
     setAiModel: setSettingsAiModel,
+    showSonarr: settingsShowSonarr,
+    setShowSonarr: setSettingsShowSonarr,
+    showRadarr: settingsShowRadarr,
+    setShowRadarr: setSettingsShowRadarr,
+    showSabnzbd: settingsShowSabnzbd,
+    setShowSabnzbd: setSettingsShowSabnzbd,
+    showPlex: settingsShowPlex,
+    setShowPlex: setSettingsShowPlex,
     saving: settingsSaving,
     error: settingsError,
     saved: settingsSaved,
@@ -265,6 +317,7 @@ function HomeContent() {
     streamingBusy: streamingUpdateBusy,
     streamingError: streamingUpdateError,
     toggleStreaming: handleStreamingToggle,
+    saveDashboard: saveDashboardSettings,
     saveSettings,
   } = useSettings(config, setConfig)
 
@@ -410,18 +463,88 @@ function HomeContent() {
 
 
   const queueSummary = (() => {
+    if (!sabConfigured) return 'Not configured'
     if (sabQueueError) return `Error: ${sabQueueError}`
     if (!sabQueue) return 'Loading queue...'
     const activeCount = sabQueue.jobs.length
     return activeCount > 0 ? `${activeCount} active` : '0 active'
   })()
 
+  const sabQueueCount = (() => {
+    if (!sabConfigured) return null
+    if (!sabQueue) return null
+    return sabQueue.jobs.length
+  })()
+
+  const formatDownloadTotals = (today: number | null, month: number | null) => {
+    if (today === null || month === null) return '—'
+    const todayGb = today / (1024 ** 3)
+    const monthGb = month / (1024 ** 3)
+    return `${todayGb.toFixed(2)}/${monthGb.toFixed(1)}`
+  }
+
   const recentSummary = (() => {
+    if (!sabConfigured) return 'Not configured'
     if (sabRecentError) return `Error: ${sabRecentError}`
     if (!sabRecent) return 'Loading recent...'
     const groupCount = sabRecent.groups.length
     return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
   })()
+
+  const getToolIconUrl = (url: string) => `${url.replace(/\/$/, '')}/favicon.ico`
+
+  const toolLinks = {
+    sonarr: {
+      label: 'TV',
+      url: config?.integrations?.sonarr_url || getLocalToolUrl(8989),
+      iconUrl: getToolIconUrl(config?.integrations?.sonarr_url || getLocalToolUrl(8989)),
+      status: integrationsStatus?.sonarr?.status === 'ok',
+    },
+    radarr: {
+      label: 'Movies',
+      url: config?.integrations?.radarr_url || getLocalToolUrl(7878),
+      iconUrl: getToolIconUrl(config?.integrations?.radarr_url || getLocalToolUrl(7878)),
+      status: integrationsStatus?.radarr?.status === 'ok',
+    },
+    sabnzbd: {
+      label: 'D/Ls',
+      url: config?.integrations?.sabnzbd_url || getLocalToolUrl(8080),
+      iconUrl: getToolIconUrl(config?.integrations?.sabnzbd_url || getLocalToolUrl(8080)),
+      status: integrationsStatus?.sabnzbd?.status === 'ok',
+    },
+    plex: {
+      label: 'Plex',
+      url: config?.integrations?.plex_url || getLocalToolUrl(32400, '/web'),
+      iconUrl: getToolIconUrl(config?.integrations?.plex_url || getLocalToolUrl(32400, '/web')),
+      status: null,
+    },
+  }
+
+  const dashboardCardCount = [
+    dashboardConfig.show_sonarr,
+    dashboardConfig.show_radarr,
+    dashboardConfig.show_sabnzbd,
+    dashboardConfig.show_plex,
+  ].filter(Boolean).length || 1
+
+  const CountIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3 6h1" />
+      <path d="M3 12h1" />
+      <path d="M3 18h1" />
+    </svg>
+  )
+
+  const DiskIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <ellipse cx="12" cy="5" rx="8" ry="3" />
+      <path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+      <path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" />
+    </svg>
+  )
 
   const handlePauseAll = () => pauseSabQueue()
   const handleResumeAll = () => resumeSabQueue()
@@ -440,154 +563,307 @@ function HomeContent() {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         config={config}
-        integrationsStatus={integrationsStatus}
         onHomeClick={handleHome}
       />
 
       <div className="max-w-4xl mx-auto">
+        {activeSection === 'search' && (
+          <section id="dashboard" className="mb-4 -mt-4">
+            <div className="glass-panel rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
+              </div>
+              {dashboardLoading && (
+                <div className="text-xs text-gray-500 mb-2">Updating…</div>
+              )}
+              {dashboardError && (
+                <div className="text-xs text-amber-300 mb-3">{dashboardError}</div>
+              )}
+              <div
+                className="grid gap-3"
+                style={{ gridTemplateColumns: `repeat(${dashboardCardCount}, minmax(0, 1fr))` }}
+              >
+                {dashboardConfig.show_sonarr && (
+                  <a
+                    href={toolLinks.sonarr.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-2 border bg-emerald-500/15 border-emerald-400/40 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    <div className="text-xs font-semibold text-emerald-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.sonarr.iconUrl}
+                        alt="Sonarr icon"
+                        className={`h-4 w-4 object-contain ${toolLinks.sonarr.status === false ? 'opacity-40 grayscale' : ''}`}
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.sonarr.label}</span>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-emerald-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <CountIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
+                          {dashboardSummary?.sonarr?.configured
+                            ? `${dashboardSummary.sonarr.series_count} / ${dashboardSummary.sonarr.episode_count}`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <DiskIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
+                          {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                )}
+                {dashboardConfig.show_radarr && (
+                  <a
+                    href={toolLinks.radarr.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-2 border bg-sky-500/15 border-sky-400/40 hover:bg-sky-500/20 transition-colors"
+                  >
+                    <div className="text-xs font-semibold text-sky-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.radarr.iconUrl}
+                        alt="Radarr icon"
+                        className={`h-4 w-4 object-contain ${toolLinks.radarr.status === false ? 'opacity-40 grayscale' : ''}`}
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.radarr.label}</span>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-sky-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <CountIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
+                          {dashboardSummary?.radarr?.configured
+                            ? `${dashboardSummary.radarr.movie_files_count} / ${dashboardSummary.radarr.movies_count}`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <DiskIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
+                          {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                )}
+                {dashboardConfig.show_sabnzbd && (
+                  <a
+                    href={toolLinks.sabnzbd.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-2 border bg-amber-500/15 border-amber-400/40 hover:bg-amber-500/20 transition-colors"
+                  >
+                    <div className="text-xs font-semibold text-amber-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.sabnzbd.iconUrl}
+                        alt="SABnzbd icon"
+                        className={`h-4 w-4 object-contain ${toolLinks.sabnzbd.status === false ? 'opacity-40 grayscale' : ''}`}
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.sabnzbd.label}</span>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-amber-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <CountIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">{sabQueueCount !== null ? sabQueueCount : '—'}</span>
+                      </div>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <DiskIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
+                          {dashboardSummary?.sabnzbd?.configured
+                            ? formatDownloadTotals(dashboardSummary.sabnzbd.download_today, dashboardSummary.sabnzbd.download_month)
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                )}
+                {dashboardConfig.show_plex && (
+                  <a
+                    href={toolLinks.plex.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-2 border bg-yellow-500/15 border-yellow-400/40 hover:bg-yellow-500/20 transition-colors"
+                  >
+                    <div className="text-xs font-semibold text-yellow-100 inline-flex items-center gap-2">
+                      <img
+                        src={toolLinks.plex.iconUrl}
+                        alt="Plex icon"
+                        className="h-4 w-4 object-contain"
+                        loading="lazy"
+                      />
+                      <span>{toolLinks.plex.label}</span>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-yellow-100/80 tabular-nums min-w-0">
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <CountIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
+                          {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
+                        <CountIcon className="h-3 w-3" />
+                        <span className="min-w-0 truncate whitespace-nowrap">
+                          {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Search Section */}
         {activeSection === 'search' && (
         <section id="search" className="scroll-mt-24">
-          <div className="glass-panel rounded-lg p-4 mb-4">
-          <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
-            <div className="flex gap-2">
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  // Clear AI translation when user starts typing a new search
-                  if (aiTranslation) {
-                    setAiTranslation(null)
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                  event.preventDefault()
-                  void handleSubmitSearch()
-                }}
-                placeholder="Search movies and TV shows..."
-                className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
-              />
-              <button
-                type="submit"
-                disabled={searching || aiIntentBusy || !searchQuery.trim()}
-                className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
-              >
-                {submittingSearch || searching || aiIntentBusy ? '...' : 'Search'}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between mt-1">
-              {/* AI Translation Display */}
-              {aiTranslation ? (
-                <div className="text-xs text-slate-300">
-                  {aiTranslation}
-                </div>
-              ) : (
-                <div></div>
-              )}
-
-              <details>
-                <summary className="text-xs text-slate-300 cursor-pointer select-none">
-                  Filters
-                </summary>
-              <div className="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                <div>
-                  <label className="text-xs text-gray-400">Type</label>
-                  <select
-                    value={filterType}
-                    onChange={(event) => {
-                      setFilterType(event.target.value as SearchFilterType)
-                      setPage(1)
-                    }}
-                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  >
-                    <option value="all">All</option>
-                    <option value="movie">Movies</option>
-                    <option value="tv">TV Shows</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400">Status</label>
-                  <select
-                    value={filterStatus}
-                    onChange={(event) => {
-                      setFilterStatus(event.target.value as SearchStatusFilter)
-                      setPage(1)
-                    }}
-                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  >
-                    <option value="all">All</option>
-                    <option value="not_in_library">Not in library</option>
-                    <option value="in_library">In library</option>
-                    <option value="downloaded">Downloaded</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400">Sort</label>
-                  <select
-                    value={sortField}
-                    onChange={(event) => {
-                      setSortField(event.target.value as SearchSortField)
-                      setPage(1)
-                    }}
-                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  >
-                    <option value="relevance">Relevance</option>
-                    <option value="popularity">Popularity</option>
-                    <option value="year">Year</option>
-                    <option value="title">Title</option>
-                    <option value="rating">Rating</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400">Direction</label>
-                  <select
-                    value={sortDirection}
-                    onChange={(event) => {
-                      setSortDirection(event.target.value as SearchSortDirection)
-                      setPage(1)
-                    }}
-                    className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  >
-                    <option value="desc">Descending</option>
-                    <option value="asc">Ascending</option>
-                  </select>
-                </div>
+          <div className="sticky top-20 z-20">
+            <div className="glass-panel rounded-lg p-4 mb-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    // Clear AI translation when user starts typing a new search
+                    if (aiTranslation) {
+                      setAiTranslation(null)
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                    event.preventDefault()
+                    void handleSubmitSearch()
+                  }}
+                  placeholder="Search movies and TV shows..."
+                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs text-slate-200 placeholder-slate-500"
+                />
+                <button
+                  type="submit"
+                  disabled={searching || aiIntentBusy || !searchQuery.trim()}
+                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-semibold transition-colors"
+                >
+                  {submittingSearch || searching || aiIntentBusy ? '...' : 'Search'}
+                </button>
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={aiIntentEnabled}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setAiIntentEnabled(next)
-                      try {
-                        window.localStorage.setItem('ai_intent_enabled', String(next))
-                      } catch {
-                        // Ignore storage errors.
-                      }
-                    }}
-                  />
-                  AI intent parsing
-                </label>
-                {aiIntentBusy && (
-                  <span className="text-amber-300">AI: interpreting your request...</span>
+
+              <div className="flex items-center justify-between mt-1">
+                {/* AI Translation Display */}
+                {aiTranslation ? (
+                  <div className="text-xs text-slate-300">
+                    {aiTranslation}
+                  </div>
+                ) : (
+                  <div></div>
                 )}
-                {aiIntentError && (
-                  <span className="text-red-400">AI: {aiIntentError}</span>
-                )}
-                {!aiIntentEnabled && (
-                  <span className="text-gray-500">AI search disabled</span>
-                )}
+
+                <details>
+                  <summary className="text-xs text-slate-300 cursor-pointer select-none">
+                    Filters
+                  </summary>
+                <div className="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                  <div>
+                    <label className="text-xs text-gray-400">Type</label>
+                    <select
+                      value={filterType}
+                      onChange={(event) => {
+                        setFilterType(event.target.value as SearchFilterType)
+                        setPage(1)
+                      }}
+                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    >
+                      <option value="all">All</option>
+                      <option value="movie">Movies</option>
+                      <option value="tv">TV Shows</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400">Status</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(event) => {
+                        setFilterStatus(event.target.value as SearchStatusFilter)
+                        setPage(1)
+                      }}
+                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    >
+                      <option value="all">All</option>
+                      <option value="not_in_library">Not in library</option>
+                      <option value="in_library">In library</option>
+                      <option value="downloaded">Downloaded</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400">Sort</label>
+                    <select
+                      value={sortField}
+                      onChange={(event) => {
+                        setSortField(event.target.value as SearchSortField)
+                        setPage(1)
+                      }}
+                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    >
+                      <option value="relevance">Relevance</option>
+                      <option value="popularity">Popularity</option>
+                      <option value="year">Year</option>
+                      <option value="title">Title</option>
+                      <option value="rating">Rating</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400">Direction</label>
+                    <select
+                      value={sortDirection}
+                      onChange={(event) => {
+                        setSortDirection(event.target.value as SearchSortDirection)
+                        setPage(1)
+                      }}
+                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    >
+                      <option value="desc">Descending</option>
+                      <option value="asc">Ascending</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={aiIntentEnabled}
+                      onChange={(event) => {
+                        const next = event.target.checked
+                        setAiIntentEnabled(next)
+                        try {
+                          window.localStorage.setItem('ai_intent_enabled', String(next))
+                        } catch {
+                          // Ignore storage errors.
+                        }
+                      }}
+                    />
+                    AI intent parsing
+                  </label>
+                  {aiIntentBusy && (
+                    <span className="text-amber-300">AI: interpreting your request...</span>
+                  )}
+                  {aiIntentError && (
+                    <span className="text-red-400">AI: {aiIntentError}</span>
+                  )}
+                  {!aiIntentEnabled && (
+                    <span className="text-gray-500">AI search disabled</span>
+                  )}
+                </div>
+                </details>
               </div>
-              </details>
+            </form>
             </div>
-          </form>
           </div>
           {!searchResults && !searching && !searchError && (
             <div className="glass-panel rounded-lg p-5 md:p-6 mb-4 relative overflow-hidden">
@@ -614,75 +890,73 @@ function HomeContent() {
               </div>
             </div>
           )}
-        </section>
-        )}
-
-        {/* Search Results */}
-        {activeSection === 'search' && searchError && (
-          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-4">
-            <p className="text-red-300">{searchError}</p>
-          </div>
-        )}
-
-        {activeSection === 'search' && searching && (
-          <div className="glass-panel rounded-lg p-8 text-center mb-4">
-            <div className="text-yellow-400">Searching titles...</div>
-          </div>
-        )}
-
-        {activeSection === 'search' && searchResults && (
-          <div className="mb-4">
-            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-              <h2 className="text-lg font-semibold">
-                Results for "{searchResults.query}"
-              </h2>
-              <span className="text-gray-400 text-sm">
-                {searchResults.total_count} total
-              </span>
+          {searchError && (
+            <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-4">
+              <p className="text-red-300">{searchError}</p>
             </div>
+          )}
 
-            {searchResults.results.length === 0 ? (
-              <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
-                No results found
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {searchResults.results.map((result, index) => (
-                  <MediaCard
-                    key={result.tmdb_id || result.tvdb_id || index}
-                    item={{ source: 'discovery', data: result }}
-                    onClick={() => setSelectedResult(result)}
-                    onShowReleases={handleShowReleases}
-                    onTypeToggle={handleTypeToggle}
-                  />
-                ))}
-              </div>
-            )}
+          {searching && (
+            <div className="glass-panel rounded-lg p-8 text-center mb-4">
+              <div className="text-yellow-400">Searching titles...</div>
+            </div>
+          )}
 
-            {searchResults.total_pages > 1 && (
-              <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
-                <button
-                  type="button"
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <span className="text-sm text-gray-400">
-                  Page {searchResults.page} of {searchResults.total_pages}
+          {searchResults && (
+            <div className="mb-4">
+              <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                <h2 className="text-lg font-semibold">
+                  Results for "{searchResults.query}"
+                </h2>
+                <span className="text-gray-400 text-sm">
+                  {searchResults.total_count} total
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setPage(Math.min(searchResults.total_pages, page + 1))}
-                  disabled={page >= searchResults.total_pages}
-                  className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                >
-                  Next
-                </button>
               </div>
-            )}
-          </div>
+
+              {searchResults.results.length === 0 ? (
+                <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
+                  No results found
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {searchResults.results.map((result, index) => (
+                    <MediaCard
+                      key={result.tmdb_id || result.tvdb_id || index}
+                      item={{ source: 'discovery', data: result }}
+                      onClick={() => setSelectedResult(result)}
+                      onShowReleases={handleShowReleases}
+                      onTypeToggle={handleTypeToggle}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {searchResults.total_pages > 1 && (
+                <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
+                  <button
+                    type="button"
+                    onClick={() => setPage(Math.max(1, page - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <span className="text-sm text-gray-400">
+                    Page {searchResults.page} of {searchResults.total_pages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage(Math.min(searchResults.total_pages, page + 1))}
+                    disabled={page >= searchResults.total_pages}
+                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
         )}
 
         {/* Download Activity Section */}
@@ -842,6 +1116,9 @@ function HomeContent() {
             {settingsSaved && (
               <div className="text-xs text-cyan-300 mb-2">Settings saved.</div>
             )}
+            {settingsSaving && (
+              <div className="text-xs text-amber-300 mb-2">Saving settings...</div>
+            )}
             <div className="grid md:grid-cols-2 gap-3 text-sm">
               <label className="grid gap-1">
                 <span className="text-xs text-gray-400">Country</span>
@@ -849,6 +1126,7 @@ function HomeContent() {
                   type="text"
                   value={settingsCountry}
                   onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
+                  onBlur={saveSettings}
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
@@ -858,18 +1136,65 @@ function HomeContent() {
                   type="text"
                   value={settingsAiModel}
                   onChange={(event) => setSettingsAiModel(event.target.value)}
+                  onBlur={saveSettings}
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
             </div>
-            <button
-              type="button"
-              onClick={saveSettings}
-              disabled={settingsSaving}
-              className="mt-3 px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50 text-sm"
-            >
-              {settingsSaving ? 'Saving...' : 'Save settings'}
-            </button>
+
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settingsShowSonarr}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowSonarr(next)
+                      void saveDashboardSettings({ show_sonarr: next })
+                    }}
+                  />
+                  <span>Sonarr</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settingsShowRadarr}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowRadarr(next)
+                      void saveDashboardSettings({ show_radarr: next })
+                    }}
+                  />
+                  <span>Radarr</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settingsShowSabnzbd}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowSabnzbd(next)
+                      void saveDashboardSettings({ show_sabnzbd: next })
+                    }}
+                  />
+                  <span>SABnzbd</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settingsShowPlex}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setSettingsShowPlex(next)
+                      void saveDashboardSettings({ show_plex: next })
+                    }}
+                  />
+                  <span>Plex</span>
+                </label>
+              </div>
+            </div>
 
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Streaming Services</h4>

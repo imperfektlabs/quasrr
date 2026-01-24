@@ -76,6 +76,13 @@ class FeaturesConfig(BaseModel):
     auto_quality_filter: bool = True
 
 
+class DashboardConfig(BaseModel):
+    show_sonarr: bool = True
+    show_radarr: bool = True
+    show_sabnzbd: bool = True
+    show_plex: bool = False
+
+
 class UserConfig(BaseModel):
     country: str = "CA"
     language: str = "en"
@@ -94,6 +101,8 @@ class IntegrationConfig(BaseModel):
     radarr_api_key: Optional[str] = None
     sabnzbd_url: Optional[str] = None
     sabnzbd_api_key: Optional[str] = None
+    plex_url: Optional[str] = None
+    plex_api_key: Optional[str] = None
     tmdb_api_key: Optional[str] = None
 
 
@@ -105,6 +114,7 @@ class Config(BaseModel):
     quality: QualityConfig = Field(default_factory=QualityConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
+    dashboard: DashboardConfig = Field(default_factory=DashboardConfig)
     integrations: IntegrationConfig = Field(default_factory=IntegrationConfig)
 
 
@@ -164,6 +174,8 @@ def load_env_overrides() -> dict:
         "radarr_api_key": os.getenv("RADARR_API_KEY"),
         "sabnzbd_url": os.getenv("SABNZBD_URL"),
         "sabnzbd_api_key": os.getenv("SABNZBD_API_KEY"),
+        "plex_url": os.getenv("PLEX_URL"),
+        "plex_api_key": os.getenv("PLEX_API_KEY"),
         "tmdb_api_key": os.getenv("TMDB_API_KEY"),
     }
 
@@ -206,6 +218,8 @@ def redact_secrets(config: Config) -> dict:
         data["integrations"]["radarr_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("sabnzbd_api_key"):
         data["integrations"]["sabnzbd_api_key"] = "***REDACTED***"
+    if data.get("integrations", {}).get("plex_api_key"):
+        data["integrations"]["plex_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("tmdb_api_key"):
         data["integrations"]["tmdb_api_key"] = "***REDACTED***"
 
@@ -256,7 +270,11 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
     return reload_config()
 
 
-def update_basic_settings(country: Optional[str] = None, ai_model: Optional[str] = None) -> Config:
+def update_basic_settings(
+    country: Optional[str] = None,
+    ai_model: Optional[str] = None,
+    dashboard: Optional[dict] = None
+) -> Config:
     """Persist non-secret settings to settings.yaml."""
     settings = load_yaml_file(SETTINGS_FILE)
 
@@ -265,6 +283,9 @@ def update_basic_settings(country: Optional[str] = None, ai_model: Optional[str]
 
     if ai_model:
         settings.setdefault("ai", {})["model"] = ai_model
+
+    if dashboard:
+        settings.setdefault("dashboard", {}).update(dashboard)
 
     try:
         with open(SETTINGS_FILE, "w") as f:
