@@ -18,6 +18,7 @@ from integrations.tmdb import get_tmdb_client
 from integrations.radarr import get_radarr_client
 from integrations.sonarr import get_sonarr_client
 from integrations.sabnzbd import get_sabnzbd_client, SabnzbdError
+from integrations.plex import get_plex_client
 
 # Configure logging
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -323,6 +324,7 @@ async def get_dashboard_summary():
     """Get summary metrics for dashboard cards."""
     radarr = get_radarr_client()
     sonarr = get_sonarr_client()
+    plex = get_plex_client()
 
     summary = {
         "sonarr": {
@@ -335,6 +337,11 @@ async def get_dashboard_summary():
             "total_count": 0,
             "size_on_disk": 0,
         },
+        "plex": {
+            "configured": plex.is_configured,
+            "recently_added": 0,
+            "active_streams": 0,
+        },
     }
 
     if sonarr.is_configured:
@@ -346,6 +353,10 @@ async def get_dashboard_summary():
         movie_list = await radarr.get_library_list()
         summary["radarr"]["total_count"] = len(movie_list)
         summary["radarr"]["size_on_disk"] = sum(movie.get("sizeOnDisk", 0) or 0 for movie in movie_list)
+
+    if plex.is_configured:
+        summary["plex"]["recently_added"] = await plex.get_recently_added_count(7)
+        summary["plex"]["active_streams"] = await plex.get_active_streams()
 
     return summary
 

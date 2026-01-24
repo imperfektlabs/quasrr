@@ -101,6 +101,8 @@ class IntegrationConfig(BaseModel):
     radarr_api_key: Optional[str] = None
     sabnzbd_url: Optional[str] = None
     sabnzbd_api_key: Optional[str] = None
+    plex_url: Optional[str] = None
+    plex_api_key: Optional[str] = None
     tmdb_api_key: Optional[str] = None
 
 
@@ -172,6 +174,8 @@ def load_env_overrides() -> dict:
         "radarr_api_key": os.getenv("RADARR_API_KEY"),
         "sabnzbd_url": os.getenv("SABNZBD_URL"),
         "sabnzbd_api_key": os.getenv("SABNZBD_API_KEY"),
+        "plex_url": os.getenv("PLEX_URL"),
+        "plex_api_key": os.getenv("PLEX_API_KEY"),
         "tmdb_api_key": os.getenv("TMDB_API_KEY"),
     }
 
@@ -214,6 +218,8 @@ def redact_secrets(config: Config) -> dict:
         data["integrations"]["radarr_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("sabnzbd_api_key"):
         data["integrations"]["sabnzbd_api_key"] = "***REDACTED***"
+    if data.get("integrations", {}).get("plex_api_key"):
+        data["integrations"]["plex_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("tmdb_api_key"):
         data["integrations"]["tmdb_api_key"] = "***REDACTED***"
 
