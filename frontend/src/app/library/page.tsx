@@ -91,34 +91,6 @@ function LibraryContent() {
     return [...sonarr, ...radarr]
   }, [sonarrItems, radarrItems])
 
-  const totalSize = useMemo(
-    () => combinedItems.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
-    [combinedItems]
-  )
-
-  const totalDownloaded = useMemo(() => {
-    return combinedItems.filter((item) => {
-      if (item.mediaType === 'movies') {
-        return item.hasFile
-      }
-      return (item.episodeCount || 0) > 0 && item.episodeFileCount === item.episodeCount
-    }).length
-  }, [combinedItems])
-
-  const totalMissing = useMemo(() => {
-    return combinedItems.filter((item) => {
-      if (item.mediaType === 'movies') {
-        return !item.hasFile
-      }
-      return (item.episodeCount || 0) > (item.episodeFileCount || 0)
-    }).length
-  }, [combinedItems])
-
-  const totalMonitored = useMemo(
-    () => combinedItems.filter((item) => item.monitored).length,
-    [combinedItems]
-  )
-
   const sortedItems = useMemo(() => {
     const normalizedQuery = searchText.trim().toLowerCase()
     const filtered = combinedItems.filter((item) => {
@@ -170,6 +142,34 @@ function LibraryContent() {
     return next
   }, [combinedItems, sortField, sortDir, searchText, filterMode, mediaType])
 
+  const totalSize = useMemo(
+    () => sortedItems.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
+    [sortedItems]
+  )
+
+  const totalDownloaded = useMemo(() => {
+    return sortedItems.filter((item) => {
+      if (item.mediaType === 'movies') {
+        return item.hasFile
+      }
+      return (item.episodeCount || 0) > 0 && item.episodeFileCount === item.episodeCount
+    }).length
+  }, [sortedItems])
+
+  const totalMissing = useMemo(() => {
+    return sortedItems.filter((item) => {
+      if (item.mediaType === 'movies') {
+        return !item.hasFile
+      }
+      return (item.episodeCount || 0) > (item.episodeFileCount || 0)
+    }).length
+  }, [sortedItems])
+
+  const totalMonitored = useMemo(
+    () => sortedItems.filter((item) => item.monitored).length,
+    [sortedItems]
+  )
+
   const handleMediaTypeChange = (type: MediaType) => {
     setMediaType(type)
     const params = new URLSearchParams(searchParams.toString())
@@ -199,28 +199,24 @@ function LibraryContent() {
       />
 
       <div className="max-w-5xl mx-auto space-y-4">
-        <section className="glass-panel rounded-lg p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-sm text-slate-400">
-                {mediaType === 'movies' ? 'Movies' : mediaType === 'tv' ? 'Series' : 'Library'}
-              </div>
-              <div className="text-xl font-semibold">{sortedItems.length}</div>
-            </div>
-            <div className="text-sm text-slate-300">
-              Total size: {formatSize(totalSize)}
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
-            <span className="glass-chip px-2 py-1 rounded">Downloaded: {totalDownloaded}</span>
-            <span className="glass-chip px-2 py-1 rounded">Missing: {totalMissing}</span>
-            <span className="glass-chip px-2 py-1 rounded">Monitored: {totalMonitored}</span>
-          </div>
-        </section>
-
         <section className="space-y-3">
           <div className="sticky top-20 z-20">
             <div className="glass-panel rounded-lg p-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">
+                    {mediaType === 'movies' ? 'Movies' : mediaType === 'tv' ? 'Series' : 'Library'}
+                  </span>
+                  <span className="text-lg font-semibold text-slate-100">{sortedItems.length}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>Total size: {formatSize(totalSize)}</span>
+                  <span className="glass-chip px-2 py-1 rounded">Downloaded: {totalDownloaded}</span>
+                  <span className="glass-chip px-2 py-1 rounded">Missing: {totalMissing}</span>
+                  <span className="glass-chip px-2 py-1 rounded">Monitored: {totalMonitored}</span>
+                </div>
+              </div>
+
               <div className="flex items-center gap-2">
                 <div className="flex flex-wrap gap-2 text-xs">
                   <button
