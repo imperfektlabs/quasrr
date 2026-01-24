@@ -324,13 +324,20 @@ export type IntegrationsStatus = {
 export type DashboardSummary = {
   sonarr: {
     configured: boolean
-    total_count: number
+    series_count: number
+    episode_count: number
     size_on_disk: number
   }
   radarr: {
     configured: boolean
-    total_count: number
+    movie_files_count: number
+    movies_count: number
     size_on_disk: number
+  }
+  sabnzbd: {
+    configured: boolean
+    download_today: number
+    download_month: number
   }
   plex: {
     configured: boolean
