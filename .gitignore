@@ -14,3 +14,8 @@ Thumbs.db
 # Image files
 *.svg
 *.avif
+
+
+# Prompts for agents
+AGENT_INITIALIZATION.md
+EXECUTION*.md

@@ -35,11 +35,19 @@ TODOs
 
 
 Overall
-- Add dashboard summary at the top, that scrolls off the page, locking the rest
+- Add dashboard summary at the top, that scrolls off the page, locking the rest (Sonarr, Radarr, SAB, Possibly Plex if room) - could allow option in settings to enable/disable these cards
 - replace header with same header as the rest (are the others actual pages or just models themselves?) --> DONE
-- add search to top of library
-- apply clickTV or clickMovie chip filtering to library cards
+
+
+Library
+- add search to top of library - live filter of the results below as you type
+- apply chip filtering to library cards (movie) & (tv) in the same way as the discoverycards
+
+
+
+Search
 - tighten up the search card - and lock it to the top when scrolling - just move the searchfield into the header when scrolling if possible
+
 
 
 Modals
@@ -47,12 +55,41 @@ Modals
 - make the releases modal look the same as the sonarr/radarr episode list modal
 - Add airdate to episode modal view
 - possibly add quality profile instead of checkmark
+- Larger text on the episodes list to match the other modals
+
+
+
+AI integration
+- Add Gemini
+- Add OpenRouter
+- Add Deepseek
+- Add local LLMs
+- Basically make it Bring-your-own-API key
+
+
+
+
+
+Bugs
+- Fix Sonarr/Radarr icons not working on mobile
+- prevent mobile page zooming in when clicking into search field
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 TODOs (Longer Term)
 - investigate voice recognition for the searches
-- Add Gemini capabilities
+
 - Animate background more if possible.
 - Authentication - can we piggyback on Sonarr or Radarr?
 - Major design changes placeholder (details later).
