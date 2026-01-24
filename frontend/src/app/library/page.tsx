@@ -221,19 +221,12 @@ function LibraryContent() {
         <section className="space-y-3">
           <div className="sticky top-20 z-20">
             <div className="glass-panel rounded-lg p-3 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="text"
-                  value={searchText}
-                  onChange={(event) => setSearchText(event.target.value)}
-                  placeholder="Search library..."
-                  className="flex-1 min-w-[180px] bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
-                />
-                <div className="flex flex-wrap gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => handleMediaTypeChange('all')}
-                    className={`px-3 py-1.5 rounded transition ${
+                    className={`px-2.5 py-1 rounded transition ${
                       mediaType === 'all'
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
@@ -244,7 +237,7 @@ function LibraryContent() {
                   <button
                     type="button"
                     onClick={() => handleMediaTypeChange('movies')}
-                    className={`px-3 py-1.5 rounded transition ${
+                    className={`px-2.5 py-1 rounded transition ${
                       mediaType === 'movies'
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
@@ -255,15 +248,22 @@ function LibraryContent() {
                   <button
                     type="button"
                     onClick={() => handleMediaTypeChange('tv')}
-                    className={`px-3 py-1.5 rounded transition ${
+                    className={`px-2.5 py-1 rounded transition ${
                       mediaType === 'tv'
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
                     }`}
                   >
-                    TV Shows
+                    TV
                   </button>
                 </div>
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="Search library..."
+                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
+                />
               </div>
 
               <details>
