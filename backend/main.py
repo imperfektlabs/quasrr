@@ -84,9 +84,17 @@ class StreamingServicesUpdate(BaseModel):
     enabled_ids: list[str]
 
 
+class DashboardSettingsUpdate(BaseModel):
+    show_sonarr: Optional[bool] = None
+    show_radarr: Optional[bool] = None
+    show_sabnzbd: Optional[bool] = None
+    show_plex: Optional[bool] = None
+
+
 class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
     ai_model: Optional[str] = None
+    dashboard: Optional[DashboardSettingsUpdate] = None
 
 
 async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
@@ -260,7 +268,8 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
 @app.post("/config/settings")
 async def update_basic_settings_config(payload: BasicSettingsUpdate):
     """Update non-secret settings in settings.yaml."""
-    config = update_basic_settings(payload.country, payload.ai_model)
+    dashboard_settings = payload.dashboard.model_dump(exclude_unset=True) if payload.dashboard else None
+    config = update_basic_settings(payload.country, payload.ai_model, dashboard_settings)
     logger.info("Basic settings updated")
     return {"status": "updated", "config": redact_secrets(config)}
 
