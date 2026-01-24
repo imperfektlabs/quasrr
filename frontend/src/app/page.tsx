@@ -28,6 +28,7 @@ import type {
   SabRecentGroup,
   SabRecentResponse,
   IntegrationsStatus,
+  DashboardSummary,
   SortField,
   SortDirection,
   EpisodeDownloadMap,
@@ -45,6 +46,7 @@ import {
   formatRating,
   formatRatingSource,
   getRatingLink,
+  formatSize,
 } from '@/utils/formatting'
 
 // Custom hooks
@@ -96,6 +98,9 @@ function HomeContent() {
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
   const [releaseContext, setReleaseContext] = useState<DiscoveryResult | null>(null)
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
 
   // Discovery search (query, filters, results, pagination)
   const {
@@ -140,6 +145,35 @@ function HomeContent() {
       setActiveSection(section)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (activeSection !== 'search') return
+
+    const controller = new AbortController()
+    const fetchSummary = async () => {
+      setDashboardLoading(true)
+      setDashboardError(null)
+      try {
+        const backendUrl = getBackendUrl()
+        const res = await fetch(`${backendUrl}/dashboard/summary`, { signal: controller.signal })
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}))
+          setDashboardError(errorData.detail || 'Unable to load dashboard summary')
+          return
+        }
+        const data = await res.json()
+        setDashboardSummary(data)
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        setDashboardError('Unable to load dashboard summary')
+      } finally {
+        setDashboardLoading(false)
+      }
+    }
+
+    void fetchSummary()
+    return () => controller.abort()
+  }, [activeSection])
 
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
@@ -464,42 +498,55 @@ function HomeContent() {
             <div className="glass-panel rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-300">Dashboard</h2>
-                <span className="text-xs text-gray-500">At a glance</span>
+                <span className="text-xs text-gray-500">
+                  {dashboardLoading ? 'Updating…' : 'At a glance'}
+                </span>
               </div>
+              {dashboardError && (
+                <div className="text-xs text-amber-300 mb-3">{dashboardError}</div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 {dashboardConfig.show_sonarr && (
-                  <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
-                    <div className="text-sm font-semibold">Sonarr</div>
-                    <div className="mt-2 space-y-1 text-xs text-gray-400">
-                      <div>Upcoming: —</div>
-                      <div>Activity: —</div>
+                  <div className="rounded-lg p-3 border bg-emerald-500/15 border-emerald-400/40">
+                    <div className="text-sm font-semibold text-emerald-100">Sonarr</div>
+                    <div className="mt-2 space-y-1 text-xs text-emerald-100/80">
+                      <div>
+                        Total: {dashboardSummary?.sonarr?.configured ? dashboardSummary.sonarr.total_count : '—'}
+                      </div>
+                      <div>
+                        Size: {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
+                      </div>
                     </div>
                   </div>
                 )}
                 {dashboardConfig.show_radarr && (
-                  <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
-                    <div className="text-sm font-semibold">Radarr</div>
-                    <div className="mt-2 space-y-1 text-xs text-gray-400">
-                      <div>Upcoming: —</div>
-                      <div>Activity: —</div>
+                  <div className="rounded-lg p-3 border bg-sky-500/15 border-sky-400/40">
+                    <div className="text-sm font-semibold text-sky-100">Radarr</div>
+                    <div className="mt-2 space-y-1 text-xs text-sky-100/80">
+                      <div>
+                        Total: {dashboardSummary?.radarr?.configured ? dashboardSummary.radarr.total_count : '—'}
+                      </div>
+                      <div>
+                        Size: {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
+                      </div>
                     </div>
                   </div>
                 )}
                 {dashboardConfig.show_sabnzbd && (
-                  <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
-                    <div className="text-sm font-semibold">SABnzbd</div>
-                    <div className="mt-2 space-y-1 text-xs text-gray-400">
+                  <div className="rounded-lg p-3 border bg-amber-500/15 border-amber-400/40">
+                    <div className="text-sm font-semibold text-amber-100">SABnzbd</div>
+                    <div className="mt-2 space-y-1 text-xs text-amber-100/80">
                       <div>Queue: {queueSummary}</div>
                       <div>Recent: {recentSummary}</div>
                     </div>
                   </div>
                 )}
                 {dashboardConfig.show_plex && (
-                  <div className="bg-slate-900/50 border border-slate-700/60 rounded-lg p-3">
-                    <div className="text-sm font-semibold">Plex</div>
-                    <div className="mt-2 space-y-1 text-xs text-gray-400">
-                      <div>Recently added: —</div>
-                      <div>Activity: —</div>
+                  <div className="rounded-lg p-3 border bg-yellow-500/15 border-yellow-400/40">
+                    <div className="text-sm font-semibold text-yellow-100">Plex</div>
+                    <div className="mt-2 space-y-1 text-xs text-yellow-100/80">
+                      <div>Recently added (7d): —</div>
+                      <div>Active streams: —</div>
                     </div>
                   </div>
                 )}

@@ -318,6 +318,38 @@ async def get_integrations_status():
     }
 
 
+@app.get("/dashboard/summary")
+async def get_dashboard_summary():
+    """Get summary metrics for dashboard cards."""
+    radarr = get_radarr_client()
+    sonarr = get_sonarr_client()
+
+    summary = {
+        "sonarr": {
+            "configured": sonarr.is_configured,
+            "total_count": 0,
+            "size_on_disk": 0,
+        },
+        "radarr": {
+            "configured": radarr.is_configured,
+            "total_count": 0,
+            "size_on_disk": 0,
+        },
+    }
+
+    if sonarr.is_configured:
+        series_list = await sonarr.get_library_list()
+        summary["sonarr"]["total_count"] = len(series_list)
+        summary["sonarr"]["size_on_disk"] = sum(series.get("sizeOnDisk", 0) or 0 for series in series_list)
+
+    if radarr.is_configured:
+        movie_list = await radarr.get_library_list()
+        summary["radarr"]["total_count"] = len(movie_list)
+        summary["radarr"]["size_on_disk"] = sum(movie.get("sizeOnDisk", 0) or 0 for movie in movie_list)
+
+    return summary
+
+
 @app.get("/sab/queue")
 async def get_sab_queue():
     """Get the current SABnzbd download queue."""

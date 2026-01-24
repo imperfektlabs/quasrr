@@ -317,6 +317,23 @@ export type IntegrationsStatus = {
 }
 
 // ============================================
+// Dashboard Types
+// ============================================
+
+export type DashboardSummary = {
+  sonarr: {
+    configured: boolean
+    total_count: number
+    size_on_disk: number
+  }
+  radarr: {
+    configured: boolean
+    total_count: number
+    size_on_disk: number
+  }
+}
+
+// ============================================
 // Component Props Types
 // ============================================
 
