@@ -66,6 +66,13 @@ class AIConfig(BaseModel):
     provider: str = "openai"
     model: str = "gpt-4o-mini"
     api_key: Optional[str] = None  # From env var, redacted in output
+    gemini_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = None
+    openrouter_base_url: Optional[str] = None
+    deepseek_api_key: Optional[str] = None
+    deepseek_base_url: Optional[str] = None
+    local_endpoint_url: Optional[str] = None
+    local_api_key: Optional[str] = None
     max_tokens: int = 1000
     temperature: float = 0.3
 
@@ -165,6 +172,20 @@ def load_env_overrides() -> dict:
         overrides.setdefault("ai", {})["model"] = ai_model
     if ai_api_key := os.getenv("AI_API_KEY"):
         overrides.setdefault("ai", {})["api_key"] = ai_api_key
+    if gemini_api_key := os.getenv("GEMINI_API_KEY"):
+        overrides.setdefault("ai", {})["gemini_api_key"] = gemini_api_key
+    if openrouter_api_key := os.getenv("OPENROUTER_API_KEY"):
+        overrides.setdefault("ai", {})["openrouter_api_key"] = openrouter_api_key
+    if openrouter_base_url := os.getenv("OPENROUTER_BASE_URL"):
+        overrides.setdefault("ai", {})["openrouter_base_url"] = openrouter_base_url
+    if deepseek_api_key := os.getenv("DEEPSEEK_API_KEY"):
+        overrides.setdefault("ai", {})["deepseek_api_key"] = deepseek_api_key
+    if deepseek_base_url := os.getenv("DEEPSEEK_BASE_URL"):
+        overrides.setdefault("ai", {})["deepseek_base_url"] = deepseek_base_url
+    if local_endpoint_url := os.getenv("LOCAL_ENDPOINT_URL"):
+        overrides.setdefault("ai", {})["local_endpoint_url"] = local_endpoint_url
+    if local_api_key := os.getenv("LOCAL_API_KEY"):
+        overrides.setdefault("ai", {})["local_api_key"] = local_api_key
 
     # Integrations (env vars only)
     overrides["integrations"] = {
@@ -212,6 +233,14 @@ def redact_secrets(config: Config) -> dict:
     # Redact API keys
     if data.get("ai", {}).get("api_key"):
         data["ai"]["api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("gemini_api_key"):
+        data["ai"]["gemini_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("openrouter_api_key"):
+        data["ai"]["openrouter_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("deepseek_api_key"):
+        data["ai"]["deepseek_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("local_api_key"):
+        data["ai"]["local_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("sonarr_api_key"):
         data["integrations"]["sonarr_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("radarr_api_key"):
@@ -223,7 +252,27 @@ def redact_secrets(config: Config) -> dict:
     if data.get("integrations", {}).get("tmdb_api_key"):
         data["integrations"]["tmdb_api_key"] = "***REDACTED***"
 
+    data["ai"]["available_providers"] = get_available_ai_providers(config)
+
     return data
+
+
+def get_available_ai_providers(config: Config) -> list[str]:
+    def has_value(value: Optional[str]) -> bool:
+        return bool(value and value.strip())
+
+    providers = []
+    if has_value(config.ai.api_key):
+        providers.append("openai")
+    if has_value(config.ai.gemini_api_key):
+        providers.append("gemini")
+    if has_value(config.ai.openrouter_api_key):
+        providers.append("openrouter")
+    if has_value(config.ai.deepseek_api_key):
+        providers.append("deepseek")
+    if has_value(config.ai.local_endpoint_url):
+        providers.append("local")
+    return providers
 
 
 # Global config instance
@@ -273,6 +322,7 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
 def update_basic_settings(
     country: Optional[str] = None,
     ai_model: Optional[str] = None,
+    ai_provider: Optional[str] = None,
     dashboard: Optional[dict] = None
 ) -> Config:
     """Persist non-secret settings to settings.yaml."""
@@ -283,6 +333,9 @@ def update_basic_settings(
 
     if ai_model:
         settings.setdefault("ai", {})["model"] = ai_model
+
+    if ai_provider:
+        settings.setdefault("ai", {})["provider"] = ai_provider
 
     if dashboard:
         settings.setdefault("dashboard", {}).update(dashboard)

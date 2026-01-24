@@ -12,6 +12,8 @@ export type SettingsResult = {
   setCountry: (c: string) => void
   aiModel: string
   setAiModel: (m: string) => void
+  aiProvider: string
+  setAiProvider: (p: string) => void
   showSonarr: boolean
   setShowSonarr: (next: boolean) => void
   showRadarr: boolean
@@ -33,7 +35,11 @@ export type SettingsResult = {
     show_sabnzbd: boolean
     show_plex: boolean
   }>) => Promise<void>
-  saveSettings: () => Promise<void>
+  saveSettings: (next?: Partial<{
+    country: string
+    ai_model: string
+    ai_provider: string
+  }>) => Promise<void>
 }
 
 /**
@@ -47,6 +53,7 @@ export function useSettings(
 ): SettingsResult {
   const [country, setCountry] = useState('')
   const [aiModel, setAiModel] = useState('')
+  const [aiProvider, setAiProvider] = useState('')
   const [showSonarr, setShowSonarr] = useState(true)
   const [showRadarr, setShowRadarr] = useState(true)
   const [showSabnzbd, setShowSabnzbd] = useState(true)
@@ -63,6 +70,7 @@ export function useSettings(
     if (config) {
       setCountry(config.user.country)
       setAiModel(config.ai.model)
+      setAiProvider(config.ai.provider)
       setShowSonarr(config.dashboard.show_sonarr)
       setShowRadarr(config.dashboard.show_radarr)
       setShowSabnzbd(config.dashboard.show_sabnzbd)
@@ -135,6 +143,7 @@ export function useSettings(
         body: JSON.stringify({
           country,
           ai_model: aiModel,
+          ai_provider: aiProvider,
           dashboard,
         }),
       })
@@ -158,10 +167,18 @@ export function useSettings(
     }
   }
 
-  const saveSettings = async () => {
+  const saveSettings = async (next?: Partial<{
+    country: string
+    ai_model: string
+    ai_provider: string
+  }>) => {
     setSaving(true)
     setError(null)
     setSaved(false)
+
+    const nextCountry = next?.country ?? country
+    const nextAiModel = next?.ai_model ?? aiModel
+    const nextAiProvider = next?.ai_provider ?? aiProvider
 
     try {
       const backendUrl = getBackendUrl()
@@ -169,8 +186,9 @@ export function useSettings(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          country,
-          ai_model: aiModel,
+          country: nextCountry,
+          ai_model: nextAiModel,
+          ai_provider: nextAiProvider,
           dashboard: {
             show_sonarr: showSonarr,
             show_radarr: showRadarr,
@@ -204,6 +222,8 @@ export function useSettings(
     setCountry,
     aiModel,
     setAiModel,
+    aiProvider,
+    setAiProvider,
     showSonarr,
     setShowSonarr,
     showRadarr,
