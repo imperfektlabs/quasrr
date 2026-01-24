@@ -3,8 +3,7 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { StreamingService, ConfigStatus, IntegrationsStatus } from '@/types'
-import { getLocalToolUrl } from '@/utils/backend'
+import type { StreamingService, ConfigStatus } from '@/types'
 import { getStreamingLogo, getStreamingLink } from '@/utils/streaming'
 
 type MenuItem = {
@@ -15,14 +14,6 @@ type MenuItem = {
   href?: string
   active?: boolean
   variant?: 'button' | 'link'
-}
-
-type ToolLink = {
-  key: string
-  label: string
-  url: string
-  iconUrl: string
-  status?: boolean | null
 }
 
 export type NavigationMenuProps = {
@@ -47,9 +38,6 @@ export type NavigationMenuProps = {
     }
   }) | null
 
-  // Integration status
-  integrationsStatus?: IntegrationsStatus | null
-
   // Home button handler (optional, for custom behavior)
   onHomeClick?: () => void
 }
@@ -63,48 +51,9 @@ export function NavigationMenu({
   activeSection,
   onSectionChange,
   config,
-  integrationsStatus,
   onHomeClick,
 }: NavigationMenuProps) {
   const router = useRouter()
-
-  const getToolIconUrl = (url: string) => `${url.replace(/\/$/, '')}/favicon.ico`
-
-  const getIntegrationStatus = (key: 'sonarr' | 'radarr' | 'sabnzbd') => {
-    if (!integrationsStatus) return null
-    return integrationsStatus[key]?.status === 'ok'
-  }
-
-  const toolLinks: ToolLink[] = [
-    {
-      key: 'sonarr',
-      label: 'Sonarr',
-      url: config?.integrations?.sonarr_url || getLocalToolUrl(8989),
-      iconUrl: getToolIconUrl(config?.integrations?.sonarr_url || getLocalToolUrl(8989)),
-      status: getIntegrationStatus('sonarr'),
-    },
-    {
-      key: 'radarr',
-      label: 'Radarr',
-      url: config?.integrations?.radarr_url || getLocalToolUrl(7878),
-      iconUrl: getToolIconUrl(config?.integrations?.radarr_url || getLocalToolUrl(7878)),
-      status: getIntegrationStatus('radarr'),
-    },
-    {
-      key: 'sabnzbd',
-      label: 'SABnzbd',
-      url: config?.integrations?.sabnzbd_url || getLocalToolUrl(8080),
-      iconUrl: getToolIconUrl(config?.integrations?.sabnzbd_url || getLocalToolUrl(8080)),
-      status: getIntegrationStatus('sabnzbd'),
-    },
-    {
-      key: 'plex',
-      label: 'Plex',
-      url: getLocalToolUrl(32400, '/web'),
-      iconUrl: getToolIconUrl(getLocalToolUrl(32400, '/web')),
-      status: null,
-    },
-  ]
 
   const enabledStreamingServices = config?.streaming_services?.filter((service) => service.enabled) || []
 
@@ -249,29 +198,6 @@ export function NavigationMenu({
               </svg>
               <span>Library</span>
             </Link>
-          </div>
-
-          {/* Tools Section */}
-          <div className="border-t border-slate-700/40 pt-2 mt-2">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">Tools</div>
-            {toolLinks.map((tool) => (
-              <a
-                key={tool.key}
-                href={tool.url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setMenuOpen(false)}
-                className="mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60"
-              >
-                <img
-                  src={tool.iconUrl}
-                  alt={`${tool.label} icon`}
-                  className={`h-4 w-4 object-contain ${tool.status === false ? 'opacity-40 grayscale' : ''}`}
-                  loading="lazy"
-                />
-                <span>{tool.label}</span>
-              </a>
-            ))}
           </div>
 
           {/* Streaming Services Section */}
