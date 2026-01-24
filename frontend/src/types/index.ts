@@ -20,6 +20,7 @@ export type ConfigStatus = {
     sonarr_url: string | null
     radarr_url: string | null
     sabnzbd_url: string | null
+    plex_url?: string | null
     tmdb_api_key?: string | null
   }
   features: {
@@ -330,6 +331,11 @@ export type DashboardSummary = {
     configured: boolean
     total_count: number
     size_on_disk: number
+  }
+  plex: {
+    configured: boolean
+    recently_added: number
+    active_streams: number
   }
 }
 
