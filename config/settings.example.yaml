@@ -56,3 +56,10 @@ features:
   show_download_always: false
   ai_suggestions: true
   auto_quality_filter: true
+
+# --- Dashboard Cards ---
+dashboard:
+  show_sonarr: true
+  show_radarr: true
+  show_sabnzbd: true
+  show_plex: false

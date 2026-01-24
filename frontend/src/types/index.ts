@@ -20,12 +20,19 @@ export type ConfigStatus = {
     sonarr_url: string | null
     radarr_url: string | null
     sabnzbd_url: string | null
+    plex_url?: string | null
     tmdb_api_key?: string | null
   }
   features: {
     show_download_always: boolean
     ai_suggestions: boolean
     auto_quality_filter: boolean
+  }
+  dashboard: {
+    show_sonarr: boolean
+    show_radarr: boolean
+    show_sabnzbd: boolean
+    show_plex: boolean
   }
 } | null
 
@@ -308,6 +315,35 @@ export type IntegrationsStatus = {
   radarr: IntegrationStatus
   sonarr: IntegrationStatus
   sabnzbd: IntegrationStatus
+}
+
+// ============================================
+// Dashboard Types
+// ============================================
+
+export type DashboardSummary = {
+  sonarr: {
+    configured: boolean
+    series_count: number
+    episode_count: number
+    size_on_disk: number
+  }
+  radarr: {
+    configured: boolean
+    movie_files_count: number
+    movies_count: number
+    size_on_disk: number
+  }
+  sabnzbd: {
+    configured: boolean
+    download_today: number
+    download_month: number
+  }
+  plex: {
+    configured: boolean
+    recently_added: number
+    active_streams: number
+  }
 }
 
 // ============================================
