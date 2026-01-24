@@ -302,6 +302,8 @@ function HomeContent() {
     setCountry: setSettingsCountry,
     aiModel: settingsAiModel,
     setAiModel: setSettingsAiModel,
+    aiProvider: settingsAiProvider,
+    setAiProvider: setSettingsAiProvider,
     showSonarr: settingsShowSonarr,
     setShowSonarr: setSettingsShowSonarr,
     showRadarr: settingsShowRadarr,
@@ -320,6 +322,19 @@ function HomeContent() {
     saveDashboard: saveDashboardSettings,
     saveSettings,
   } = useSettings(config, setConfig)
+
+  const aiProviderOptions = [
+    { id: 'openai', label: 'OpenAI' },
+    { id: 'gemini', label: 'Gemini' },
+    { id: 'openrouter', label: 'OpenRouter' },
+    { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'local', label: 'Local' },
+  ]
+  const availableAiProviders = config?.ai.available_providers ?? []
+  const availableAiProviderSet = new Set(availableAiProviders)
+  const selectedProviderAvailable = settingsAiProvider
+    ? availableAiProviderSet.has(settingsAiProvider)
+    : false
 
 
   const handleHome = () => {
@@ -1126,7 +1141,9 @@ function HomeContent() {
                   type="text"
                   value={settingsCountry}
                   onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
-                  onBlur={saveSettings}
+                  onBlur={() => {
+                    void saveSettings()
+                  }}
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
@@ -1136,11 +1153,55 @@ function HomeContent() {
                   type="text"
                   value={settingsAiModel}
                   onChange={(event) => setSettingsAiModel(event.target.value)}
-                  onBlur={saveSettings}
+                  onBlur={() => {
+                    void saveSettings()
+                  }}
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
+              <label className="grid gap-1">
+                <span className="text-xs text-gray-400">AI Provider</span>
+                <select
+                  value={settingsAiProvider}
+                  onChange={(event) => {
+                    const next = event.target.value
+                    setSettingsAiProvider(next)
+                    void saveSettings({ ai_provider: next })
+                  }}
+                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                >
+                  {aiProviderOptions.map((provider) => (
+                    <option
+                      key={provider.id}
+                      value={provider.id}
+                      disabled={!availableAiProviderSet.has(provider.id)}
+                    >
+                      {provider.label}
+                      {!availableAiProviderSet.has(provider.id) ? ' (env missing)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
+            <div className="mt-2 text-xs text-gray-400">
+              {availableAiProviders.length === 0 && (
+                <span>No AI providers configured in .env</span>
+              )}
+              {availableAiProviders.length > 0 && (
+                <span>
+                  Available providers:{' '}
+                  {aiProviderOptions
+                    .filter((provider) => availableAiProviderSet.has(provider.id))
+                    .map((provider) => provider.label)
+                    .join(', ')}
+                </span>
+              )}
+            </div>
+            {!selectedProviderAvailable && settingsAiProvider && (
+              <div className="mt-1 text-xs text-red-400">
+                Selected provider is not configured in .env.
+              </div>
+            )}
 
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
