@@ -219,89 +219,91 @@ function LibraryContent() {
         </section>
 
         <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Library</h2>
-            <input
-              type="text"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder="Search library..."
-              className="bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
-            />
-          </div>
+          <div className="sticky top-20 z-20">
+            <div className="glass-panel rounded-lg p-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="Search library..."
+                  className="flex-1 min-w-[180px] bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
+                />
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange('all')}
+                    className={`px-3 py-1.5 rounded transition ${
+                      mediaType === 'all'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange('movies')}
+                    className={`px-3 py-1.5 rounded transition ${
+                      mediaType === 'movies'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Movies
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange('tv')}
+                    className={`px-3 py-1.5 rounded transition ${
+                      mediaType === 'tv'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    TV Shows
+                  </button>
+                </div>
+              </div>
 
-          <div className="flex flex-wrap gap-2 text-sm">
-            <button
-              type="button"
-              onClick={() => handleMediaTypeChange('all')}
-              className={`px-3 py-1.5 rounded transition ${
-                mediaType === 'all'
-                  ? 'bg-cyan-500/80 text-white'
-                  : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-              }`}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              onClick={() => handleMediaTypeChange('movies')}
-              className={`px-3 py-1.5 rounded transition ${
-                mediaType === 'movies'
-                  ? 'bg-cyan-500/80 text-white'
-                  : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-              }`}
-            >
-              Movies
-            </button>
-            <button
-              type="button"
-              onClick={() => handleMediaTypeChange('tv')}
-              className={`px-3 py-1.5 rounded transition ${
-                mediaType === 'tv'
-                  ? 'bg-cyan-500/80 text-white'
-                  : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-              }`}
-            >
-              TV Shows
-            </button>
-          </div>
-
-          <details>
-            <summary className="text-xs text-slate-300 cursor-pointer select-none">
-              Filters
-            </summary>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-              <select
-                value={filterMode}
-                onChange={(event) => setFilterMode(event.target.value as typeof filterMode)}
-                className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
-              >
-                <option value="all">All</option>
-                <option value="downloaded">Downloaded</option>
-                <option value="missing">Missing</option>
-                <option value="monitored">Monitored</option>
-                <option value="unmonitored">Unmonitored</option>
-              </select>
-              <label className="text-slate-400">Sort</label>
-              <select
-                value={sortField}
-                onChange={(event) => setSortField(event.target.value as typeof sortField)}
-                className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
-              >
-                <option value="added">Added</option>
-                <option value="title">Title</option>
-                <option value="year">Year</option>
-                <option value="size">Size</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                className="px-2 py-1 rounded bg-slate-800/60"
-              >
-                {sortDir === 'asc' ? 'Asc' : 'Desc'}
-              </button>
+              <details>
+                <summary className="text-xs text-slate-300 cursor-pointer select-none">
+                  Filters/Sorting
+                </summary>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  <select
+                    value={filterMode}
+                    onChange={(event) => setFilterMode(event.target.value as typeof filterMode)}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="all">All</option>
+                    <option value="downloaded">Downloaded</option>
+                    <option value="missing">Missing</option>
+                    <option value="monitored">Monitored</option>
+                    <option value="unmonitored">Unmonitored</option>
+                  </select>
+                  <label className="text-slate-400">Sort</label>
+                  <select
+                    value={sortField}
+                    onChange={(event) => setSortField(event.target.value as typeof sortField)}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="added">Added</option>
+                    <option value="title">Title</option>
+                    <option value="year">Year</option>
+                    <option value="size">Size</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                    className="px-2 py-1 rounded bg-slate-800/60"
+                  >
+                    {sortDir === 'asc' ? 'Asc' : 'Desc'}
+                  </button>
+                </div>
+              </details>
             </div>
-          </details>
+          </div>
 
           {loading && <div className="text-slate-300">Loading library...</div>}
           {error && <div className="text-amber-300">Error: {error}</div>}
