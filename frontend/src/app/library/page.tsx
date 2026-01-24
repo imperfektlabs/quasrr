@@ -91,34 +91,6 @@ function LibraryContent() {
     return [...sonarr, ...radarr]
   }, [sonarrItems, radarrItems])
 
-  const totalSize = useMemo(
-    () => combinedItems.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
-    [combinedItems]
-  )
-
-  const totalDownloaded = useMemo(() => {
-    return combinedItems.filter((item) => {
-      if (item.mediaType === 'movies') {
-        return item.hasFile
-      }
-      return (item.episodeCount || 0) > 0 && item.episodeFileCount === item.episodeCount
-    }).length
-  }, [combinedItems])
-
-  const totalMissing = useMemo(() => {
-    return combinedItems.filter((item) => {
-      if (item.mediaType === 'movies') {
-        return !item.hasFile
-      }
-      return (item.episodeCount || 0) > (item.episodeFileCount || 0)
-    }).length
-  }, [combinedItems])
-
-  const totalMonitored = useMemo(
-    () => combinedItems.filter((item) => item.monitored).length,
-    [combinedItems]
-  )
-
   const sortedItems = useMemo(() => {
     const normalizedQuery = searchText.trim().toLowerCase()
     const filtered = combinedItems.filter((item) => {
@@ -170,6 +142,34 @@ function LibraryContent() {
     return next
   }, [combinedItems, sortField, sortDir, searchText, filterMode, mediaType])
 
+  const totalSize = useMemo(
+    () => sortedItems.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
+    [sortedItems]
+  )
+
+  const totalDownloaded = useMemo(() => {
+    return sortedItems.filter((item) => {
+      if (item.mediaType === 'movies') {
+        return item.hasFile
+      }
+      return (item.episodeCount || 0) > 0 && item.episodeFileCount === item.episodeCount
+    }).length
+  }, [sortedItems])
+
+  const totalMissing = useMemo(() => {
+    return sortedItems.filter((item) => {
+      if (item.mediaType === 'movies') {
+        return !item.hasFile
+      }
+      return (item.episodeCount || 0) > (item.episodeFileCount || 0)
+    }).length
+  }, [sortedItems])
+
+  const totalMonitored = useMemo(
+    () => sortedItems.filter((item) => item.monitored).length,
+    [sortedItems]
+  )
+
   const handleMediaTypeChange = (type: MediaType) => {
     setMediaType(type)
     const params = new URLSearchParams(searchParams.toString())
@@ -180,6 +180,11 @@ function LibraryContent() {
     }
     const newUrl = params.toString() ? `?${params.toString()}` : '/library'
     router.push(newUrl)
+  }
+
+  const handleTypeToggle = (type: 'movie' | 'tv') => {
+    const nextType = type === 'movie' ? 'movies' : 'tv'
+    handleMediaTypeChange(mediaType === nextType ? 'all' : nextType)
   }
 
   return (
@@ -194,109 +199,109 @@ function LibraryContent() {
       />
 
       <div className="max-w-5xl mx-auto space-y-4">
-        <section className="glass-panel rounded-lg p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-sm text-slate-400">
-                {mediaType === 'movies' ? 'Movies' : mediaType === 'tv' ? 'Series' : 'Library'}
-              </div>
-              <div className="text-xl font-semibold">{sortedItems.length}</div>
-            </div>
-            <div className="text-sm text-slate-300">
-              Total size: {formatSize(totalSize)}
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
-            <span className="glass-chip px-2 py-1 rounded">Downloaded: {totalDownloaded}</span>
-            <span className="glass-chip px-2 py-1 rounded">Missing: {totalMissing}</span>
-            <span className="glass-chip px-2 py-1 rounded">Monitored: {totalMonitored}</span>
-          </div>
-        </section>
-
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Library</h2>
-          </div>
+          <div className="sticky top-20 z-20">
+            <div className="glass-panel rounded-lg p-3 space-y-3">
+              <div className="space-y-2 text-xs text-slate-300">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-base font-semibold text-slate-100">
+                      {mediaType === 'movies' ? 'Movies' : mediaType === 'tv' ? 'Series' : 'Library'}
+                    </span>
+                    <span className="text-xl font-semibold text-slate-100">{sortedItems.length}</span>
+                  </div>
+                  <span>Total size: {formatSize(totalSize)}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="glass-chip px-2 py-1 rounded">Downloaded: {totalDownloaded}</span>
+                  <span className="glass-chip px-2 py-1 rounded">Missing: {totalMissing}</span>
+                  <span className="glass-chip px-2 py-1 rounded">Monitored: {totalMonitored}</span>
+                </div>
+              </div>
 
-          <div className="flex flex-wrap gap-2 text-sm">
-            <button
-              type="button"
-              onClick={() => handleMediaTypeChange('all')}
-              className={`px-3 py-1.5 rounded transition ${
-                mediaType === 'all'
-                  ? 'bg-cyan-500/80 text-white'
-                  : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-              }`}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              onClick={() => handleMediaTypeChange('movies')}
-              className={`px-3 py-1.5 rounded transition ${
-                mediaType === 'movies'
-                  ? 'bg-cyan-500/80 text-white'
-                  : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-              }`}
-            >
-              Movies
-            </button>
-            <button
-              type="button"
-              onClick={() => handleMediaTypeChange('tv')}
-              className={`px-3 py-1.5 rounded transition ${
-                mediaType === 'tv'
-                  ? 'bg-cyan-500/80 text-white'
-                  : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-              }`}
-            >
-              TV Shows
-            </button>
-          </div>
+              <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange('all')}
+                    className={`px-2.5 py-1 rounded transition ${
+                      mediaType === 'all'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange('movies')}
+                    className={`px-2.5 py-1 rounded transition ${
+                      mediaType === 'movies'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Movies
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange('tv')}
+                    className={`px-2.5 py-1 rounded transition ${
+                      mediaType === 'tv'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    TV
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="Search library..."
+                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
+                />
+              </div>
 
-          <details>
-            <summary className="text-xs text-slate-300 cursor-pointer select-none">
-              Filters
-            </summary>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-              <input
-                type="text"
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Filter titles..."
-                className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs text-slate-200 placeholder-slate-500"
-              />
-              <select
-                value={filterMode}
-                onChange={(event) => setFilterMode(event.target.value as typeof filterMode)}
-                className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
-              >
-                <option value="all">All</option>
-                <option value="downloaded">Downloaded</option>
-                <option value="missing">Missing</option>
-                <option value="monitored">Monitored</option>
-                <option value="unmonitored">Unmonitored</option>
-              </select>
-              <label className="text-slate-400">Sort</label>
-              <select
-                value={sortField}
-                onChange={(event) => setSortField(event.target.value as typeof sortField)}
-                className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
-              >
-                <option value="added">Added</option>
-                <option value="title">Title</option>
-                <option value="year">Year</option>
-                <option value="size">Size</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                className="px-2 py-1 rounded bg-slate-800/60"
-              >
-                {sortDir === 'asc' ? 'Asc' : 'Desc'}
-              </button>
+              <details>
+                <summary className="text-xs text-slate-300 cursor-pointer select-none">
+                  Filters/Sorting
+                </summary>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  <select
+                    value={filterMode}
+                    onChange={(event) => setFilterMode(event.target.value as typeof filterMode)}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="all">All</option>
+                    <option value="downloaded">Downloaded</option>
+                    <option value="missing">Missing</option>
+                    <option value="monitored">Monitored</option>
+                    <option value="unmonitored">Unmonitored</option>
+                  </select>
+                  <label className="text-slate-400">Sort</label>
+                  <select
+                    value={sortField}
+                    onChange={(event) => setSortField(event.target.value as typeof sortField)}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="added">Added</option>
+                    <option value="title">Title</option>
+                    <option value="year">Year</option>
+                    <option value="size">Size</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                    className="px-2 py-1 rounded bg-slate-800/60"
+                  >
+                    {sortDir === 'asc' ? 'Asc' : 'Desc'}
+                  </button>
+                </div>
+              </details>
             </div>
-          </details>
+          </div>
 
           {loading && <div className="text-slate-300">Loading library...</div>}
           {error && <div className="text-amber-300">Error: {error}</div>}
@@ -311,6 +316,7 @@ function LibraryContent() {
                   key={`${item.mediaType}-${item.id}`}
                   item={{ source: 'library', data: item }}
                   onClick={() => setSelectedItem(item)}
+                  onTypeToggle={handleTypeToggle}
                 />
               ))}
             </div>
