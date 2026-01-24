@@ -12,6 +12,14 @@ export type SettingsResult = {
   setCountry: (c: string) => void
   aiModel: string
   setAiModel: (m: string) => void
+  showSonarr: boolean
+  setShowSonarr: (next: boolean) => void
+  showRadarr: boolean
+  setShowRadarr: (next: boolean) => void
+  showSabnzbd: boolean
+  setShowSabnzbd: (next: boolean) => void
+  showPlex: boolean
+  setShowPlex: (next: boolean) => void
   saving: boolean
   error: string | null
   saved: boolean
@@ -19,6 +27,12 @@ export type SettingsResult = {
   streamingBusy: boolean
   streamingError: string | null
   toggleStreaming: (id: string, enabled: boolean) => Promise<void>
+  saveDashboard: (next?: Partial<{
+    show_sonarr: boolean
+    show_radarr: boolean
+    show_sabnzbd: boolean
+    show_plex: boolean
+  }>) => Promise<void>
   saveSettings: () => Promise<void>
 }
 
@@ -33,6 +47,10 @@ export function useSettings(
 ): SettingsResult {
   const [country, setCountry] = useState('')
   const [aiModel, setAiModel] = useState('')
+  const [showSonarr, setShowSonarr] = useState(true)
+  const [showRadarr, setShowRadarr] = useState(true)
+  const [showSabnzbd, setShowSabnzbd] = useState(true)
+  const [showPlex, setShowPlex] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -45,6 +63,10 @@ export function useSettings(
     if (config) {
       setCountry(config.user.country)
       setAiModel(config.ai.model)
+      setShowSonarr(config.dashboard.show_sonarr)
+      setShowRadarr(config.dashboard.show_radarr)
+      setShowSabnzbd(config.dashboard.show_sabnzbd)
+      setShowPlex(config.dashboard.show_plex)
     }
   }, [config])
 
@@ -56,13 +78,19 @@ export function useSettings(
 
     try {
       const backendUrl = getBackendUrl()
+      const enabledIds = config.streaming_services
+        .map((service) => {
+          if (service.id === id) {
+            return enabled ? service.id : null
+          }
+          return service.enabled ? service.id : null
+        })
+        .filter((serviceId): serviceId is string => Boolean(serviceId))
       const res = await fetch(`${backendUrl}/config/streaming_services`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          services: config.streaming_services.map((s) =>
-            s.id === id ? { ...s, enabled } : s
-          ),
+          enabled_ids: enabledIds,
         }),
       })
 
@@ -72,12 +100,61 @@ export function useSettings(
         return
       }
 
-      const updatedConfig = await res.json()
-      onConfigUpdate(updatedConfig)
+      const updatedResponse = await res.json()
+      onConfigUpdate(updatedResponse.config)
     } catch (e) {
       setStreamingError('Network error while updating streaming services')
     } finally {
       setStreamingBusy(false)
+    }
+  }
+
+  const saveDashboard = async (next?: Partial<{
+    show_sonarr: boolean
+    show_radarr: boolean
+    show_sabnzbd: boolean
+    show_plex: boolean
+  }>) => {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+
+    const dashboard = {
+      show_sonarr: showSonarr,
+      show_radarr: showRadarr,
+      show_sabnzbd: showSabnzbd,
+      show_plex: showPlex,
+      ...next,
+    }
+
+    try {
+      const backendUrl = getBackendUrl()
+      const res = await fetch(`${backendUrl}/config/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          country,
+          ai_model: aiModel,
+          dashboard,
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        setError(errorData.detail || 'Failed to save settings')
+        return
+      }
+
+      const updatedResponse = await res.json()
+      onConfigUpdate(updatedResponse.config)
+      setSaved(true)
+
+      // Clear "saved" message after 2 seconds
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      setError('Network error while saving settings')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -92,8 +169,14 @@ export function useSettings(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user: { country },
-          ai: { model: aiModel },
+          country,
+          ai_model: aiModel,
+          dashboard: {
+            show_sonarr: showSonarr,
+            show_radarr: showRadarr,
+            show_sabnzbd: showSabnzbd,
+            show_plex: showPlex,
+          },
         }),
       })
 
@@ -103,8 +186,8 @@ export function useSettings(
         return
       }
 
-      const updatedConfig = await res.json()
-      onConfigUpdate(updatedConfig)
+      const updatedResponse = await res.json()
+      onConfigUpdate(updatedResponse.config)
       setSaved(true)
 
       // Clear "saved" message after 2 seconds
@@ -121,6 +204,14 @@ export function useSettings(
     setCountry,
     aiModel,
     setAiModel,
+    showSonarr,
+    setShowSonarr,
+    showRadarr,
+    setShowRadarr,
+    showSabnzbd,
+    setShowSabnzbd,
+    showPlex,
+    setShowPlex,
     saving,
     error,
     saved,
@@ -128,6 +219,7 @@ export function useSettings(
     streamingBusy,
     streamingError,
     toggleStreaming,
+    saveDashboard,
     saveSettings,
   }
 }
