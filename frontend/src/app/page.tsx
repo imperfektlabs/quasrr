@@ -599,8 +599,8 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sonarr.label}</span>
                     </div>
-                    <div className="mt-2 space-y-2 text-[11px] text-emerald-100/80">
-                      <div className="inline-flex items-center gap-4">
+                    <div className="mt-2 space-y-1 text-[11px] text-emerald-100/80">
+                      <div className="inline-flex items-center gap-2">
                         <CountIcon className="h-3 w-3" />
                         <span>
                           {dashboardSummary?.sonarr?.configured
@@ -608,8 +608,8 @@ function HomeContent() {
                             : '—'}
                         </span>
                       </div>
-                      <div className="inline-flex items-center gap-4">
-                        <DiskIcon className="h-3 w-3" />
+                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
+                        <DiskIcon className="h-3 w-3 ml-0.5" />
                         <span>
                           {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
                         </span>
@@ -633,8 +633,8 @@ function HomeContent() {
                       />
                       <span>{toolLinks.radarr.label}</span>
                     </div>
-                    <div className="mt-2 space-y-2 text-[11px] text-sky-100/80">
-                      <div className="inline-flex items-center gap-4">
+                    <div className="mt-2 space-y-1 text-[11px] text-sky-100/80">
+                      <div className="inline-flex items-center gap-2">
                         <CountIcon className="h-3 w-3" />
                         <span>
                           {dashboardSummary?.radarr?.configured
@@ -642,8 +642,8 @@ function HomeContent() {
                             : '—'}
                         </span>
                       </div>
-                      <div className="inline-flex items-center gap-4">
-                        <DiskIcon className="h-3 w-3" />
+                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
+                        <DiskIcon className="h-3 w-3 ml-0.5" />
                         <span>
                           {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
                         </span>
@@ -667,13 +667,13 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sabnzbd.label}</span>
                     </div>
-                    <div className="mt-2 space-y-2 text-[11px] text-amber-100/80">
-                      <div className="inline-flex items-center gap-4">
+                    <div className="mt-2 space-y-1 text-[11px] text-amber-100/80">
+                      <div className="inline-flex items-center gap-2">
                         <CountIcon className="h-3 w-3" />
                         <span>{sabQueueCount !== null ? sabQueueCount : '—'}</span>
                       </div>
-                      <div className="inline-flex items-center gap-4">
-                        <DiskIcon className="h-3 w-3" />
+                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
+                        <DiskIcon className="h-3 w-3 ml-0.5" />
                         <span>
                           {dashboardSummary?.sabnzbd?.configured
                             ? formatDownloadTotals(dashboardSummary.sabnzbd.download_today, dashboardSummary.sabnzbd.download_month)
@@ -699,15 +699,15 @@ function HomeContent() {
                       />
                       <span>{toolLinks.plex.label}</span>
                     </div>
-                    <div className="mt-2 space-y-2 text-[11px] text-yellow-100/80">
-                      <div className="inline-flex items-center gap-4">
+                    <div className="mt-2 space-y-1 text-[11px] text-yellow-100/80">
+                      <div className="inline-flex items-center gap-2">
                         <CountIcon className="h-3 w-3" />
                         <span>
                           {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
                         </span>
                       </div>
-                      <div className="inline-flex items-center gap-4">
-                        <CountIcon className="h-3 w-3" />
+                      <div className="inline-flex items-center gap-2 border-l border-white/15 pl-2">
+                        <CountIcon className="h-3 w-3 ml-0.5" />
                         <span>
                           {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
                         </span>
