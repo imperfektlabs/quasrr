@@ -507,6 +507,13 @@ function HomeContent() {
     },
   }
 
+  const dashboardCardCount = [
+    dashboardConfig.show_sonarr,
+    dashboardConfig.show_radarr,
+    dashboardConfig.show_sabnzbd,
+    dashboardConfig.show_plex,
+  ].filter(Boolean).length || 1
+
   const handlePauseAll = () => pauseSabQueue()
   const handleResumeAll = () => resumeSabQueue()
   const handlePauseJob = (jobId: string) => pauseSabJob(jobId)
@@ -540,7 +547,10 @@ function HomeContent() {
               {dashboardError && (
                 <div className="text-xs text-amber-300 mb-3">{dashboardError}</div>
               )}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div
+                className="grid gap-3"
+                style={{ gridTemplateColumns: `repeat(${dashboardCardCount}, minmax(0, 1fr))` }}
+              >
                 {dashboardConfig.show_sonarr && (
                   <a
                     href={toolLinks.sonarr.url}
@@ -559,10 +569,10 @@ function HomeContent() {
                     </div>
                     <div className="mt-2 space-y-1 text-xs text-emerald-100/80">
                       <div>
-                        Total: {dashboardSummary?.sonarr?.configured ? dashboardSummary.sonarr.total_count : '—'}
+                        Count: {dashboardSummary?.sonarr?.configured ? dashboardSummary.sonarr.total_count : '—'}
                       </div>
                       <div>
-                        Size: {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
+                        Disk: {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
                       </div>
                     </div>
                   </a>
@@ -585,10 +595,10 @@ function HomeContent() {
                     </div>
                     <div className="mt-2 space-y-1 text-xs text-sky-100/80">
                       <div>
-                        Total: {dashboardSummary?.radarr?.configured ? dashboardSummary.radarr.total_count : '—'}
+                        Count: {dashboardSummary?.radarr?.configured ? dashboardSummary.radarr.total_count : '—'}
                       </div>
                       <div>
-                        Size: {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
+                        Disk: {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
                       </div>
                     </div>
                   </a>
@@ -633,10 +643,10 @@ function HomeContent() {
                     </div>
                     <div className="mt-2 space-y-1 text-xs text-yellow-100/80">
                       <div>
-                        Recently added (7d): {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
+                        Recent (7d): {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
                       </div>
                       <div>
-                        Active streams: {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
+                        Streams: {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
                       </div>
                     </div>
                   </a>
@@ -670,12 +680,12 @@ function HomeContent() {
                     void handleSubmitSearch()
                   }}
                   placeholder="Search movies and TV shows..."
-                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
+                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs text-slate-200 placeholder-slate-500"
                 />
                 <button
                   type="submit"
                   disabled={searching || aiIntentBusy || !searchQuery.trim()}
-                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition-colors"
+                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-semibold transition-colors"
                 >
                   {submittingSearch || searching || aiIntentBusy ? '...' : 'Search'}
                 </button>
