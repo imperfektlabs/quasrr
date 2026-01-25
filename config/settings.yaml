@@ -19,3 +19,5 @@ streaming_services:
   enabled: false
 user:
   country: CA
+ai:
+  provider: openai
