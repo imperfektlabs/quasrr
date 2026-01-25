@@ -328,6 +328,7 @@ function HomeContent() {
     { id: 'gemini', label: 'Gemini' },
     { id: 'openrouter', label: 'OpenRouter' },
     { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'anthropic', label: 'Anthropic' },
     { id: 'local', label: 'Local' },
   ]
   const availableAiProviders = config?.ai.available_providers ?? []
