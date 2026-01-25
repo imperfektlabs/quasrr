@@ -299,6 +299,7 @@ export type SonarrEpisode = {
   title?: string
   airDate?: string
   hasFile?: boolean
+  quality?: string | null
 }
 
 // ============================================

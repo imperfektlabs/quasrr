@@ -749,24 +749,22 @@ export function ReleaseView({
       (!requestedSeason || getSeason(release) === requestedSeason) &&
       getEpisodes(release).includes(requestedEpisode)
     )
-    const rowShade = index % 2 === 0 ? 'bg-slate-900/10' : 'bg-slate-900/20'
-
     return (
       <div
         key={release.guid || `${groupKey}-${index}`}
         data-release-guid={release.guid || undefined}
-        className={`p-3 border-b border-slate-800/80 hover:bg-slate-800/40 ${rowShade} ${
+        className={`px-3 py-2 text-sm hover:bg-slate-800/40 ${
           isAiPick ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
         } ${
           isRequested ? 'ring-1 ring-fuchsia-400/60 bg-fuchsia-900/10' : ''
         }`}
       >
         <div>
-          <p className="text-xs text-slate-100 leading-snug break-words">
+          <p className="text-sm text-slate-100 leading-snug break-words">
             {release.title}
           </p>
 
-          <div className="mt-2 grid gap-2 text-xs text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+          <div className="mt-2 grid gap-2 text-sm text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <span>{release.size_formatted}</span>
               <span className="text-cyan-300">{release.quality}</span>
@@ -843,19 +841,16 @@ export function ReleaseView({
   }
 
   return (
-    <div
-      className="fixed inset-0 glass-modal z-50 flex items-start justify-center p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
       <div
-        className="glass-panel rounded-lg p-4 max-w-6xl w-full max-h-[85vh] overflow-y-auto"
+        className="glass-panel rounded-lg p-4 md:p-6 max-w-6xl w-full max-h-[85vh] overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
         <div className="relative">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold">{data.title}</h2>
+                <h2 className="text-xl font-bold">{data.title}</h2>
                 <p className="text-gray-400 text-sm">
                   {data.year} | {data.releases.length} releases found
                   {data.runtime && ` | ${data.runtime} min`}
@@ -1337,8 +1332,8 @@ export function ReleaseView({
                   setGrabAllModal(null)
                   onGrabAll(selected)
                 }}
-              className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
-            >
+                className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
+              >
                 Grab Selected
               </button>
             </div>
