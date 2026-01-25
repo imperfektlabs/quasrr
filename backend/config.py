@@ -8,6 +8,7 @@ Hierarchy (highest priority first):
 """
 
 import logging
+import re
 import os
 from pathlib import Path
 from typing import Optional
@@ -164,10 +165,8 @@ def _clean_env(value: Optional[str]) -> Optional[str]:
     stripped = value.strip()
     if not stripped:
         return None
-    if " #" in stripped:
-        stripped = stripped.split(" #", 1)[0].strip()
-    if "\t#" in stripped:
-        stripped = stripped.split("\t#", 1)[0].strip()
+    if " #" in stripped or "\t#" in stripped or " -#" in stripped:
+        stripped = re.split(r"\s+#", stripped, maxsplit=1)[0].strip()
     return stripped or None
 
 
