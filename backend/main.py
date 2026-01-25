@@ -94,8 +94,6 @@ class DashboardSettingsUpdate(BaseModel):
 
 class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
-    ai_model: Optional[str] = None
-    ai_provider: Optional[str] = None
     dashboard: Optional[DashboardSettingsUpdate] = None
 
 
@@ -271,7 +269,7 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
 async def update_basic_settings_config(payload: BasicSettingsUpdate):
     """Update non-secret settings in settings.yaml."""
     dashboard_settings = payload.dashboard.model_dump(exclude_unset=True) if payload.dashboard else None
-    config = update_basic_settings(payload.country, payload.ai_model, payload.ai_provider, dashboard_settings)
+    config = update_basic_settings(payload.country, dashboard=dashboard_settings)
     logger.info("Basic settings updated")
     return {"status": "updated", "config": redact_secrets(config)}
 

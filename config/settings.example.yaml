@@ -46,11 +46,6 @@ quality:
     min_size_mb: 2000
     max_size_mb: 4000
 
-# --- AI Configuration ---
-# Model can be overridden here (env still wins). Provider/key remain env-only.
-ai:
-  model: "gpt-4o-mini"
-
 # --- Feature Flags ---
 features:
   show_download_always: false
