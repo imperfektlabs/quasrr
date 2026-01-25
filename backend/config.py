@@ -158,67 +158,80 @@ def load_yaml_file(path: Path) -> dict:
         return {}
 
 
+def _clean_env(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    if " #" in stripped:
+        stripped = stripped.split(" #", 1)[0].strip()
+    if "\t#" in stripped:
+        stripped = stripped.split("\t#", 1)[0].strip()
+    return stripped or None
+
+
 def load_env_overrides() -> dict:
     """Load configuration overrides from environment variables."""
     overrides = {}
 
     # User settings
-    if country := os.getenv("USER_COUNTRY"):
+    if country := _clean_env(os.getenv("USER_COUNTRY")):
         overrides.setdefault("user", {})["country"] = country
-    if language := os.getenv("USER_LANGUAGE"):
+    if language := _clean_env(os.getenv("USER_LANGUAGE")):
         overrides.setdefault("user", {})["language"] = language
 
     # App settings
-    if log_level := os.getenv("LOG_LEVEL"):
+    if log_level := _clean_env(os.getenv("LOG_LEVEL")):
         overrides.setdefault("app", {})["log_level"] = log_level
 
     # AI settings
-    if ai_provider := os.getenv("AI_PROVIDER"):
+    if ai_provider := _clean_env(os.getenv("AI_PROVIDER")):
         overrides.setdefault("ai", {})["provider"] = ai_provider
-    if ai_model := os.getenv("AI_MODEL"):
+    if ai_model := _clean_env(os.getenv("AI_MODEL")):
         overrides.setdefault("ai", {})["model"] = ai_model
-    if ai_api_key := os.getenv("AI_API_KEY"):
+    if ai_api_key := _clean_env(os.getenv("AI_API_KEY")):
         overrides.setdefault("ai", {})["api_key"] = ai_api_key
-    if openai_api_key := os.getenv("OPENAI_API_KEY"):
+    if openai_api_key := _clean_env(os.getenv("OPENAI_API_KEY")):
         overrides.setdefault("ai", {})["openai_api_key"] = openai_api_key
-    if openai_model := os.getenv("OPEN_AI_MODEL"):
+    if openai_model := _clean_env(os.getenv("OPEN_AI_MODEL")):
         overrides.setdefault("ai", {})["openai_model"] = openai_model
-    if gemini_api_key := os.getenv("GEMINI_API_KEY"):
+    if gemini_api_key := _clean_env(os.getenv("GEMINI_API_KEY")):
         overrides.setdefault("ai", {})["gemini_api_key"] = gemini_api_key
-    if gemini_model := os.getenv("GEMINI_MODEL"):
+    if gemini_model := _clean_env(os.getenv("GEMINI_MODEL")):
         overrides.setdefault("ai", {})["gemini_model"] = gemini_model
-    if openrouter_api_key := os.getenv("OPENROUTER_API_KEY"):
+    if openrouter_api_key := _clean_env(os.getenv("OPENROUTER_API_KEY")):
         overrides.setdefault("ai", {})["openrouter_api_key"] = openrouter_api_key
-    if openrouter_base_url := os.getenv("OPENROUTER_BASE_URL"):
+    if openrouter_base_url := _clean_env(os.getenv("OPENROUTER_BASE_URL")):
         overrides.setdefault("ai", {})["openrouter_base_url"] = openrouter_base_url
-    if openrouter_model := os.getenv("OPENROUTER_MODEL"):
+    if openrouter_model := _clean_env(os.getenv("OPENROUTER_MODEL")):
         overrides.setdefault("ai", {})["openrouter_model"] = openrouter_model
-    if deepseek_api_key := os.getenv("DEEPSEEK_API_KEY"):
+    if deepseek_api_key := _clean_env(os.getenv("DEEPSEEK_API_KEY")):
         overrides.setdefault("ai", {})["deepseek_api_key"] = deepseek_api_key
-    if deepseek_base_url := os.getenv("DEEPSEEK_BASE_URL"):
+    if deepseek_base_url := _clean_env(os.getenv("DEEPSEEK_BASE_URL")):
         overrides.setdefault("ai", {})["deepseek_base_url"] = deepseek_base_url
-    if deepseek_model := os.getenv("DEEPSEEK_MODEL"):
+    if deepseek_model := _clean_env(os.getenv("DEEPSEEK_MODEL")):
         overrides.setdefault("ai", {})["deepseek_model"] = deepseek_model
-    if anthropic_api_key := os.getenv("ANTHROPIC_API_KEY"):
+    if anthropic_api_key := _clean_env(os.getenv("ANTHROPIC_API_KEY")):
         overrides.setdefault("ai", {})["anthropic_api_key"] = anthropic_api_key
-    if anthropic_model := os.getenv("ANTHROPIC_MODEL"):
+    if anthropic_model := _clean_env(os.getenv("ANTHROPIC_MODEL")):
         overrides.setdefault("ai", {})["anthropic_model"] = anthropic_model
-    if local_endpoint_url := os.getenv("LOCAL_ENDPOINT_URL"):
+    if local_endpoint_url := _clean_env(os.getenv("LOCAL_ENDPOINT_URL")):
         overrides.setdefault("ai", {})["local_endpoint_url"] = local_endpoint_url
-    if local_api_key := os.getenv("LOCAL_API_KEY"):
+    if local_api_key := _clean_env(os.getenv("LOCAL_API_KEY")):
         overrides.setdefault("ai", {})["local_api_key"] = local_api_key
 
     # Integrations (env vars only)
     overrides["integrations"] = {
-        "sonarr_url": os.getenv("SONARR_URL"),
-        "sonarr_api_key": os.getenv("SONARR_API_KEY"),
-        "radarr_url": os.getenv("RADARR_URL"),
-        "radarr_api_key": os.getenv("RADARR_API_KEY"),
-        "sabnzbd_url": os.getenv("SABNZBD_URL"),
-        "sabnzbd_api_key": os.getenv("SABNZBD_API_KEY"),
-        "plex_url": os.getenv("PLEX_URL"),
-        "plex_api_key": os.getenv("PLEX_API_KEY"),
-        "tmdb_api_key": os.getenv("TMDB_API_KEY"),
+        "sonarr_url": _clean_env(os.getenv("SONARR_URL")),
+        "sonarr_api_key": _clean_env(os.getenv("SONARR_API_KEY")),
+        "radarr_url": _clean_env(os.getenv("RADARR_URL")),
+        "radarr_api_key": _clean_env(os.getenv("RADARR_API_KEY")),
+        "sabnzbd_url": _clean_env(os.getenv("SABNZBD_URL")),
+        "sabnzbd_api_key": _clean_env(os.getenv("SABNZBD_API_KEY")),
+        "plex_url": _clean_env(os.getenv("PLEX_URL")),
+        "plex_api_key": _clean_env(os.getenv("PLEX_API_KEY")),
+        "tmdb_api_key": _clean_env(os.getenv("TMDB_API_KEY")),
     }
 
     return overrides
