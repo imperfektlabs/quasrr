@@ -10,6 +10,8 @@ import { getBackendUrl } from '@/utils/backend'
 export type SettingsResult = {
   country: string
   setCountry: (c: string) => void
+  aiProvider: string
+  setAiProvider: (p: string) => void
   showSonarr: boolean
   setShowSonarr: (next: boolean) => void
   showRadarr: boolean
@@ -33,6 +35,7 @@ export type SettingsResult = {
   }>) => Promise<void>
   saveSettings: (next?: Partial<{
     country: string
+    ai_provider: string
   }>) => Promise<void>
 }
 
@@ -46,6 +49,7 @@ export function useSettings(
   onConfigUpdate: (newConfig: ConfigStatus) => void
 ): SettingsResult {
   const [country, setCountry] = useState('')
+  const [aiProvider, setAiProvider] = useState('')
   const [showSonarr, setShowSonarr] = useState(true)
   const [showRadarr, setShowRadarr] = useState(true)
   const [showSabnzbd, setShowSabnzbd] = useState(true)
@@ -61,6 +65,7 @@ export function useSettings(
   useEffect(() => {
     if (config) {
       setCountry(config.user.country)
+      setAiProvider(config.ai.provider)
       setShowSonarr(config.dashboard.show_sonarr)
       setShowRadarr(config.dashboard.show_radarr)
       setShowSabnzbd(config.dashboard.show_sabnzbd)
@@ -132,6 +137,7 @@ export function useSettings(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           country,
+          ai_provider: aiProvider,
           dashboard,
         }),
       })
@@ -157,12 +163,14 @@ export function useSettings(
 
   const saveSettings = async (next?: Partial<{
     country: string
+    ai_provider: string
   }>) => {
     setSaving(true)
     setError(null)
     setSaved(false)
 
     const nextCountry = next?.country ?? country
+    const nextAiProvider = next?.ai_provider ?? aiProvider
 
     try {
       const backendUrl = getBackendUrl()
@@ -171,6 +179,7 @@ export function useSettings(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           country: nextCountry,
+          ai_provider: nextAiProvider,
         }),
       })
 
@@ -196,6 +205,8 @@ export function useSettings(
   return {
     country,
     setCountry,
+    aiProvider,
+    setAiProvider,
     showSonarr,
     setShowSonarr,
     showRadarr,
