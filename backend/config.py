@@ -286,22 +286,25 @@ def redact_secrets(config: Config) -> dict:
 
 
 def get_available_ai_providers(config: Config) -> list[str]:
+    """Return list of AI providers that have required env vars configured.
+
+    Availability is based on API key only (models have defaults).
+    Local provider requires endpoint URL instead of API key.
+    """
     def has_value(value: Optional[str]) -> bool:
         return bool(value and value.strip())
 
     providers = []
-    if has_value(config.ai.openai_api_key) and has_value(config.ai.openai_model):
+    if has_value(config.ai.openai_api_key):
         providers.append("openai")
-    elif has_value(config.ai.api_key) and has_value(config.ai.model):
-        providers.append("openai")
-    if has_value(config.ai.gemini_api_key) and has_value(config.ai.gemini_model):
-        providers.append("gemini")
-    if has_value(config.ai.openrouter_api_key) and has_value(config.ai.openrouter_model):
-        providers.append("openrouter")
-    if has_value(config.ai.deepseek_api_key) and has_value(config.ai.deepseek_model):
-        providers.append("deepseek")
-    if has_value(config.ai.anthropic_api_key) and has_value(config.ai.anthropic_model):
+    if has_value(config.ai.anthropic_api_key):
         providers.append("anthropic")
+    if has_value(config.ai.gemini_api_key):
+        providers.append("gemini")
+    if has_value(config.ai.openrouter_api_key):
+        providers.append("openrouter")
+    if has_value(config.ai.deepseek_api_key):
+        providers.append("deepseek")
     if has_value(config.ai.local_endpoint_url):
         providers.append("local")
     return providers
