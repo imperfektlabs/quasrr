@@ -66,7 +66,6 @@ class QualityConfig(BaseModel):
 class AIConfig(BaseModel):
     provider: str = "openai"
     model: str = "gpt-4o-mini"
-    api_key: Optional[str] = None  # From env var, redacted in output
     openai_api_key: Optional[str] = None
     openai_model: Optional[str] = None
     gemini_api_key: Optional[str] = None
@@ -184,13 +183,7 @@ def load_env_overrides() -> dict:
     if log_level := _clean_env(os.getenv("LOG_LEVEL")):
         overrides.setdefault("app", {})["log_level"] = log_level
 
-    # AI settings
-    if ai_provider := _clean_env(os.getenv("AI_PROVIDER")):
-        overrides.setdefault("ai", {})["provider"] = ai_provider
-    if ai_model := _clean_env(os.getenv("AI_MODEL")):
-        overrides.setdefault("ai", {})["model"] = ai_model
-    if ai_api_key := _clean_env(os.getenv("AI_API_KEY")):
-        overrides.setdefault("ai", {})["api_key"] = ai_api_key
+    # AI settings (provider-specific only, no generic fallbacks)
     if openai_api_key := _clean_env(os.getenv("OPENAI_API_KEY")):
         overrides.setdefault("ai", {})["openai_api_key"] = openai_api_key
     if openai_model := _clean_env(os.getenv("OPEN_AI_MODEL")):
@@ -264,8 +257,6 @@ def redact_secrets(config: Config) -> dict:
     data = config.model_dump()
 
     # Redact API keys
-    if data.get("ai", {}).get("api_key"):
-        data["ai"]["api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("openai_api_key"):
         data["ai"]["openai_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("gemini_api_key"):
