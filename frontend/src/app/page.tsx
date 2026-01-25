@@ -1160,29 +1160,35 @@ function HomeContent() {
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
-              <label className="grid gap-1">
+              <div className="grid gap-1">
                 <span className="text-xs text-gray-400">AI Provider</span>
-                <select
-                  value={settingsAiProvider}
-                  onChange={(event) => {
-                    const next = event.target.value
-                    setSettingsAiProvider(next)
-                    void saveSettings({ ai_provider: next })
-                  }}
-                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                >
-                  {aiProviderOptions.map((provider) => (
-                    <option
-                      key={provider.id}
-                      value={provider.id}
-                      disabled={!availableAiProviderSet.has(provider.id)}
-                    >
-                      {provider.label}
-                      {!availableAiProviderSet.has(provider.id) ? ' (env missing)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div className="grid gap-2">
+                  {aiProviderOptions.map((provider) => {
+                    const isAvailable = availableAiProviderSet.has(provider.id)
+                    const isChecked = settingsAiProvider === provider.id
+                    return (
+                      <label key={provider.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={!isAvailable}
+                          onChange={(event) => {
+                            if (!event.target.checked) {
+                              return
+                            }
+                            setSettingsAiProvider(provider.id)
+                            void saveSettings({ ai_provider: provider.id })
+                          }}
+                        />
+                        <span>
+                          {provider.label}
+                          {!isAvailable ? ' (env missing)' : ''}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
             <div className="mt-2 text-xs text-gray-400">
               {availableAiProviders.length === 0 && (
