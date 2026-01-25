@@ -19,5 +19,3 @@ streaming_services:
   enabled: false
 user:
   country: CA
-ai:
-  model: gpt-5-nano
