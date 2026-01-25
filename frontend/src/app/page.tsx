@@ -1165,27 +1165,30 @@ function HomeContent() {
               <div className="grid gap-1">
                 <span className="text-xs text-gray-400">AI Provider</span>
                 <div className="grid gap-2">
-                  {aiProviderOptions
-                    .filter((provider) => availableAiProviderSet.has(provider.id))
-                    .map((provider) => {
-                      const isChecked = settingsAiProvider === provider.id
-                      return (
-                        <label key={provider.id} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(event) => {
-                              if (!event.target.checked) {
-                                return
-                              }
-                              setSettingsAiProvider(provider.id)
-                              void saveSettings({ ai_provider: provider.id })
-                            }}
-                          />
-                          <span>{provider.label}</span>
-                        </label>
-                      )
-                    })}
+                  {aiProviderOptions.map((provider) => {
+                    const isAvailable = availableAiProviderSet.has(provider.id)
+                    const isChecked = settingsAiProvider === provider.id
+                    return (
+                      <label
+                        key={provider.id}
+                        className={`flex items-center gap-2 ${isAvailable ? '' : 'text-gray-500'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={!isAvailable}
+                          onChange={(event) => {
+                            if (!event.target.checked) {
+                              return
+                            }
+                            setSettingsAiProvider(provider.id)
+                            void saveSettings({ ai_provider: provider.id })
+                          }}
+                        />
+                        <span>{provider.label}</span>
+                      </label>
+                    )
+                  })}
                   {availableAiProviderSet.size === 0 && (
                     <span className="text-xs text-gray-500">No AI providers configured in .env</span>
                   )}
