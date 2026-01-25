@@ -39,7 +39,6 @@ class AIClient:
         config = get_config()
         self.provider = (config.ai.provider or "").lower().strip()
         self.model = config.ai.model
-        self.api_key = config.ai.api_key
         self.openai_api_key = config.ai.openai_api_key
         self.openai_model = config.ai.openai_model
         self.gemini_api_key = config.ai.gemini_api_key
@@ -98,16 +97,18 @@ class AIClient:
 
     def _provider_api_key(self, provider: str) -> str | None:
         if provider == "openai":
-            return self.openai_api_key or self.api_key
+            return self.openai_api_key
         if provider == "gemini":
-            return self.gemini_api_key or self.api_key
+            return self.gemini_api_key
         if provider == "openrouter":
-            return self.openrouter_api_key or self.api_key
+            return self.openrouter_api_key
         if provider == "deepseek":
-            return self.deepseek_api_key or self.api_key
+            return self.deepseek_api_key
         if provider == "anthropic":
-            return self.anthropic_api_key or self.api_key
-        return self.api_key
+            return self.anthropic_api_key
+        if provider == "local":
+            return self.local_api_key
+        return None
 
     def _provider_model(self, provider: str) -> str | None:
         if provider == "openai":
