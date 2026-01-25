@@ -66,11 +66,18 @@ class AIConfig(BaseModel):
     provider: str = "openai"
     model: str = "gpt-4o-mini"
     api_key: Optional[str] = None  # From env var, redacted in output
+    openai_api_key: Optional[str] = None
+    openai_model: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    gemini_model: Optional[str] = None
     openrouter_api_key: Optional[str] = None
     openrouter_base_url: Optional[str] = None
+    openrouter_model: Optional[str] = None
     deepseek_api_key: Optional[str] = None
     deepseek_base_url: Optional[str] = None
+    deepseek_model: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    anthropic_model: Optional[str] = None
     local_endpoint_url: Optional[str] = None
     local_api_key: Optional[str] = None
     max_tokens: int = 1000
@@ -172,16 +179,30 @@ def load_env_overrides() -> dict:
         overrides.setdefault("ai", {})["model"] = ai_model
     if ai_api_key := os.getenv("AI_API_KEY"):
         overrides.setdefault("ai", {})["api_key"] = ai_api_key
+    if openai_api_key := os.getenv("OPENAI_API_KEY"):
+        overrides.setdefault("ai", {})["openai_api_key"] = openai_api_key
+    if openai_model := os.getenv("OPEN_AI_MODEL"):
+        overrides.setdefault("ai", {})["openai_model"] = openai_model
     if gemini_api_key := os.getenv("GEMINI_API_KEY"):
         overrides.setdefault("ai", {})["gemini_api_key"] = gemini_api_key
+    if gemini_model := os.getenv("GEMINI_MODEL"):
+        overrides.setdefault("ai", {})["gemini_model"] = gemini_model
     if openrouter_api_key := os.getenv("OPENROUTER_API_KEY"):
         overrides.setdefault("ai", {})["openrouter_api_key"] = openrouter_api_key
     if openrouter_base_url := os.getenv("OPENROUTER_BASE_URL"):
         overrides.setdefault("ai", {})["openrouter_base_url"] = openrouter_base_url
+    if openrouter_model := os.getenv("OPENROUTER_MODEL"):
+        overrides.setdefault("ai", {})["openrouter_model"] = openrouter_model
     if deepseek_api_key := os.getenv("DEEPSEEK_API_KEY"):
         overrides.setdefault("ai", {})["deepseek_api_key"] = deepseek_api_key
     if deepseek_base_url := os.getenv("DEEPSEEK_BASE_URL"):
         overrides.setdefault("ai", {})["deepseek_base_url"] = deepseek_base_url
+    if deepseek_model := os.getenv("DEEPSEEK_MODEL"):
+        overrides.setdefault("ai", {})["deepseek_model"] = deepseek_model
+    if anthropic_api_key := os.getenv("ANTHROPIC_API_KEY"):
+        overrides.setdefault("ai", {})["anthropic_api_key"] = anthropic_api_key
+    if anthropic_model := os.getenv("ANTHROPIC_MODEL"):
+        overrides.setdefault("ai", {})["anthropic_model"] = anthropic_model
     if local_endpoint_url := os.getenv("LOCAL_ENDPOINT_URL"):
         overrides.setdefault("ai", {})["local_endpoint_url"] = local_endpoint_url
     if local_api_key := os.getenv("LOCAL_API_KEY"):
@@ -233,12 +254,16 @@ def redact_secrets(config: Config) -> dict:
     # Redact API keys
     if data.get("ai", {}).get("api_key"):
         data["ai"]["api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("openai_api_key"):
+        data["ai"]["openai_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("gemini_api_key"):
         data["ai"]["gemini_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("openrouter_api_key"):
         data["ai"]["openrouter_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("deepseek_api_key"):
         data["ai"]["deepseek_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("anthropic_api_key"):
+        data["ai"]["anthropic_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("local_api_key"):
         data["ai"]["local_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("sonarr_api_key"):
@@ -262,14 +287,18 @@ def get_available_ai_providers(config: Config) -> list[str]:
         return bool(value and value.strip())
 
     providers = []
-    if has_value(config.ai.api_key):
+    if has_value(config.ai.openai_api_key) and has_value(config.ai.openai_model):
         providers.append("openai")
-    if has_value(config.ai.gemini_api_key):
+    elif has_value(config.ai.api_key) and has_value(config.ai.model):
+        providers.append("openai")
+    if has_value(config.ai.gemini_api_key) and has_value(config.ai.gemini_model):
         providers.append("gemini")
-    if has_value(config.ai.openrouter_api_key):
+    if has_value(config.ai.openrouter_api_key) and has_value(config.ai.openrouter_model):
         providers.append("openrouter")
-    if has_value(config.ai.deepseek_api_key):
+    if has_value(config.ai.deepseek_api_key) and has_value(config.ai.deepseek_model):
         providers.append("deepseek")
+    if has_value(config.ai.anthropic_api_key) and has_value(config.ai.anthropic_model):
+        providers.append("anthropic")
     if has_value(config.ai.local_endpoint_url):
         providers.append("local")
     return providers
