@@ -14,7 +14,18 @@ export type HealthStatus = {
 export type ConfigStatus = {
   app: { name: string; log_level: string }
   user: { country: string; language: string }
-  ai: { provider: string; model: string; api_key: string | null; available_providers?: string[] }
+  ai: {
+    provider: string
+    model: string
+    api_key: string | null
+    available_providers?: string[]
+    openai_model?: string | null
+    gemini_model?: string | null
+    openrouter_model?: string | null
+    deepseek_model?: string | null
+    anthropic_model?: string | null
+    local_endpoint_url?: string | null
+  }
   streaming_services: { id: string; name: string; enabled: boolean }[]
   integrations: {
     sonarr_url: string | null
