@@ -82,7 +82,13 @@ function HomeContent() {
 
   // Derived values from config
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
-  const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
+  const availableAiProviders = config?.ai.available_providers ?? []
+  const selectedAiProvider = (config?.ai.provider ?? '').toLowerCase()
+  const aiEnabled = Boolean(
+    config?.features.ai_suggestions &&
+    selectedAiProvider &&
+    availableAiProviders.includes(selectedAiProvider)
+  )
   const dashboardConfig = config?.dashboard ?? {
     show_sonarr: true,
     show_radarr: true,
@@ -300,10 +306,6 @@ function HomeContent() {
   const {
     country: settingsCountry,
     setCountry: setSettingsCountry,
-    aiModel: settingsAiModel,
-    setAiModel: setSettingsAiModel,
-    aiProvider: settingsAiProvider,
-    setAiProvider: setSettingsAiProvider,
     showSonarr: settingsShowSonarr,
     setShowSonarr: setSettingsShowSonarr,
     showRadarr: settingsShowRadarr,
@@ -322,20 +324,6 @@ function HomeContent() {
     saveDashboard: saveDashboardSettings,
     saveSettings,
   } = useSettings(config, setConfig)
-
-  const aiProviderOptions = [
-    { id: 'openai', label: 'OpenAI' },
-    { id: 'gemini', label: 'Gemini' },
-    { id: 'openrouter', label: 'OpenRouter' },
-    { id: 'deepseek', label: 'DeepSeek' },
-    { id: 'anthropic', label: 'Anthropic' },
-    { id: 'local', label: 'Local' },
-  ]
-  const availableAiProviders = config?.ai.available_providers ?? []
-  const availableAiProviderSet = new Set(availableAiProviders)
-  const selectedProviderAvailable = settingsAiProvider
-    ? availableAiProviderSet.has(settingsAiProvider)
-    : false
 
 
   const handleHome = () => {
@@ -1148,67 +1136,7 @@ function HomeContent() {
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
-              <label className="grid gap-1">
-                <span className="text-xs text-gray-400">AI Model</span>
-                <input
-                  type="text"
-                  value={settingsAiModel}
-                  onChange={(event) => setSettingsAiModel(event.target.value)}
-                  onBlur={() => {
-                    void saveSettings()
-                  }}
-                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                />
-              </label>
-              <div className="grid gap-1">
-                <span className="text-xs text-gray-400">AI Provider</span>
-                <div className="grid gap-2">
-                  {aiProviderOptions.map((provider) => {
-                    const isAvailable = availableAiProviderSet.has(provider.id)
-                    const isChecked = settingsAiProvider === provider.id
-                    return (
-                      <label key={provider.id} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={!isAvailable}
-                          onChange={(event) => {
-                            if (!event.target.checked) {
-                              return
-                            }
-                            setSettingsAiProvider(provider.id)
-                            void saveSettings({ ai_provider: provider.id })
-                          }}
-                        />
-                        <span>
-                          {provider.label}
-                          {!isAvailable ? ' (env missing)' : ''}
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
             </div>
-            <div className="mt-2 text-xs text-gray-400">
-              {availableAiProviders.length === 0 && (
-                <span>No AI providers configured in .env</span>
-              )}
-              {availableAiProviders.length > 0 && (
-                <span>
-                  Available providers:{' '}
-                  {aiProviderOptions
-                    .filter((provider) => availableAiProviderSet.has(provider.id))
-                    .map((provider) => provider.label)
-                    .join(', ')}
-                </span>
-              )}
-            </div>
-            {!selectedProviderAvailable && settingsAiProvider && (
-              <div className="mt-1 text-xs text-red-400">
-                Selected provider is not configured in .env.
-              </div>
-            )}
 
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>

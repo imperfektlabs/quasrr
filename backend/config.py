@@ -363,8 +363,6 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
 
 def update_basic_settings(
     country: Optional[str] = None,
-    ai_model: Optional[str] = None,
-    ai_provider: Optional[str] = None,
     dashboard: Optional[dict] = None
 ) -> Config:
     """Persist non-secret settings to settings.yaml."""
@@ -372,12 +370,6 @@ def update_basic_settings(
 
     if country:
         settings.setdefault("user", {})["country"] = country
-
-    if ai_model:
-        settings.setdefault("ai", {})["model"] = ai_model
-
-    if ai_provider:
-        settings.setdefault("ai", {})["provider"] = ai_provider
 
     if dashboard:
         settings.setdefault("dashboard", {}).update(dashboard)

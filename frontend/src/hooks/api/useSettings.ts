@@ -1,6 +1,6 @@
 /**
  * Settings management hook
- * Handles user settings (country, AI model) and streaming service toggles
+ * Handles user settings (country) and streaming service toggles
  */
 
 import { useEffect, useState } from 'react'
@@ -10,10 +10,6 @@ import { getBackendUrl } from '@/utils/backend'
 export type SettingsResult = {
   country: string
   setCountry: (c: string) => void
-  aiModel: string
-  setAiModel: (m: string) => void
-  aiProvider: string
-  setAiProvider: (p: string) => void
   showSonarr: boolean
   setShowSonarr: (next: boolean) => void
   showRadarr: boolean
@@ -37,8 +33,6 @@ export type SettingsResult = {
   }>) => Promise<void>
   saveSettings: (next?: Partial<{
     country: string
-    ai_model: string
-    ai_provider: string
   }>) => Promise<void>
 }
 
@@ -52,8 +46,6 @@ export function useSettings(
   onConfigUpdate: (newConfig: ConfigStatus) => void
 ): SettingsResult {
   const [country, setCountry] = useState('')
-  const [aiModel, setAiModel] = useState('')
-  const [aiProvider, setAiProvider] = useState('')
   const [showSonarr, setShowSonarr] = useState(true)
   const [showRadarr, setShowRadarr] = useState(true)
   const [showSabnzbd, setShowSabnzbd] = useState(true)
@@ -69,8 +61,6 @@ export function useSettings(
   useEffect(() => {
     if (config) {
       setCountry(config.user.country)
-      setAiModel(config.ai.model)
-      setAiProvider(config.ai.provider)
       setShowSonarr(config.dashboard.show_sonarr)
       setShowRadarr(config.dashboard.show_radarr)
       setShowSabnzbd(config.dashboard.show_sabnzbd)
@@ -142,8 +132,6 @@ export function useSettings(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           country,
-          ai_model: aiModel,
-          ai_provider: aiProvider,
           dashboard,
         }),
       })
@@ -169,16 +157,12 @@ export function useSettings(
 
   const saveSettings = async (next?: Partial<{
     country: string
-    ai_model: string
-    ai_provider: string
   }>) => {
     setSaving(true)
     setError(null)
     setSaved(false)
 
     const nextCountry = next?.country ?? country
-    const nextAiModel = next?.ai_model ?? aiModel
-    const nextAiProvider = next?.ai_provider ?? aiProvider
 
     try {
       const backendUrl = getBackendUrl()
@@ -187,14 +171,6 @@ export function useSettings(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           country: nextCountry,
-          ai_model: nextAiModel,
-          ai_provider: nextAiProvider,
-          dashboard: {
-            show_sonarr: showSonarr,
-            show_radarr: showRadarr,
-            show_sabnzbd: showSabnzbd,
-            show_plex: showPlex,
-          },
         }),
       })
 
@@ -220,10 +196,6 @@ export function useSettings(
   return {
     country,
     setCountry,
-    aiModel,
-    setAiModel,
-    aiProvider,
-    setAiProvider,
     showSonarr,
     setShowSonarr,
     showRadarr,
