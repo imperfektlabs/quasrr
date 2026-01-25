@@ -65,19 +65,19 @@ class QualityConfig(BaseModel):
 
 class AIConfig(BaseModel):
     provider: str = "openai"
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-4o-mini"  # Fallback model for any provider
     openai_api_key: Optional[str] = None
-    openai_model: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
     gemini_api_key: Optional[str] = None
-    gemini_model: Optional[str] = None
+    gemini_model: str = "gemini-1.5-flash"
     openrouter_api_key: Optional[str] = None
     openrouter_base_url: Optional[str] = None
-    openrouter_model: Optional[str] = None
+    openrouter_model: str = "anthropic/claude-3.5-sonnet"
     deepseek_api_key: Optional[str] = None
     deepseek_base_url: Optional[str] = None
-    deepseek_model: Optional[str] = None
+    deepseek_model: str = "deepseek-chat"
     anthropic_api_key: Optional[str] = None
-    anthropic_model: Optional[str] = None
+    anthropic_model: str = "claude-3-5-sonnet-20241022"
     local_endpoint_url: Optional[str] = None
     local_api_key: Optional[str] = None
     max_tokens: int = 1000
@@ -186,7 +186,7 @@ def load_env_overrides() -> dict:
     # AI settings (provider-specific only, no generic fallbacks)
     if openai_api_key := _clean_env(os.getenv("OPENAI_API_KEY")):
         overrides.setdefault("ai", {})["openai_api_key"] = openai_api_key
-    if openai_model := _clean_env(os.getenv("OPEN_AI_MODEL")):
+    if openai_model := _clean_env(os.getenv("OPENAI_MODEL")):
         overrides.setdefault("ai", {})["openai_model"] = openai_model
     if gemini_api_key := _clean_env(os.getenv("GEMINI_API_KEY")):
         overrides.setdefault("ai", {})["gemini_api_key"] = gemini_api_key
