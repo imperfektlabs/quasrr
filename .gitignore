@@ -7,6 +7,7 @@ Thumbs.db
 # 2. Secrets (Passwords/API Keys)
 *.env
 settings.yaml
+TODOS.md
 
 # 3. Data Volumes (The heavy stuff)
 # This wildcard ignores every folder ending in "_data"
