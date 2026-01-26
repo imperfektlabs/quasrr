@@ -431,18 +431,19 @@ class AIClient:
             )
         elif self.provider == "gemini":
             # Schema helps Gemini return the correct structure
+            # Note: Gemini uses nullable:true instead of type arrays
             intent_schema = {
-                "type": "object",
+                "type": "OBJECT",
                 "properties": {
-                    "media_type": {"type": "string", "enum": ["movie", "tv", "unknown"]},
-                    "title": {"type": "string"},
-                    "season": {"type": ["integer", "null"]},
-                    "episode": {"type": ["integer", "null"]},
-                    "episode_date": {"type": ["string", "null"]},
-                    "action": {"type": "string", "enum": ["search", "download"]},
-                    "quality": {"type": ["string", "null"]},
-                    "confidence": {"type": "number"},
-                    "notes": {"type": "string"},
+                    "media_type": {"type": "STRING"},
+                    "title": {"type": "STRING"},
+                    "season": {"type": "INTEGER", "nullable": True},
+                    "episode": {"type": "INTEGER", "nullable": True},
+                    "episode_date": {"type": "STRING", "nullable": True},
+                    "action": {"type": "STRING"},
+                    "quality": {"type": "STRING", "nullable": True},
+                    "confidence": {"type": "NUMBER"},
+                    "notes": {"type": "STRING"},
                 },
                 "required": ["media_type", "title", "action", "confidence", "notes"],
             }
