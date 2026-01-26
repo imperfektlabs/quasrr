@@ -248,6 +248,7 @@ class AIClient:
         user_prompt: str,
         temperature: float,
         max_tokens: int,
+        response_schema: dict | None = None,
     ) -> dict:
         model = self._provider_model("gemini")
         if not model:
@@ -258,6 +259,17 @@ class AIClient:
             "https://generativelanguage.googleapis.com/v1beta"
             f"/models/{model}:generateContent"
         )
+
+        generation_config: dict = {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+            "response_mime_type": "application/json",
+        }
+
+        # Add schema if provided - helps Gemini return correct structure
+        if response_schema:
+            generation_config["response_schema"] = response_schema
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
@@ -266,11 +278,7 @@ class AIClient:
                     json={
                         "system_instruction": {"parts": [{"text": system_prompt}]},
                         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-                        "generationConfig": {
-                            "temperature": temperature,
-                            "maxOutputTokens": max_tokens,
-                            "response_mime_type": "application/json",
-                        },
+                        "generationConfig": generation_config,
                     },
                 )
                 response.raise_for_status()
@@ -422,7 +430,23 @@ class AIClient:
                 600,
             )
         elif self.provider == "gemini":
-            data = await self._request_gemini(system_prompt, user_prompt, 0.1, 600)
+            # Schema helps Gemini return the correct structure
+            intent_schema = {
+                "type": "object",
+                "properties": {
+                    "media_type": {"type": "string", "enum": ["movie", "tv", "unknown"]},
+                    "title": {"type": "string"},
+                    "season": {"type": ["integer", "null"]},
+                    "episode": {"type": ["integer", "null"]},
+                    "episode_date": {"type": ["string", "null"]},
+                    "action": {"type": "string", "enum": ["search", "download"]},
+                    "quality": {"type": ["string", "null"]},
+                    "confidence": {"type": "number"},
+                    "notes": {"type": "string"},
+                },
+                "required": ["media_type", "title", "action", "confidence", "notes"],
+            }
+            data = await self._request_gemini(system_prompt, user_prompt, 0.1, 600, intent_schema)
         elif self.provider == "openrouter":
             base_url = (self.openrouter_base_url or "https://openrouter.ai/api/v1").rstrip("/")
             data = await self._request_openai_chat(
