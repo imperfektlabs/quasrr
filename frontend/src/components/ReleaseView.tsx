@@ -749,24 +749,22 @@ export function ReleaseView({
       (!requestedSeason || getSeason(release) === requestedSeason) &&
       getEpisodes(release).includes(requestedEpisode)
     )
-    const rowShade = index % 2 === 0 ? 'bg-slate-900/10' : 'bg-slate-900/20'
-
     return (
       <div
         key={release.guid || `${groupKey}-${index}`}
         data-release-guid={release.guid || undefined}
-        className={`p-3 border-b border-slate-800/80 hover:bg-slate-800/40 ${rowShade} ${
+        className={`px-3 py-2 text-sm hover:bg-slate-800/40 ${
           isAiPick ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
         } ${
           isRequested ? 'ring-1 ring-fuchsia-400/60 bg-fuchsia-900/10' : ''
         }`}
       >
         <div>
-          <p className="text-xs text-slate-100 leading-snug break-words">
+          <p className="text-sm text-slate-100 leading-snug break-words">
             {release.title}
           </p>
 
-          <div className="mt-2 grid gap-2 text-xs text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+          <div className="mt-2 grid gap-2 text-sm text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <span>{release.size_formatted}</span>
               <span className="text-cyan-300">{release.quality}</span>
@@ -843,140 +841,140 @@ export function ReleaseView({
   }
 
   return (
-    <div
-      className="fixed inset-0 glass-modal z-50 flex items-start justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="glass-panel rounded-lg p-4 max-w-6xl w-full max-h-[85vh] overflow-y-auto"
-        onClick={(event) => event.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="relative">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold">{data.title}</h2>
-                <p className="text-gray-400 text-sm">
-                  {data.year} | {data.releases.length} releases found
-                  {data.runtime && ` | ${data.runtime} min`}
-                  {typeof requestedSeason === 'number' && typeof requestedEpisode === 'number'
-                    ? ` | S${requestedSeason.toString().padStart(2, '0')}E${requestedEpisode.toString().padStart(2, '0')}`
-                    : typeof requestedSeason === 'number'
-                      ? ` | Season ${requestedSeason}`
-                      : data.season && ` | Season ${data.season}`}
+    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
+      <div className="min-h-screen p-4">
+        <div
+          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">{data.title}</h2>
+              <p className="text-gray-400 text-sm">
+                {data.year} | {data.releases.length} releases found
+                {data.runtime && ` | ${data.runtime} min`}
+                {typeof requestedSeason === 'number' && typeof requestedEpisode === 'number'
+                  ? ` | S${requestedSeason.toString().padStart(2, '0')}E${requestedEpisode.toString().padStart(2, '0')}`
+                  : typeof requestedSeason === 'number'
+                    ? ` | Season ${requestedSeason}`
+                    : data.season && ` | Season ${data.season}`}
+              </p>
+              {grabFeedback && (
+                <p className={`mt-2 text-xs ${
+                  grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
+                }`}>
+                  {grabFeedback.text}
                 </p>
-                {grabFeedback && (
-                  <p className={`mt-2 text-xs ${
-                    grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
-                  }`}>
-                    {grabFeedback.text}
-                  </p>
-                )}
-                {releaseAiEnabled && aiSuggestError && (
-                  <p className="mt-2 text-xs text-red-400">AI: {aiSuggestError}</p>
-                )}
-                {releaseAiEnabled && aiSuggestion && (
-                  <div className="mt-2 text-xs text-cyan-300">
-                    <div>AI pick: {aiSuggestion.title || 'Suggested release'}</div>
-                    {aiSuggestion.reason && (
-                      <div className="text-cyan-200/80">{aiSuggestion.reason}</div>
-                    )}
-                    {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
-                      <div className="text-amber-200/80">
-                        {aiSuggestion.warnings.join(' • ')}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {data.type === 'tv' && groupFocus && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                    <span className="glass-chip px-2 py-1 rounded">Group: {groupFocus}</span>
-                    <button
-                      type="button"
-                      onClick={() => setGroupFocus(null)}
-                      className="px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
-                    >
-                      Back to episodes
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {releaseAiEnabled && aiEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => onAiSuggest(aiCandidateReleases)}
-                    disabled={!aiSuggestAvailable || aiSuggestBusy}
-                    title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
-                    className="text-xs px-2 py-1 rounded bg-cyan-700/70 hover:bg-cyan-600/80 disabled:opacity-50"
-                  >
-                    {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
-                  </button>
-                )}
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-white text-2xl px-2"
-                  aria-label="Close"
-                >
-                  X
-                </button>
-              </div>
-            </div>
-            <div className="mt-4">
-              {posterUrl ? (
-                <div className="w-full max-h-[280px] md:max-h-[360px] rounded-lg bg-slate-800/60 overflow-hidden">
-                  <img
-                    src={posterUrl}
-                    alt={data.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+              )}
+              {releaseAiEnabled && aiSuggestError && (
+                <p className="mt-2 text-xs text-red-400">AI: {aiSuggestError}</p>
+              )}
+              {releaseAiEnabled && aiSuggestion && (
+                <div className="mt-2 text-xs text-cyan-300">
+                  <div>AI pick: {aiSuggestion.title || 'Suggested release'}</div>
+                  {aiSuggestion.reason && (
+                    <div className="text-cyan-200/80">{aiSuggestion.reason}</div>
+                  )}
+                  {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
+                    <div className="text-amber-200/80">
+                      {aiSuggestion.warnings.join(' • ')}
+                    </div>
+                  )}
                 </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {releaseAiEnabled && aiEnabled && (
+                <button
+                  type="button"
+                  onClick={() => onAiSuggest(aiCandidateReleases)}
+                  disabled={!aiSuggestAvailable || aiSuggestBusy}
+                  title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
+                  className="text-xs px-2 py-1 rounded bg-cyan-700/70 hover:bg-cyan-600/80 disabled:opacity-50"
+                >
+                  {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white text-2xl px-2"
+                aria-label="Close"
+              >
+                X
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
+            <div className="w-full">
+              {posterUrl ? (
+                <img
+                  src={posterUrl}
+                  alt={data.title}
+                  className="w-full rounded-lg object-cover"
+                  loading="lazy"
+                />
               ) : (
                 <div className="w-full h-56 rounded-lg bg-slate-800/60 flex items-center justify-center text-gray-500 text-xs">
                   No poster
                 </div>
               )}
             </div>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
-              {result?.status && <StatusBadge status={result.status} />}
-              {data.runtime && data.type === 'movie' && (
-                <span className="glass-chip px-2 py-1 rounded">
-                  {data.runtime} min
-                </span>
+
+            <div className="space-y-3">
+              {data.type === 'tv' && groupFocus && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  <span className="glass-chip px-2 py-1 rounded">Group: {groupFocus}</span>
+                  <button
+                    type="button"
+                    onClick={() => setGroupFocus(null)}
+                    className="px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
+                  >
+                    Back to episodes
+                  </button>
+                </div>
               )}
-              {data.type === 'tv' && result?.seasons && (
-                <span className="glass-chip px-2 py-1 rounded">
-                  {result.seasons} season{result.seasons !== 1 ? 's' : ''}
-                </span>
-              )}
-              {result?.series_status && (
-                <span className="glass-chip px-2 py-1 rounded">
-                  {result.series_status}
-                </span>
-              )}
-              {result?.network && (
-                <span className="glass-chip px-2 py-1 rounded">
-                  {result.network}
-                </span>
-              )}
-              {typeof requestedSeason === 'number' && (
-                <span className="glass-chip px-2 py-1 rounded">
-                  S{requestedSeason.toString().padStart(2, '0')}
-                  {typeof requestedEpisode === 'number' &&
-                    `E${requestedEpisode.toString().padStart(2, '0')}`}
-                </span>
+              <div className="flex flex-wrap gap-2 text-xs text-slate-300">
+                {result?.status && <StatusBadge status={result.status} />}
+                {data.runtime && data.type === 'movie' && (
+                  <span className="glass-chip px-2 py-1 rounded">
+                    {data.runtime} min
+                  </span>
+                )}
+                {data.type === 'tv' && result?.seasons && (
+                  <span className="glass-chip px-2 py-1 rounded">
+                    {result.seasons} season{result.seasons !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {result?.series_status && (
+                  <span className="glass-chip px-2 py-1 rounded">
+                    {result.series_status}
+                  </span>
+                )}
+                {result?.network && (
+                  <span className="glass-chip px-2 py-1 rounded">
+                    {result.network}
+                  </span>
+                )}
+                {typeof requestedSeason === 'number' && (
+                  <span className="glass-chip px-2 py-1 rounded">
+                    S{requestedSeason.toString().padStart(2, '0')}
+                    {typeof requestedEpisode === 'number' &&
+                      `E${requestedEpisode.toString().padStart(2, '0')}`}
+                  </span>
+                )}
+              </div>
+              {result?.overview && (
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  {result.overview}
+                </p>
               )}
             </div>
-            {result?.overview && (
-              <p className="text-gray-300 text-sm leading-relaxed mt-3">
-                {result.overview}
-              </p>
-            )}
           </div>
 
-        {/* Release list */}
-        <div className="mt-4">
+          {/* Release list */}
+          <div className="mt-4">
             {data.releases.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                 {data.message || 'No releases found. Check indexer configuration.'}
@@ -1243,6 +1241,7 @@ export function ReleaseView({
                 </div>
               </>
             )}
+          </div>
         </div>
       </div>
 
@@ -1337,8 +1336,8 @@ export function ReleaseView({
                   setGrabAllModal(null)
                   onGrabAll(selected)
                 }}
-              className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
-            >
+                className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
+              >
                 Grab Selected
               </button>
             </div>

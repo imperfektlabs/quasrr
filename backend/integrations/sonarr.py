@@ -536,6 +536,20 @@ class SonarrClient:
                 )
                 response.raise_for_status()
                 episodes = response.json()
+                files_response = await client.get(
+                    f"{self.base_url}/api/v3/episodefile",
+                    headers=self._get_headers(),
+                    params={"seriesId": series_id},
+                )
+                files_response.raise_for_status()
+                episode_files = {
+                    episode_file.get("id"): (
+                        episode_file.get("quality", {})
+                        .get("quality", {})
+                        .get("name")
+                    )
+                    for episode_file in files_response.json()
+                }
                 return [
                     {
                         "id": episode.get("id"),
@@ -544,6 +558,7 @@ class SonarrClient:
                         "title": episode.get("title"),
                         "airDate": episode.get("airDate"),
                         "hasFile": episode.get("hasFile", False),
+                        "quality": episode_files.get(episode.get("episodeFileId")),
                     }
                     for episode in episodes
                 ]
