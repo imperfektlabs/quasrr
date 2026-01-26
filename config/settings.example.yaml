@@ -1,5 +1,5 @@
 # ==============================================
-# SHINY-PALM-TREE USER SETTINGS
+# QUASRR USER SETTINGS
 # ==============================================
 # Copy this file to settings.yaml and customize.
 # Values here override defaults.yaml.
@@ -45,11 +45,6 @@ quality:
   movies:
     min_size_mb: 2000
     max_size_mb: 4000
-
-# --- AI Configuration ---
-# Model can be overridden here (env still wins). Provider/key remain env-only.
-ai:
-  model: "gpt-4o-mini"
 
 # --- Feature Flags ---
 features:

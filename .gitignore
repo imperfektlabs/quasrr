@@ -6,6 +6,8 @@ Thumbs.db
 
 # 2. Secrets (Passwords/API Keys)
 *.env
+settings.yaml
+TODOS.md
 
 # 3. Data Volumes (The heavy stuff)
 # This wildcard ignores every folder ending in "_data"
@@ -15,7 +17,20 @@ Thumbs.db
 *.svg
 *.avif
 
-
 # Prompts for agents
 AGENT_INITIALIZATION.md
 EXECUTION*.md
+
+
+# 4. Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# 5. Node.js / Frontend
+node_modules/
+.next/
+next-env.d.ts
+package-lock.json
