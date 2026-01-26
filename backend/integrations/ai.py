@@ -392,11 +392,28 @@ class AIClient:
             return {"status": "error", "message": config_error}
 
         system_prompt = (
-            "You interpret media search requests. Return JSON only with fields: "
-            "media_type (movie|tv|unknown), title (string), season (int|null), "
-            "episode (int|null), episode_date (YYYY-MM-DD|null), action (search|download), "
-            "quality (string|null), confidence (0-1), notes (string). "
-            "Use context.today/current_year for relative dates."
+            "You are a media search assistant. Your job is to interpret natural language queries "
+            "about movies and TV shows and return structured JSON.\n\n"
+            "IMPORTANT RULES:\n"
+            "1. Return ONLY valid JSON, no other text\n"
+            "2. The 'title' field must be the ACTUAL movie or TV show title, NOT actor names or descriptions\n"
+            "3. If the query mentions an actor's 'latest' or 'recent' movie, identify the actual movie title\n"
+            "4. Use your knowledge to resolve vague queries into specific titles\n\n"
+            "Required JSON fields:\n"
+            "- media_type: 'movie' | 'tv' | 'unknown'\n"
+            "- title: string (the actual movie/show title)\n"
+            "- season: int | null\n"
+            "- episode: int | null\n"
+            "- episode_date: 'YYYY-MM-DD' | null\n"
+            "- action: 'search' | 'download'\n"
+            "- quality: string | null\n"
+            "- confidence: 0.0-1.0\n"
+            "- notes: string\n\n"
+            "Example:\n"
+            "Query: 'tom cruise's latest movie'\n"
+            "Response: {\"media_type\": \"movie\", \"title\": \"Mission: Impossible - Dead Reckoning\", "
+            "\"season\": null, \"episode\": null, \"episode_date\": null, \"action\": \"search\", "
+            "\"quality\": null, \"confidence\": 0.9, \"notes\": \"Latest Tom Cruise film as of 2024\"}"
         )
 
         user_prompt = (
