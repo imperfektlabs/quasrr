@@ -30,9 +30,8 @@ def _extract_json(text: str) -> dict | None:
     except Exception:
         pass
 
-    # Strip markdown code blocks (```json ... ``` or ``` ... ```)
-    stripped = re.sub(r"```(?:json)?\s*", "", text)
-    stripped = re.sub(r"```\s*$", "", stripped)
+    # Strip markdown code blocks - remove all ``` (with optional json tag)
+    stripped = re.sub(r"```(?:json)?", "", text)
     stripped = stripped.strip()
 
     try:
