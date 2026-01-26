@@ -356,7 +356,9 @@ class AIClient:
 
     async def parse_intent(self, query: str, context: dict) -> dict:
         """Parse a natural language query into a structured intent."""
+        logger.info("AI intent request: provider=%s, query=%s", self.provider, query[:100])
         if config_error := self.configuration_error():
+            logger.warning("AI configuration error: %s", config_error)
             return {"status": "error", "message": config_error}
 
         system_prompt = (
@@ -422,13 +424,15 @@ class AIClient:
             return {"status": "error", "message": f"Unsupported AI provider: {self.provider}"}
 
         if data.get("status") == "error":
+            logger.warning("AI intent request failed: %s", data.get("message", "unknown"))
             return data
 
         content = None
         if self.provider == "gemini":
             try:
                 content = data["candidates"][0]["content"]["parts"][0]["text"]
-            except Exception:
+            except Exception as e:
+                logger.warning("Failed to extract Gemini content: %s", e)
                 content = None
         elif self.provider == "anthropic":
             try:
@@ -442,13 +446,18 @@ class AIClient:
                 content = None
 
         if not content:
-            logger.warning("AI intent response missing content")
+            logger.warning("AI intent response missing content (provider=%s)", self.provider)
             return {"status": "error", "message": "AI response missing content"}
+
+        logger.debug("AI intent raw content (provider=%s): %s", self.provider, content[:500] if len(content) > 500 else content)
 
         parsed = _extract_json(content)
         if not isinstance(parsed, dict):
-            logger.warning("AI intent response not valid JSON")
+            logger.warning("AI intent response not valid JSON (provider=%s): %s", self.provider, content[:200])
             return {"status": "error", "message": "AI response not valid JSON"}
+
+        logger.info("AI intent parsed (provider=%s): title=%s, media_type=%s",
+                    self.provider, parsed.get("title"), parsed.get("media_type"))
 
         return {"status": "ok", "data": parsed}
 
