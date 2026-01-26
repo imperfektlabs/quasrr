@@ -17,19 +17,49 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_json(text: str) -> dict | None:
-    """Try to extract a JSON object from a response string."""
+    """Try to extract a JSON object from a response string.
+
+    Handles various AI response formats:
+    - Pure JSON
+    - JSON wrapped in markdown code blocks
+    - JSON with surrounding text
+    """
+    # First try direct parse
     try:
         return json.loads(text)
     except Exception:
         pass
 
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        return None
+    # Strip markdown code blocks (```json ... ``` or ``` ... ```)
+    stripped = re.sub(r"```(?:json)?\s*", "", text)
+    stripped = re.sub(r"```\s*$", "", stripped)
+    stripped = stripped.strip()
+
     try:
-        return json.loads(match.group(0))
+        return json.loads(stripped)
     except Exception:
+        pass
+
+    # Try to find JSON object - use non-greedy match to get first complete object
+    # Find first { and then match to its closing }
+    start = text.find("{")
+    if start == -1:
         return None
+
+    # Count braces to find matching close
+    depth = 0
+    for i, char in enumerate(text[start:], start):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start : i + 1])
+                except Exception:
+                    return None
+
+    return None
 
 
 class AIClient:
