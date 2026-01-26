@@ -1,6 +1,6 @@
 /**
  * Settings management hook
- * Handles user settings (country, AI model) and streaming service toggles
+ * Handles user settings (country) and streaming service toggles
  */
 
 import { useEffect, useState } from 'react'
@@ -10,8 +10,8 @@ import { getBackendUrl } from '@/utils/backend'
 export type SettingsResult = {
   country: string
   setCountry: (c: string) => void
-  aiModel: string
-  setAiModel: (m: string) => void
+  aiProvider: string
+  setAiProvider: (p: string) => void
   showSonarr: boolean
   setShowSonarr: (next: boolean) => void
   showRadarr: boolean
@@ -33,7 +33,10 @@ export type SettingsResult = {
     show_sabnzbd: boolean
     show_plex: boolean
   }>) => Promise<void>
-  saveSettings: () => Promise<void>
+  saveSettings: (next?: Partial<{
+    country: string
+    ai_provider: string
+  }>) => Promise<void>
 }
 
 /**
@@ -46,7 +49,7 @@ export function useSettings(
   onConfigUpdate: (newConfig: ConfigStatus) => void
 ): SettingsResult {
   const [country, setCountry] = useState('')
-  const [aiModel, setAiModel] = useState('')
+  const [aiProvider, setAiProvider] = useState('')
   const [showSonarr, setShowSonarr] = useState(true)
   const [showRadarr, setShowRadarr] = useState(true)
   const [showSabnzbd, setShowSabnzbd] = useState(true)
@@ -62,7 +65,7 @@ export function useSettings(
   useEffect(() => {
     if (config) {
       setCountry(config.user.country)
-      setAiModel(config.ai.model)
+      setAiProvider(config.ai.provider)
       setShowSonarr(config.dashboard.show_sonarr)
       setShowRadarr(config.dashboard.show_radarr)
       setShowSabnzbd(config.dashboard.show_sabnzbd)
@@ -134,7 +137,7 @@ export function useSettings(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           country,
-          ai_model: aiModel,
+          ai_provider: aiProvider,
           dashboard,
         }),
       })
@@ -158,10 +161,16 @@ export function useSettings(
     }
   }
 
-  const saveSettings = async () => {
+  const saveSettings = async (next?: Partial<{
+    country: string
+    ai_provider: string
+  }>) => {
     setSaving(true)
     setError(null)
     setSaved(false)
+
+    const nextCountry = next?.country ?? country
+    const nextAiProvider = next?.ai_provider ?? aiProvider
 
     try {
       const backendUrl = getBackendUrl()
@@ -169,14 +178,8 @@ export function useSettings(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          country,
-          ai_model: aiModel,
-          dashboard: {
-            show_sonarr: showSonarr,
-            show_radarr: showRadarr,
-            show_sabnzbd: showSabnzbd,
-            show_plex: showPlex,
-          },
+          country: nextCountry,
+          ai_provider: nextAiProvider,
         }),
       })
 
@@ -202,8 +205,8 @@ export function useSettings(
   return {
     country,
     setCountry,
-    aiModel,
-    setAiModel,
+    aiProvider,
+    setAiProvider,
     showSonarr,
     setShowSonarr,
     showRadarr,
