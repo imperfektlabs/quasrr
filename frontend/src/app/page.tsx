@@ -203,9 +203,11 @@ function HomeContent() {
     setAiTranslation(translation)
     console.log('[AI Intent Effect] Translation set:', translation)
 
-    // Show modal for movies, or TV shows with season/episode/date specified
-    if (intent.media_type === 'movie' || (intent.media_type === 'tv' && (intent.season || intent.episode_date))) {
-      console.log('[AI Intent Effect] Showing modal and searching for:', intent.title)
+    // Show modal for confident AI results (movie or tv with known title)
+    // Skip modal only if media_type is 'unknown' (AI couldn't determine what user wants)
+    const confidence = intent.confidence ?? 1.0
+    if (intent.media_type !== 'unknown' && confidence >= 0.5) {
+      console.log('[AI Intent Effect] Showing modal and searching for:', intent.title, 'confidence:', confidence)
       setShowAiAvailability(true)
       // Also update the background search to use the show title (not the episode-specific query)
       submitSearch(intent.title)
@@ -235,8 +237,8 @@ function HomeContent() {
         })()
       }
     } else {
-      // For TV shows without season/date, or unknown media type, search with the AI title
-      console.log('[AI Intent Effect] Searching for:', intent.title)
+      // Low confidence or unknown media type - just search with the AI title
+      console.log('[AI Intent Effect] Low confidence or unknown, searching for:', intent.title)
       submitSearch(intent.title)
     }
   }, [aiIntentPlan])

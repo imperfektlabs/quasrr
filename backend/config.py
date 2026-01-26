@@ -65,20 +65,19 @@ class QualityConfig(BaseModel):
 
 class AIConfig(BaseModel):
     provider: str = "openai"
-    model: str = "gpt-4o-mini"
-    api_key: Optional[str] = None  # From env var, redacted in output
+    model: str = "gpt-4o-mini"  # Fallback model for any provider
     openai_api_key: Optional[str] = None
-    openai_model: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
     gemini_api_key: Optional[str] = None
-    gemini_model: Optional[str] = None
+    gemini_model: str = "gemini-1.5-flash"
     openrouter_api_key: Optional[str] = None
     openrouter_base_url: Optional[str] = None
-    openrouter_model: Optional[str] = None
+    openrouter_model: str = "anthropic/claude-3.5-sonnet"
     deepseek_api_key: Optional[str] = None
     deepseek_base_url: Optional[str] = None
-    deepseek_model: Optional[str] = None
+    deepseek_model: str = "deepseek-chat"
     anthropic_api_key: Optional[str] = None
-    anthropic_model: Optional[str] = None
+    anthropic_model: str = "claude-3-5-sonnet-20241022"
     local_endpoint_url: Optional[str] = None
     local_api_key: Optional[str] = None
     max_tokens: int = 1000
@@ -184,16 +183,10 @@ def load_env_overrides() -> dict:
     if log_level := _clean_env(os.getenv("LOG_LEVEL")):
         overrides.setdefault("app", {})["log_level"] = log_level
 
-    # AI settings
-    if ai_provider := _clean_env(os.getenv("AI_PROVIDER")):
-        overrides.setdefault("ai", {})["provider"] = ai_provider
-    if ai_model := _clean_env(os.getenv("AI_MODEL")):
-        overrides.setdefault("ai", {})["model"] = ai_model
-    if ai_api_key := _clean_env(os.getenv("AI_API_KEY")):
-        overrides.setdefault("ai", {})["api_key"] = ai_api_key
+    # AI settings (provider-specific only, no generic fallbacks)
     if openai_api_key := _clean_env(os.getenv("OPENAI_API_KEY")):
         overrides.setdefault("ai", {})["openai_api_key"] = openai_api_key
-    if openai_model := _clean_env(os.getenv("OPEN_AI_MODEL")):
+    if openai_model := _clean_env(os.getenv("OPENAI_MODEL")):
         overrides.setdefault("ai", {})["openai_model"] = openai_model
     if gemini_api_key := _clean_env(os.getenv("GEMINI_API_KEY")):
         overrides.setdefault("ai", {})["gemini_api_key"] = gemini_api_key
@@ -264,8 +257,6 @@ def redact_secrets(config: Config) -> dict:
     data = config.model_dump()
 
     # Redact API keys
-    if data.get("ai", {}).get("api_key"):
-        data["ai"]["api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("openai_api_key"):
         data["ai"]["openai_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("gemini_api_key"):
@@ -295,22 +286,25 @@ def redact_secrets(config: Config) -> dict:
 
 
 def get_available_ai_providers(config: Config) -> list[str]:
+    """Return list of AI providers that have required env vars configured.
+
+    Availability is based on API key only (models have defaults).
+    Local provider requires endpoint URL instead of API key.
+    """
     def has_value(value: Optional[str]) -> bool:
         return bool(value and value.strip())
 
     providers = []
-    if has_value(config.ai.openai_api_key) and has_value(config.ai.openai_model):
+    if has_value(config.ai.openai_api_key):
         providers.append("openai")
-    elif has_value(config.ai.api_key) and has_value(config.ai.model):
-        providers.append("openai")
-    if has_value(config.ai.gemini_api_key) and has_value(config.ai.gemini_model):
-        providers.append("gemini")
-    if has_value(config.ai.openrouter_api_key) and has_value(config.ai.openrouter_model):
-        providers.append("openrouter")
-    if has_value(config.ai.deepseek_api_key) and has_value(config.ai.deepseek_model):
-        providers.append("deepseek")
-    if has_value(config.ai.anthropic_api_key) and has_value(config.ai.anthropic_model):
+    if has_value(config.ai.anthropic_api_key):
         providers.append("anthropic")
+    if has_value(config.ai.gemini_api_key):
+        providers.append("gemini")
+    if has_value(config.ai.openrouter_api_key):
+        providers.append("openrouter")
+    if has_value(config.ai.deepseek_api_key):
+        providers.append("deepseek")
     if has_value(config.ai.local_endpoint_url):
         providers.append("local")
     return providers
