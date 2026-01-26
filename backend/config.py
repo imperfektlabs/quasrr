@@ -8,6 +8,7 @@ Hierarchy (highest priority first):
 """
 
 import logging
+import re
 import os
 from pathlib import Path
 from typing import Optional
@@ -64,8 +65,21 @@ class QualityConfig(BaseModel):
 
 class AIConfig(BaseModel):
     provider: str = "openai"
-    model: str = "gpt-4o-mini"
-    api_key: Optional[str] = None  # From env var, redacted in output
+    model: str = "gpt-4o-mini"  # Fallback model for any provider
+    openai_api_key: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
+    gemini_api_key: Optional[str] = None
+    gemini_model: str = "gemini-1.5-flash"
+    openrouter_api_key: Optional[str] = None
+    openrouter_base_url: Optional[str] = None
+    openrouter_model: str = "anthropic/claude-3.5-sonnet"
+    deepseek_api_key: Optional[str] = None
+    deepseek_base_url: Optional[str] = None
+    deepseek_model: str = "deepseek-chat"
+    anthropic_api_key: Optional[str] = None
+    anthropic_model: str = "claude-3-5-sonnet-20241022"
+    local_endpoint_url: Optional[str] = None
+    local_api_key: Optional[str] = None
     max_tokens: int = 1000
     temperature: float = 0.3
 
@@ -144,39 +158,72 @@ def load_yaml_file(path: Path) -> dict:
         return {}
 
 
+def _clean_env(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    if " #" in stripped or "\t#" in stripped or " -#" in stripped:
+        stripped = re.split(r"\s+#", stripped, maxsplit=1)[0].strip()
+    return stripped or None
+
+
 def load_env_overrides() -> dict:
     """Load configuration overrides from environment variables."""
     overrides = {}
 
     # User settings
-    if country := os.getenv("USER_COUNTRY"):
+    if country := _clean_env(os.getenv("USER_COUNTRY")):
         overrides.setdefault("user", {})["country"] = country
-    if language := os.getenv("USER_LANGUAGE"):
+    if language := _clean_env(os.getenv("USER_LANGUAGE")):
         overrides.setdefault("user", {})["language"] = language
 
     # App settings
-    if log_level := os.getenv("LOG_LEVEL"):
+    if log_level := _clean_env(os.getenv("LOG_LEVEL")):
         overrides.setdefault("app", {})["log_level"] = log_level
 
-    # AI settings
-    if ai_provider := os.getenv("AI_PROVIDER"):
-        overrides.setdefault("ai", {})["provider"] = ai_provider
-    if ai_model := os.getenv("AI_MODEL"):
-        overrides.setdefault("ai", {})["model"] = ai_model
-    if ai_api_key := os.getenv("AI_API_KEY"):
-        overrides.setdefault("ai", {})["api_key"] = ai_api_key
+    # AI settings (provider-specific only, no generic fallbacks)
+    if openai_api_key := _clean_env(os.getenv("OPENAI_API_KEY")):
+        overrides.setdefault("ai", {})["openai_api_key"] = openai_api_key
+    if openai_model := _clean_env(os.getenv("OPENAI_MODEL")):
+        overrides.setdefault("ai", {})["openai_model"] = openai_model
+    if gemini_api_key := _clean_env(os.getenv("GEMINI_API_KEY")):
+        overrides.setdefault("ai", {})["gemini_api_key"] = gemini_api_key
+    if gemini_model := _clean_env(os.getenv("GEMINI_MODEL")):
+        overrides.setdefault("ai", {})["gemini_model"] = gemini_model
+    if openrouter_api_key := _clean_env(os.getenv("OPENROUTER_API_KEY")):
+        overrides.setdefault("ai", {})["openrouter_api_key"] = openrouter_api_key
+    if openrouter_base_url := _clean_env(os.getenv("OPENROUTER_BASE_URL")):
+        overrides.setdefault("ai", {})["openrouter_base_url"] = openrouter_base_url
+    if openrouter_model := _clean_env(os.getenv("OPENROUTER_MODEL")):
+        overrides.setdefault("ai", {})["openrouter_model"] = openrouter_model
+    if deepseek_api_key := _clean_env(os.getenv("DEEPSEEK_API_KEY")):
+        overrides.setdefault("ai", {})["deepseek_api_key"] = deepseek_api_key
+    if deepseek_base_url := _clean_env(os.getenv("DEEPSEEK_BASE_URL")):
+        overrides.setdefault("ai", {})["deepseek_base_url"] = deepseek_base_url
+    if deepseek_model := _clean_env(os.getenv("DEEPSEEK_MODEL")):
+        overrides.setdefault("ai", {})["deepseek_model"] = deepseek_model
+    if anthropic_api_key := _clean_env(os.getenv("ANTHROPIC_API_KEY")):
+        overrides.setdefault("ai", {})["anthropic_api_key"] = anthropic_api_key
+    if anthropic_model := _clean_env(os.getenv("ANTHROPIC_MODEL")):
+        overrides.setdefault("ai", {})["anthropic_model"] = anthropic_model
+    if local_endpoint_url := _clean_env(os.getenv("LOCAL_ENDPOINT_URL")):
+        overrides.setdefault("ai", {})["local_endpoint_url"] = local_endpoint_url
+    if local_api_key := _clean_env(os.getenv("LOCAL_API_KEY")):
+        overrides.setdefault("ai", {})["local_api_key"] = local_api_key
 
     # Integrations (env vars only)
     overrides["integrations"] = {
-        "sonarr_url": os.getenv("SONARR_URL"),
-        "sonarr_api_key": os.getenv("SONARR_API_KEY"),
-        "radarr_url": os.getenv("RADARR_URL"),
-        "radarr_api_key": os.getenv("RADARR_API_KEY"),
-        "sabnzbd_url": os.getenv("SABNZBD_URL"),
-        "sabnzbd_api_key": os.getenv("SABNZBD_API_KEY"),
-        "plex_url": os.getenv("PLEX_URL"),
-        "plex_api_key": os.getenv("PLEX_API_KEY"),
-        "tmdb_api_key": os.getenv("TMDB_API_KEY"),
+        "sonarr_url": _clean_env(os.getenv("SONARR_URL")),
+        "sonarr_api_key": _clean_env(os.getenv("SONARR_API_KEY")),
+        "radarr_url": _clean_env(os.getenv("RADARR_URL")),
+        "radarr_api_key": _clean_env(os.getenv("RADARR_API_KEY")),
+        "sabnzbd_url": _clean_env(os.getenv("SABNZBD_URL")),
+        "sabnzbd_api_key": _clean_env(os.getenv("SABNZBD_API_KEY")),
+        "plex_url": _clean_env(os.getenv("PLEX_URL")),
+        "plex_api_key": _clean_env(os.getenv("PLEX_API_KEY")),
+        "tmdb_api_key": _clean_env(os.getenv("TMDB_API_KEY")),
     }
 
     return overrides
@@ -210,8 +257,18 @@ def redact_secrets(config: Config) -> dict:
     data = config.model_dump()
 
     # Redact API keys
-    if data.get("ai", {}).get("api_key"):
-        data["ai"]["api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("openai_api_key"):
+        data["ai"]["openai_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("gemini_api_key"):
+        data["ai"]["gemini_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("openrouter_api_key"):
+        data["ai"]["openrouter_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("deepseek_api_key"):
+        data["ai"]["deepseek_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("anthropic_api_key"):
+        data["ai"]["anthropic_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("local_api_key"):
+        data["ai"]["local_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("sonarr_api_key"):
         data["integrations"]["sonarr_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("radarr_api_key"):
@@ -223,7 +280,34 @@ def redact_secrets(config: Config) -> dict:
     if data.get("integrations", {}).get("tmdb_api_key"):
         data["integrations"]["tmdb_api_key"] = "***REDACTED***"
 
+    data["ai"]["available_providers"] = get_available_ai_providers(config)
+
     return data
+
+
+def get_available_ai_providers(config: Config) -> list[str]:
+    """Return list of AI providers that have required env vars configured.
+
+    Availability is based on API key only (models have defaults).
+    Local provider requires endpoint URL instead of API key.
+    """
+    def has_value(value: Optional[str]) -> bool:
+        return bool(value and value.strip())
+
+    providers = []
+    if has_value(config.ai.openai_api_key):
+        providers.append("openai")
+    if has_value(config.ai.anthropic_api_key):
+        providers.append("anthropic")
+    if has_value(config.ai.gemini_api_key):
+        providers.append("gemini")
+    if has_value(config.ai.openrouter_api_key):
+        providers.append("openrouter")
+    if has_value(config.ai.deepseek_api_key):
+        providers.append("deepseek")
+    if has_value(config.ai.local_endpoint_url):
+        providers.append("local")
+    return providers
 
 
 # Global config instance
@@ -272,7 +356,7 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
 
 def update_basic_settings(
     country: Optional[str] = None,
-    ai_model: Optional[str] = None,
+    ai_provider: Optional[str] = None,
     dashboard: Optional[dict] = None
 ) -> Config:
     """Persist non-secret settings to settings.yaml."""
@@ -281,8 +365,8 @@ def update_basic_settings(
     if country:
         settings.setdefault("user", {})["country"] = country
 
-    if ai_model:
-        settings.setdefault("ai", {})["model"] = ai_model
+    if ai_provider:
+        settings.setdefault("ai", {})["provider"] = ai_provider
 
     if dashboard:
         settings.setdefault("dashboard", {}).update(dashboard)
