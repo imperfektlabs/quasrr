@@ -301,7 +301,7 @@ export function DetailModal({
   // ============================================
   const episodeList = mode === 'library' && libraryItem?.mediaType === 'tv' && 'seasons' in libraryItem && libraryItem.seasons && libraryItem.seasons.length > 0 && (
     <div className="mt-4">
-      <div className="text-xs text-slate-400 mb-2">Seasons</div>
+      <div className="text-sm text-slate-400 mb-2">Seasons</div>
       <div className="grid gap-2">
         {libraryItem.seasons.map((season) => {
           const seasonNumber = season.seasonNumber ?? 0
@@ -325,18 +325,25 @@ export function DetailModal({
                 <span className="text-slate-300">{season.episodeFileCount || 0}/{season.episodeCount || 0} eps</span>
               </button>
               {isExpanded && (
-                <div className="mt-2 space-y-1 text-xs text-slate-300">
+                <div className="mt-2 space-y-1 text-sm text-slate-300">
                   {episodes.length === 0 && (
                     <div className="text-slate-500">{episodesLoading ? 'Loading episodes...' : 'No episodes found'}</div>
                   )}
-                  {episodes.map((ep) => (
-                    <div key={ep.id} className="flex items-center justify-between">
-                      <span className="truncate">
-                        {ep.episodeNumber != null ? `E${String(ep.episodeNumber).padStart(2, '0')}` : 'E--'} {ep.title || 'Untitled'}
-                      </span>
-                      <span className="text-slate-500">{ep.hasFile ? '✓' : '○'}</span>
-                    </div>
-                  ))}
+                  {episodes.map((ep) => {
+                    const airDateLabel = ep.airDate ? new Date(ep.airDate).toLocaleDateString() : null
+                    const qualityLabel = ep.hasFile ? (ep.quality || 'On disk') : 'Missing'
+                    return (
+                      <div key={ep.id} className="flex items-center justify-between gap-3">
+                        <span className="truncate">
+                          {ep.episodeNumber != null ? `E${String(ep.episodeNumber).padStart(2, '0')}` : 'E--'} {ep.title || 'Untitled'}
+                        </span>
+                        <div className="flex items-center gap-2 text-slate-500">
+                          {airDateLabel && <span className="text-slate-400">{airDateLabel}</span>}
+                          <span className="glass-chip px-2 py-1 rounded text-xs">{qualityLabel}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
