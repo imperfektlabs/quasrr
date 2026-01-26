@@ -17,19 +17,48 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_json(text: str) -> dict | None:
-    """Try to extract a JSON object from a response string."""
+    """Try to extract a JSON object from a response string.
+
+    Handles various AI response formats:
+    - Pure JSON
+    - JSON wrapped in markdown code blocks
+    - JSON with surrounding text
+    """
+    # First try direct parse
     try:
         return json.loads(text)
     except Exception:
         pass
 
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        return None
+    # Strip markdown code blocks - remove all ``` (with optional json tag)
+    stripped = re.sub(r"```(?:json)?", "", text)
+    stripped = stripped.strip()
+
     try:
-        return json.loads(match.group(0))
+        return json.loads(stripped)
     except Exception:
+        pass
+
+    # Try to find JSON object - use non-greedy match to get first complete object
+    # Find first { and then match to its closing }
+    start = text.find("{")
+    if start == -1:
         return None
+
+    # Count braces to find matching close
+    depth = 0
+    for i, char in enumerate(text[start:], start):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start : i + 1])
+                except Exception:
+                    return None
+
+    return None
 
 
 class AIClient:
@@ -39,7 +68,6 @@ class AIClient:
         config = get_config()
         self.provider = (config.ai.provider or "").lower().strip()
         self.model = config.ai.model
-        self.api_key = config.ai.api_key
         self.openai_api_key = config.ai.openai_api_key
         self.openai_model = config.ai.openai_model
         self.gemini_api_key = config.ai.gemini_api_key
@@ -98,16 +126,18 @@ class AIClient:
 
     def _provider_api_key(self, provider: str) -> str | None:
         if provider == "openai":
-            return self.openai_api_key or self.api_key
+            return self.openai_api_key
         if provider == "gemini":
-            return self.gemini_api_key or self.api_key
+            return self.gemini_api_key
         if provider == "openrouter":
-            return self.openrouter_api_key or self.api_key
+            return self.openrouter_api_key
         if provider == "deepseek":
-            return self.deepseek_api_key or self.api_key
+            return self.deepseek_api_key
         if provider == "anthropic":
-            return self.anthropic_api_key or self.api_key
-        return self.api_key
+            return self.anthropic_api_key
+        if provider == "local":
+            return self.local_api_key
+        return None
 
     def _provider_model(self, provider: str) -> str | None:
         if provider == "openai":
@@ -218,6 +248,7 @@ class AIClient:
         user_prompt: str,
         temperature: float,
         max_tokens: int,
+        response_schema: dict | None = None,
     ) -> dict:
         model = self._provider_model("gemini")
         if not model:
@@ -228,6 +259,17 @@ class AIClient:
             "https://generativelanguage.googleapis.com/v1beta"
             f"/models/{model}:generateContent"
         )
+
+        generation_config: dict = {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+            "response_mime_type": "application/json",
+        }
+
+        # Add schema if provided - helps Gemini return correct structure
+        if response_schema:
+            generation_config["response_schema"] = response_schema
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
@@ -236,10 +278,7 @@ class AIClient:
                     json={
                         "system_instruction": {"parts": [{"text": system_prompt}]},
                         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-                        "generationConfig": {
-                            "temperature": temperature,
-                            "maxOutputTokens": max_tokens,
-                        },
+                        "generationConfig": generation_config,
                     },
                 )
                 response.raise_for_status()
@@ -355,15 +394,24 @@ class AIClient:
 
     async def parse_intent(self, query: str, context: dict) -> dict:
         """Parse a natural language query into a structured intent."""
+        logger.info("AI intent request: provider=%s, query=%s", self.provider, query[:100])
         if config_error := self.configuration_error():
+            logger.warning("AI configuration error: %s", config_error)
             return {"status": "error", "message": config_error}
 
         system_prompt = (
-            "You interpret media search requests. Return JSON only with fields: "
-            "media_type (movie|tv|unknown), title (string), season (int|null), "
-            "episode (int|null), episode_date (YYYY-MM-DD|null), action (search|download), "
-            "quality (string|null), confidence (0-1), notes (string). "
-            "Use context.today/current_year for relative dates."
+            "You are a media search assistant. Interpret natural language queries about movies/TV shows "
+            "and return structured JSON.\n\n"
+            "RULES:\n"
+            "1. ALWAYS return valid JSON - never explanatory text\n"
+            "2. The 'title' field must be an ACTUAL movie/show title, NOT actor names\n"
+            "3. For 'latest movie' queries, identify the most recent actual title\n"
+            "4. If uncertain, return your BEST GUESS with low confidence (0.3-0.5)\n"
+            "5. If no movie exists (e.g., future year), use the actor's most recent known film\n"
+            "6. NEVER return multiple movies - pick the single best match\n\n"
+            "JSON fields: media_type ('movie'|'tv'|'unknown'), title (string), season (int|null), "
+            "episode (int|null), episode_date ('YYYY-MM-DD'|null), action ('search'|'download'), "
+            "quality (string|null), confidence (0.0-1.0), notes (string)"
         )
 
         user_prompt = (
@@ -382,7 +430,24 @@ class AIClient:
                 600,
             )
         elif self.provider == "gemini":
-            data = await self._request_gemini(system_prompt, user_prompt, 0.1, 600)
+            # Schema helps Gemini return the correct structure
+            # Note: Gemini uses nullable:true instead of type arrays
+            intent_schema = {
+                "type": "OBJECT",
+                "properties": {
+                    "media_type": {"type": "STRING"},
+                    "title": {"type": "STRING"},
+                    "season": {"type": "INTEGER", "nullable": True},
+                    "episode": {"type": "INTEGER", "nullable": True},
+                    "episode_date": {"type": "STRING", "nullable": True},
+                    "action": {"type": "STRING"},
+                    "quality": {"type": "STRING", "nullable": True},
+                    "confidence": {"type": "NUMBER"},
+                    "notes": {"type": "STRING"},
+                },
+                "required": ["media_type", "title", "action", "confidence", "notes"],
+            }
+            data = await self._request_gemini(system_prompt, user_prompt, 0.1, 600, intent_schema)
         elif self.provider == "openrouter":
             base_url = (self.openrouter_base_url or "https://openrouter.ai/api/v1").rstrip("/")
             data = await self._request_openai_chat(
@@ -421,13 +486,15 @@ class AIClient:
             return {"status": "error", "message": f"Unsupported AI provider: {self.provider}"}
 
         if data.get("status") == "error":
+            logger.warning("AI intent request failed: %s", data.get("message", "unknown"))
             return data
 
         content = None
         if self.provider == "gemini":
             try:
                 content = data["candidates"][0]["content"]["parts"][0]["text"]
-            except Exception:
+            except Exception as e:
+                logger.warning("Failed to extract Gemini content: %s", e)
                 content = None
         elif self.provider == "anthropic":
             try:
@@ -441,13 +508,18 @@ class AIClient:
                 content = None
 
         if not content:
-            logger.warning("AI intent response missing content")
+            logger.warning("AI intent response missing content (provider=%s)", self.provider)
             return {"status": "error", "message": "AI response missing content"}
+
+        logger.debug("AI intent raw content (provider=%s): %s", self.provider, content[:500] if len(content) > 500 else content)
 
         parsed = _extract_json(content)
         if not isinstance(parsed, dict):
-            logger.warning("AI intent response not valid JSON")
+            logger.warning("AI intent response not valid JSON (provider=%s): %s", self.provider, content[:200])
             return {"status": "error", "message": "AI response not valid JSON"}
+
+        logger.info("AI intent parsed (provider=%s): title=%s, media_type=%s",
+                    self.provider, parsed.get("title"), parsed.get("media_type"))
 
         return {"status": "ok", "data": parsed}
 
