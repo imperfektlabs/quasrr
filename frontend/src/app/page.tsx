@@ -82,7 +82,13 @@ function HomeContent() {
 
   // Derived values from config
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
-  const aiEnabled = Boolean(config?.features.ai_suggestions && config?.ai.api_key)
+  const availableAiProviders = config?.ai.available_providers ?? []
+  const selectedAiProvider = (config?.ai.provider ?? '').toLowerCase()
+  const aiEnabled = Boolean(
+    config?.features.ai_suggestions &&
+    selectedAiProvider &&
+    availableAiProviders.includes(selectedAiProvider)
+  )
   const dashboardConfig = config?.dashboard ?? {
     show_sonarr: true,
     show_radarr: true,
@@ -197,9 +203,11 @@ function HomeContent() {
     setAiTranslation(translation)
     console.log('[AI Intent Effect] Translation set:', translation)
 
-    // Show modal for movies, or TV shows with season/episode/date specified
-    if (intent.media_type === 'movie' || (intent.media_type === 'tv' && (intent.season || intent.episode_date))) {
-      console.log('[AI Intent Effect] Showing modal and searching for:', intent.title)
+    // Show modal for confident AI results (movie or tv with known title)
+    // Skip modal only if media_type is 'unknown' (AI couldn't determine what user wants)
+    const confidence = intent.confidence ?? 1.0
+    if (intent.media_type !== 'unknown' && confidence >= 0.5) {
+      console.log('[AI Intent Effect] Showing modal and searching for:', intent.title, 'confidence:', confidence)
       setShowAiAvailability(true)
       // Also update the background search to use the show title (not the episode-specific query)
       submitSearch(intent.title)
@@ -229,8 +237,8 @@ function HomeContent() {
         })()
       }
     } else {
-      // For TV shows without season/date, or unknown media type, search with the AI title
-      console.log('[AI Intent Effect] Searching for:', intent.title)
+      // Low confidence or unknown media type - just search with the AI title
+      console.log('[AI Intent Effect] Low confidence or unknown, searching for:', intent.title)
       submitSearch(intent.title)
     }
   }, [aiIntentPlan])
@@ -300,8 +308,8 @@ function HomeContent() {
   const {
     country: settingsCountry,
     setCountry: setSettingsCountry,
-    aiModel: settingsAiModel,
-    setAiModel: setSettingsAiModel,
+    aiProvider: settingsAiProvider,
+    setAiProvider: setSettingsAiProvider,
     showSonarr: settingsShowSonarr,
     setShowSonarr: setSettingsShowSonarr,
     showRadarr: settingsShowRadarr,
@@ -320,6 +328,30 @@ function HomeContent() {
     saveDashboard: saveDashboardSettings,
     saveSettings,
   } = useSettings(config, setConfig)
+
+  const aiProviderOptions = [
+    { id: 'openai', label: 'OpenAI' },
+    { id: 'gemini', label: 'Gemini' },
+    { id: 'openrouter', label: 'OpenRouter' },
+    { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'anthropic', label: 'Anthropic' },
+    { id: 'local', label: 'Local' },
+  ]
+  const availableAiProviderSet = new Set(availableAiProviders)
+  const selectedProviderAvailable = settingsAiProvider
+    ? availableAiProviderSet.has(settingsAiProvider)
+    : false
+  const selectedProviderModel = (() => {
+    const ai = config?.ai
+    if (!ai) return null
+    if (settingsAiProvider === 'openai') return ai.openai_model || ai.model
+    if (settingsAiProvider === 'gemini') return ai.gemini_model || ai.model
+    if (settingsAiProvider === 'openrouter') return ai.openrouter_model || ai.model
+    if (settingsAiProvider === 'deepseek') return ai.deepseek_model || ai.model
+    if (settingsAiProvider === 'anthropic') return ai.anthropic_model || ai.model
+    if (settingsAiProvider === 'local') return ai.model
+    return ai.model
+  })()
 
 
   const handleHome = () => {
@@ -1126,21 +1158,55 @@ function HomeContent() {
                   type="text"
                   value={settingsCountry}
                   onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
-                  onBlur={saveSettings}
+                  onBlur={() => {
+                    void saveSettings()
+                  }}
                   className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
                 />
               </label>
-              <label className="grid gap-1">
-                <span className="text-xs text-gray-400">AI Model</span>
-                <input
-                  type="text"
-                  value={settingsAiModel}
-                  onChange={(event) => setSettingsAiModel(event.target.value)}
-                  onBlur={saveSettings}
-                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                />
-              </label>
+              <div className="grid gap-1">
+                <span className="text-xs text-gray-400">AI Provider</span>
+                <div className="grid gap-2">
+                  {aiProviderOptions.map((provider) => {
+                    const isAvailable = availableAiProviderSet.has(provider.id)
+                    const isChecked = settingsAiProvider === provider.id
+                    return (
+                      <label
+                        key={provider.id}
+                        className={`flex items-center gap-2 ${isAvailable ? '' : 'text-gray-500'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={!isAvailable}
+                          onChange={(event) => {
+                            if (!event.target.checked) {
+                              return
+                            }
+                            setSettingsAiProvider(provider.id)
+                            void saveSettings({ ai_provider: provider.id })
+                          }}
+                        />
+                        <span>{provider.label}</span>
+                      </label>
+                    )
+                  })}
+                  {availableAiProviderSet.size === 0 && (
+                    <span className="text-xs text-gray-500">No AI providers configured in .env</span>
+                  )}
+                </div>
+              </div>
             </div>
+            {selectedProviderModel && (
+              <div className="mt-2 text-xs text-gray-400">
+                AI model: <span className="text-gray-200">{selectedProviderModel}</span>
+              </div>
+            )}
+            {!selectedProviderAvailable && settingsAiProvider && (
+              <div className="mt-1 text-xs text-red-400">
+                Selected provider is not configured in .env.
+              </div>
+            )}
 
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
