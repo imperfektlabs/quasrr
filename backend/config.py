@@ -125,6 +125,7 @@ class Config(BaseModel):
     app: AppConfig = Field(default_factory=AppConfig)
     user: UserConfig = Field(default_factory=UserConfig)
     streaming_services: list[StreamingService] = Field(default_factory=list)
+    streaming_services_hidden_patterns: list[str] = Field(default_factory=list)
     quality: QualityConfig = Field(default_factory=QualityConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
@@ -255,6 +256,23 @@ def load_config() -> Config:
 def redact_secrets(config: Config) -> dict:
     """Return config as dict with secrets redacted."""
     data = config.model_dump()
+    hide_patterns = data.get("streaming_services_hidden_patterns") or []
+
+    def is_hidden_provider(name: Optional[str]) -> bool:
+        if not name:
+            return False
+        lowered = name.lower()
+        for pattern in hide_patterns:
+            pattern = (pattern or "").strip()
+            if pattern and pattern.lower() in lowered:
+                return True
+        return False
+
+    if hide_patterns:
+        data["streaming_services"] = [
+            service for service in data.get("streaming_services", [])
+            if not is_hidden_provider(service.get("name"))
+        ]
 
     # Redact API keys
     if data.get("ai", {}).get("openai_api_key"):
