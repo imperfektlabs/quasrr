@@ -397,9 +397,13 @@ function HomeContent() {
     await getAiSuggestion(releasesForAi)
   }
 
-  const handleSubmitSearch = async () => {
-    const trimmed = searchQuery.trim()
+  const handleSubmitSearch = async (overrideQuery?: string) => {
+    const rawQuery = overrideQuery ?? searchQuery
+    const trimmed = rawQuery.trim()
     if (!trimmed) return
+    if (overrideQuery && trimmed !== searchQuery) {
+      setSearchQuery(trimmed)
+    }
 
     const normalized = normalizeIdQuery(trimmed)
     const query = normalized.query
@@ -416,7 +420,7 @@ function HomeContent() {
 
     // If ID query or AI disabled, do search immediately
     if (normalized.isIdQuery || !aiEnabled || !aiIntentEnabled) {
-      submitSearch()
+      submitSearch(overrideQuery ? trimmed : undefined)
       return
     }
 
@@ -1333,10 +1337,12 @@ function HomeContent() {
           plan={aiIntentPlan}
           releaseData={releaseData}
           onConfirm={handleAiConfirm}
-          onSearch={() => {
-            // User wants to see original search results instead
-            // (search already happened in background, just close modal)
+          onSearch={(query) => {
             setShowAiAvailability(false)
+            void handleSubmitSearch(query)
+            setTimeout(() => {
+              searchInputRef.current?.focus()
+            }, 0)
           }}
           onClose={() => {
             setShowAiAvailability(false)
