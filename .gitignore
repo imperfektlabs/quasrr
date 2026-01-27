@@ -16,6 +16,7 @@ TODOS.md
 # Image files
 *.svg
 *.avif
+*.png
 
 # Prompts for agents
 AGENT_INITIALIZATION.md

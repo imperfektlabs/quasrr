@@ -102,6 +102,16 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
     def normalize_provider(name: str) -> str:
         return "".join(ch for ch in name.lower() if ch.isalnum())
 
+    def is_hidden_provider(name: Optional[str]) -> bool:
+        if not name:
+            return False
+        lowered = name.lower()
+        for pattern in (config.streaming_services_hidden_patterns or []):
+            pattern = (pattern or "").strip()
+            if pattern and pattern.lower() in lowered:
+                return True
+        return False
+
     blocked_providers = {
         normalize_provider("Netflix with Ads"),
         normalize_provider("Netflix Basic with Ads"),
@@ -138,6 +148,8 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
     for provider in flatrate:
         name = provider.get("provider_name")
         if not name:
+            continue
+        if is_hidden_provider(name):
             continue
         if normalize_provider(name) in blocked_providers:
             continue
@@ -290,11 +302,14 @@ async def get_tmdb_providers(
 
     config = get_config()
     providers = await tmdb.get_providers(type.value, config.user.country)
+    hide_patterns = config.streaming_services_hidden_patterns or []
     results = []
     for provider in providers:
         name = provider.get("provider_name")
         logo_path = provider.get("logo_path")
         if not name:
+            continue
+        if hide_patterns and any((pattern or "").strip().lower() in name.lower() for pattern in hide_patterns):
             continue
         results.append({
             "name": name,
