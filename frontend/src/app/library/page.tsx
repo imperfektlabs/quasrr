@@ -39,6 +39,7 @@ function LibraryContent() {
   const [filterMode, setFilterMode] = useState<'all' | 'downloaded' | 'missing' | 'monitored' | 'unmonitored'>('all')
   const [mediaType, setMediaType] = useState<MediaType>((searchParams.get('type') as MediaType) || 'all')
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     let active = true
@@ -80,6 +81,10 @@ function LibraryContent() {
     return () => {
       active = false
     }
+  }, [])
+
+  useEffect(() => {
+    searchInputRef.current?.focus()
   }, [])
 
   // Close menu when clicking outside
@@ -256,9 +261,22 @@ function LibraryContent() {
                   </button>
                 </div>
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={searchText}
                   onChange={(event) => setSearchText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                    event.preventDefault()
+                    setTimeout(() => {
+                      searchInputRef.current?.focus()
+                    }, 0)
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => {
+                      searchInputRef.current?.focus()
+                    }, 0)
+                  }}
                   placeholder="Search library..."
                   className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
                 />
