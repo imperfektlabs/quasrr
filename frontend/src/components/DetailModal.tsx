@@ -330,16 +330,31 @@ export function DetailModal({
                     <div className="text-slate-500">{episodesLoading ? 'Loading episodes...' : 'No episodes found'}</div>
                   )}
                   {episodes.map((ep) => {
-                    const airDateLabel = ep.airDate ? new Date(ep.airDate).toLocaleDateString() : null
-                    const qualityLabel = ep.hasFile ? (ep.quality || 'On disk') : 'Missing'
+                    const formatAirDate = (value?: string | null) => {
+                      if (!value) return null
+                      const match = value.match(/^(\d{4}-\d{2}-\d{2})/)
+                      if (match) return match[1]
+                      const parsed = new Date(value)
+                      if (Number.isNaN(parsed.getTime())) return value
+                      return parsed.toISOString().slice(0, 10)
+                    }
+                    const airDateLabel = formatAirDate(ep.airDate)
+                    const qualityTitle = ep.hasFile ? (ep.quality || 'On disk') : 'Missing'
+                    const qualityIcon = ep.hasFile ? '✓' : '○'
+                    const qualityClass = ep.hasFile ? 'text-cyan-300' : 'text-slate-500'
+                    const titleText = ep.title || 'Untitled'
+                    const episodePrefix = ep.episodeNumber != null ? `E${String(ep.episodeNumber).padStart(2, '0')}` : 'E--'
+                    const fullTitle = `${episodePrefix} ${titleText}`
                     return (
-                      <div key={ep.id} className="flex items-center justify-between gap-3">
-                        <span className="truncate">
-                          {ep.episodeNumber != null ? `E${String(ep.episodeNumber).padStart(2, '0')}` : 'E--'} {ep.title || 'Untitled'}
-                        </span>
-                        <div className="flex items-center gap-2 text-slate-500">
+                      <div key={ep.id} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                        <div className="min-w-0">
+                          <span className="block truncate" title={fullTitle}>
+                            {fullTitle}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 text-slate-500">
                           {airDateLabel && <span className="text-slate-400">{airDateLabel}</span>}
-                          <span className="glass-chip px-2 py-1 rounded text-xs">{qualityLabel}</span>
+                          <span className={`text-xs ${qualityClass}`} title={qualityTitle}>{qualityIcon}</span>
                         </div>
                       </div>
                     )
