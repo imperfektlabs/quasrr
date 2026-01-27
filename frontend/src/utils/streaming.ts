@@ -13,6 +13,10 @@ export const STREAMING_LOGOS: Record<string, string> = {
   amazon_prime: '/logos/streaming/amazon_prime.avif',
   apple_tv: '/logos/streaming/apple_tv.avif',
   paramount_plus: '/logos/streaming/paramount_plus.avif',
+  cbc_gem: '/logos/streaming/cbc_gem.svg',
+  ctv: '/logos/streaming/ctv.png',
+  global_tv: '/logos/streaming/global_tv.png',
+  citytvplus: '/logos/streaming/citytvplus.png',
 }
 
 /**

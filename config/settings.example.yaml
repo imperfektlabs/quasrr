@@ -13,24 +13,425 @@ user:
 # --- Streaming Services ---
 # Enable only services you subscribe to
 streaming_services:
-  - id: netflix
-    name: "Netflix"
+  # Core SVOD
+  - id: acorn_tv
+    name: "Acorn TV"
+    enabled: false
+  - id: amazon_prime
+    name: "Amazon Prime Video"
     enabled: true
+  - id: amazon_prime_video_with_ads
+    name: "Amazon Prime Video with Ads"
+    enabled: false
+  - id: amc_plus
+    name: "AMC+"
+    enabled: false
+  - id: apple_tv
+    name: "Apple TV"
+    enabled: false
+  - id: britbox
+    name: "BritBox"
+    enabled: false
   - id: crave
     name: "Crave"
     enabled: true
+  - id: curiosity_stream
+    name: "Curiosity Stream"
+    enabled: false
   - id: disney_plus
     name: "Disney+"
-    enabled: true
-  - id: amazon_prime
-    name: "Amazon Prime Video"
     enabled: false
-  - id: apple_tv
-    name: "Apple TV+"
+  - id: hayu
+    name: "Hayu"
+    enabled: false
+  - id: mubi
+    name: "MUBI"
+    enabled: false
+  - id: netflix
+    name: "Netflix"
+    enabled: true
+  - id: netflix_kids
+    name: "Netflix Kids"
+    enabled: false
+  - id: netflix_standard_with_ads
+    name: "Netflix Standard with Ads"
     enabled: false
   - id: paramount_plus
-    name: "Paramount+"
+    name: "Paramount Plus"
     enabled: false
+  - id: paramount_plus_basic_with_ads
+    name: "Paramount Plus Basic with Ads"
+    enabled: false
+  - id: paramount_plus_premium
+    name: "Paramount Plus Premium"
+    enabled: false
+  - id: shudder
+    name: "Shudder"
+    enabled: false
+  - id: sundance_now
+    name: "Sundance Now"
+    enabled: false
+  
+  
+  # Amazon Channels
+  - id: acorntv_amazon_channel
+    name: "AcornTV Amazon Channel"
+    enabled: false
+  - id: adultswim_amazon_channel
+    name: "Adultswim Amazon Channel"
+    enabled: false
+  - id: allwaysblk_amazon_channel
+    name: "ALLWAYSBLK Amazon Channel"
+    enabled: false
+  - id: amc_plus_amazon_channel
+    name: "AMC+ Amazon Channel"
+    enabled: false
+  - id: apple_tv_amazon_channel
+    name: "Apple TV Amazon Channel"
+    enabled: false
+  - id: bbc_earth_amazon_channel
+    name: "BBC Earth Amazon Channel"
+    enabled: false
+  - id: britbox_amazon_channel
+    name: "BritBox Amazon Channel"
+    enabled: false
+  - id: citytvplus_amazon_channel
+    name: "Citytvplus Amazon Channel"
+    enabled: false
+  - id: crave_amazon_channel
+    name: "Crave Amazon Channel"
+    enabled: false
+  - id: crunchyroll_amazon_channel
+    name: "Crunchyroll Amazon Channel"
+    enabled: false
+  - id: discovery_plus_amazon_channel
+    name: "Discovery+ Amazon Channel"
+    enabled: false
+  - id: film_movement_plus_amazon_channel
+    name: "Film Movement Plus Amazon Channel"
+    enabled: false
+  - id: hayu_amazon_channel
+    name: "Hayu Amazon Channel"
+    enabled: false
+  - id: hidive_amazon_channel
+    name: "Hidive Amazon Channel"
+    enabled: false
+  - id: hollywood_suite_amazon_channel
+    name: "Hollywood Suite Amazon Channel"
+    enabled: false
+  - id: ifc_amazon_channel
+    name: "IFC Amazon Channel"
+    enabled: false
+  - id: lionsgate_plus_amazon_channels
+    name: "Lionsgate+ Amazon Channels"
+    enabled: false
+  - id: love_nature_amazon_channel
+    name: "Love Nature Amazon Channel"
+    enabled: false
+  - id: mgm_amazon_channel
+    name: "MGM Amazon Channel"
+    enabled: false
+  - id: outtv_amazon_channel
+    name: "OUTtv Amazon Channel"
+    enabled: false
+  - id: paramount_plus_amazon_channel
+    name: "Paramount+ Amazon Channel"
+    enabled: false
+  - id: pbs_documentaries_amazon_channel
+    name: "PBS Documentaries Amazon Channel"
+    enabled: false
+  - id: pbs_masterpiece_amazon_channel
+    name: "PBS Masterpiece Amazon Channel"
+    enabled: false
+  - id: shudder_amazon_channel
+    name: "Shudder Amazon Channel"
+    enabled: false
+  - id: smithsonian_channel_amazon_channel
+    name: "Smithsonian Channel Amazon Channel"
+    enabled: false
+  - id: stacktv_amazon_channel
+    name: "StackTV Amazon Channel"
+    enabled: false
+  - id: starz_amazon_channel
+    name: "Starz Amazon Channel"
+    enabled: false
+  - id: stingray_amazon_channel
+    name: "Stingray Amazon Channel"
+    enabled: false
+  - id: sundance_now_amazon_channel
+    name: "Sundance Now Amazon Channel"
+    enabled: false
+  - id: super_channel_amazon_channel
+    name: "Super Channel Amazon Channel"
+    enabled: false
+  - id: teletoon_plus_amazon_channel
+    name: "TELETOON+ Amazon Channel"
+    enabled: false
+  - id: the_great_courses_signature_collection_amazon_channel
+    name: "The Great Courses Signature Collection Amazon Channel"
+    enabled: false
+
+  # Apple TV Channels
+  - id: amc_plus_apple_tv_channel
+    name: "AMC Plus Apple TV Channel"
+    enabled: false
+  - id: bbc_select_apple_tv_channel
+    name: "BBC Select Apple Tv channel"
+    enabled: false
+  - id: britbox_apple_tv_channel
+    name: "Britbox Apple TV Channel"
+    enabled: false
+  - id: ifc_films_unlimited_apple_tv_channel
+    name: "IFC Films Unlimited Apple TV Channel"
+    enabled: false
+  - id: love_nature_apple_tv_channel
+    name: "Love Nature Apple TV Channel"
+    enabled: false
+  - id: outtv_apple_tv_channel
+    name: "OUTtv Apple TV Channel"
+    enabled: false
+  - id: paramount_plus_apple_tv_channel
+    name: "Paramount Plus Apple TV Channel"
+    enabled: false
+  - id: shudder_apple_tv_channel
+    name: "Shudder Apple TV Channel"
+    enabled: false
+  - id: sundance_now_apple_tv_channel
+    name: "Sundance Now Apple TV Channel"
+    enabled: false
+    
+  # Canadian / Local
+  - id: cbc_gem
+    name: "CBC Gem"
+    enabled: false
+  - id: citytvplus
+    name: "Citytvplus"
+    enabled: false
+  - id: club_illico
+    name: "Club Illico"
+    enabled: false
+  - id: cosmogo
+    name: "CosmoGo"
+    enabled: false
+  - id: ctv
+    name: "CTV"
+    enabled: false
+  - id: global_tv
+    name: "Global TV"
+    enabled: false
+  - id: icitoutv
+    name: "iciTouTV"
+    enabled: false
+  - id: knowledge_network
+    name: "Knowledge Network"
+    enabled: false
+  - id: nfb
+    name: "NFB"
+    enabled: false
+  - id: noovo
+    name: "Noovo"
+    enabled: false
+  - id: tv5_unis
+    name: "TV5 Unis"
+    enabled: false
+  - id: tvo
+    name: "tvo"
+    enabled: false
+  # Anime
+  - id: asiancrush
+    name: "AsianCrush"
+    enabled: false
+  - id: crunchyroll
+    name: "Crunchyroll"
+    enabled: false
+  - id: hidive
+    name: "HiDive"
+    enabled: false
+  - id: retrocrush
+    name: "Retrocrush"
+    enabled: false
+  # Documentary / Learning
+  - id: docalliance_films
+    name: "DocAlliance Films"
+    enabled: false
+  - id: docsville
+    name: "DOCSVILLE"
+    enabled: false
+  - id: guidedoc
+    name: "GuideDoc"
+    enabled: false
+  - id: magellan_tv
+    name: "Magellan TV"
+    enabled: false
+  # International / Language
+  - id: aha
+    name: "aha"
+    enabled: false
+  - id: hoichoi
+    name: "Hoichoi"
+    enabled: false
+  - id: iqiyi
+    name: "iQIYI"
+    enabled: false
+  - id: kocowa
+    name: "Kocowa"
+    enabled: false
+  - id: rakuten_viki
+    name: "Rakuten Viki"
+    enabled: false
+  - id: shahid_vip
+    name: "Shahid VIP"
+    enabled: false
+  - id: sun_nxt
+    name: "Sun Nxt"
+    enabled: false
+  - id: tenk
+    name: "Tenk"
+    enabled: false
+  - id: tentkotta
+    name: "Tentkotta"
+    enabled: false
+  # Free / AVOD
+  - id: cineverse
+    name: "Cineverse"
+    enabled: false
+  - id: filmzie
+    name: "Filmzie"
+    enabled: false
+  - id: found_tv
+    name: "FOUND TV"
+    enabled: false
+  - id: hoopla
+    name: "Hoopla"
+    enabled: false
+  - id: movieme
+    name: "MovieMe"
+    enabled: false
+  - id: myfilmfriend
+    name: "myfilmfriend"
+    enabled: false
+  - id: plex
+    name: "Plex"
+    enabled: false
+  - id: pluto_tv
+    name: "Pluto TV"
+    enabled: false
+  - id: runtime
+    name: "Runtime"
+    enabled: false
+  - id: stupid_co
+    name: "Stupid Co"
+    enabled: false
+  - id: tubi_tv
+    name: "Tubi TV"
+    enabled: false
+  # Rent / Buy Stores
+  - id: amazon_video
+    name: "Amazon Video"
+    enabled: false
+  - id: apple_tv_store
+    name: "Apple TV Store"
+    enabled: false
+  - id: google_play_movies
+    name: "Google Play Movies"
+    enabled: false
+  - id: youtube
+    name: "YouTube"
+    enabled: false
+  # Live / Sports
+  - id: fubotv
+    name: "fuboTV"
+    enabled: false
+  # Niche / Indie
+  - id: arrow
+    name: "ARROW"
+    enabled: false
+  - id: artiflix
+    name: "Artiflix"
+    enabled: false
+  - id: bloodstream
+    name: "Bloodstream"
+    enabled: false
+  - id: broadwayhd
+    name: "BroadwayHD"
+    enabled: false
+  - id: criterion_channel
+    name: "Criterion Channel"
+    enabled: false
+  - id: cultpix
+    name: "Cultpix"
+    enabled: false
+  - id: dekkoo
+    name: "Dekkoo"
+    enabled: false
+  - id: eventive
+    name: "Eventive"
+    enabled: false
+  - id: fandor
+    name: "Fandor"
+    enabled: false
+  - id: film_movement_plus
+    name: "Film Movement Plus"
+    enabled: false
+  - id: filmbox_plus
+    name: "FilmBox+"
+    enabled: false
+  - id: flixfling
+    name: "FlixFling"
+    enabled: false
+  - id: jolt_film
+    name: "Jolt Film"
+    enabled: false
+  - id: kableone
+    name: "KableOne"
+    enabled: false
+  - id: mhz_choice
+    name: "Mhz Choice"
+    enabled: false
+  - id: ovid
+    name: "OVID"
+    enabled: false
+  - id: takflix
+    name: "Takflix"
+    enabled: false
+  - id: true_story
+    name: "True Story"
+    enabled: false
+  - id: wow_presents_plus
+    name: "WOW Presents Plus"
+    enabled: false
+  # Other
+  - id: acorn_tv_apple_tv
+    name: "Acorn TV Apple TV"
+    enabled: false
+  - id: caixaforum_plus
+    name: "CaixaForum+"
+    enabled: false
+  - id: discovery_plus
+    name: "Discovery +"
+    enabled: false
+  - id: hollywood_suite
+    name: "Hollywood Suite"
+    enabled: false
+  - id: justwatch_tv
+    name: "JustWatch TV"
+    enabled: false
+  - id: midnight_pulp
+    name: "Midnight Pulp"
+    enabled: false
+  - id: super_channel_plus
+    name: "Super Channel Plus"
+    enabled: false
+  - id: youtube_premium
+    name: "YouTube Premium"
+    enabled: false
+
+# Hide junk providers by name pattern (case-insensitive substring match)
+streaming_services_hidden_patterns:
+  - "Amazon Channel"
+
+
+
 
 # --- Quality Preferences ---
 # Adjust based on your storage/bandwidth preferences

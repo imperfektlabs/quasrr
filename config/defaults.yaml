@@ -36,6 +36,10 @@ streaming_services:
     name: "Paramount+"
     enabled: false
 
+# Hide junk providers by name pattern (case-insensitive substring match)
+streaming_services_hidden_patterns:
+  - "Amazon Channel"
+
 # --- Quality Preferences ---
 quality:
   tv:
