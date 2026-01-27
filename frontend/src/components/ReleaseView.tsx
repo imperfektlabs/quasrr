@@ -1246,11 +1246,16 @@ export function ReleaseView({
       </div>
 
       {grabAllModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setGrabAllModal(null)}>
+        <div className="fixed inset-0 z-50">
           <div
-            className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
-            onClick={(event) => event.stopPropagation()}
-          >
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+            onClick={() => setGrabAllModal(null)}
+          />
+          <div className="relative flex items-center justify-center p-4">
+            <div
+              className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
+              onClick={(event) => event.stopPropagation()}
+            >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold">Confirm Grab All</h3>
@@ -1340,6 +1345,7 @@ export function ReleaseView({
               >
                 Grab Selected
               </button>
+            </div>
             </div>
           </div>
         </div>
