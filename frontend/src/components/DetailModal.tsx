@@ -33,6 +33,8 @@ type DetailModalProps = {
   // Library mode props
   libraryItem?: LibraryItem
   onLibraryDelete?: (item: LibraryItem) => void
+  autoSearch?: boolean
+  autoDeleteOpen?: boolean
   // Common props
   onClose: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
@@ -51,6 +53,8 @@ export function DetailModal({
   onClose,
   onShowReleases,
   onLibraryDelete,
+  autoSearch = false,
+  autoDeleteOpen = false,
 }: DetailModalProps) {
   const [manualQuery, setManualQuery] = useState(plan?.query || '')
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -75,6 +79,7 @@ export function DetailModal({
   const [libraryReleaseLoading, setLibraryReleaseLoading] = useState(false)
   const [libraryReleaseError, setLibraryReleaseError] = useState<string | null>(null)
   const libraryResultsRef = useRef<HTMLDivElement | null>(null)
+  const autoSearchHandled = useRef(false)
 
   const {
     busyIds: libraryGrabBusyIds,
@@ -140,6 +145,12 @@ export function DetailModal({
   useEffect(() => {
     if (mode !== 'library' || !libraryItem || libraryItem.mediaType !== 'tv') return
     let active = true
+    const seasonNumbers = (libraryItem.seasons || [])
+      .map((season) => season.seasonNumber ?? 0)
+      .filter((season) => season > 0)
+    if (seasonNumbers.length > 0) {
+      setExpandedSeasons(new Set([Math.max(...seasonNumbers)]))
+    }
     const fetchEpisodes = async () => {
       setEpisodesLoading(true)
       try {
@@ -185,6 +196,7 @@ export function DetailModal({
     setLibraryReleaseError(null)
     clearLibraryGrab()
     setLibraryGrabFeedback(null)
+    autoSearchHandled.current = false
   }, [mode, libraryItem?.id])
 
   useEffect(() => {
@@ -192,6 +204,13 @@ export function DetailModal({
     if (!libraryReleaseLoading && !libraryReleaseError && !libraryReleaseData) return
     libraryResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [mode, libraryReleaseData, libraryReleaseError, libraryReleaseLoading])
+
+  useEffect(() => {
+    if (mode !== 'library') return
+    if (autoDeleteOpen) {
+      setDeleteConfirmOpen(true)
+    }
+  }, [mode, autoDeleteOpen])
 
   const fetchLibraryReleases = async (options?: { season?: number; episode?: number }) => {
     if (!libraryItem) throw new Error('Missing library item')
@@ -279,6 +298,12 @@ export function DetailModal({
       setLibraryActionBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (mode !== 'library' || !autoSearch || autoSearchHandled.current) return
+    autoSearchHandled.current = true
+    void handleLibrarySearch()
+  }, [mode, autoSearch, handleLibrarySearch])
 
   const handleLibraryDelete = async () => {
     if (mode !== 'library' || !libraryItem || deleteBusy) return
@@ -539,7 +564,9 @@ export function DetailModal({
         </div>
       )}
       <div className="grid gap-2">
-        {libraryItem.seasons.map((season) => {
+        {[...libraryItem.seasons]
+          .sort((a, b) => (b.seasonNumber ?? 0) - (a.seasonNumber ?? 0))
+          .map((season) => {
           const seasonNumber = season.seasonNumber ?? 0
           const isExpanded = expandedSeasons.has(seasonNumber)
           const episodes = episodesBySeason[seasonNumber] || []
