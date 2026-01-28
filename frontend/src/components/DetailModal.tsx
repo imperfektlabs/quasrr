@@ -185,7 +185,7 @@ export function DetailModal({
     setLibraryReleaseError(null)
     clearLibraryGrab()
     setLibraryGrabFeedback(null)
-  }, [mode, libraryItem?.id, clearLibraryGrab, setLibraryGrabFeedback])
+  }, [mode, libraryItem?.id])
 
   useEffect(() => {
     if (mode !== 'library') return
