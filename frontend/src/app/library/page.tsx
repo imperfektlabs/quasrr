@@ -289,7 +289,7 @@ function LibraryContent() {
                     }, 0)
                   }}
                   placeholder="Search library..."
-                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
+                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-md text-slate-200 placeholder-slate-500"
                 />
               </div>
 
