@@ -666,6 +666,64 @@ class RadarrClient:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    async def search_movie(self, movie_id: int) -> dict:
+        """Trigger a Radarr search for a specific movie."""
+        if not self.is_configured:
+            return {"status": "error", "message": "Radarr not configured"}
+
+        logger.info("Radarr movie search requested: movieId=%s", movie_id)
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/v3/command",
+                    headers=self._get_headers(),
+                    json={
+                        "name": "MoviesSearch",
+                        "movieIds": [movie_id],
+                    },
+                )
+                response.raise_for_status()
+                return {"status": "ok"}
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "Radarr timeout"}
+        except httpx.HTTPStatusError as e:
+            try:
+                err = e.response.json().get("message", "")[:200]
+            except Exception:
+                err = str(e.response.text)[:200]
+            return {"status": "error", "message": f"Radarr error: {err}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def delete_movie(self, movie_id: int, delete_files: bool) -> dict:
+        """Remove a movie from Radarr."""
+        if not self.is_configured:
+            return {"status": "error", "message": "Radarr not configured"}
+
+        logger.info("Removing Radarr movie: movieId=%s deleteFiles=%s", movie_id, delete_files)
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.delete(
+                    f"{self.base_url}/api/v3/movie/{movie_id}",
+                    headers=self._get_headers(),
+                    params={
+                        "deleteFiles": str(delete_files).lower(),
+                        "addImportExclusion": "false",
+                    },
+                )
+                response.raise_for_status()
+                return {"status": "ok"}
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "Radarr timeout"}
+        except httpx.HTTPStatusError as e:
+            try:
+                err = e.response.json().get("message", "")[:200]
+            except Exception:
+                err = str(e.response.text)[:200]
+            return {"status": "error", "message": f"Radarr error: {err}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
     async def grab_release(self, guid: str, indexer_id: int) -> dict:
         """Grab a release and send it to the download client (via Radarr)."""
         if not self.is_configured:
