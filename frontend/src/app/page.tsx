@@ -608,6 +608,12 @@ function HomeContent() {
             <div className="glass-panel rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
+                <a
+                  href="/library"
+                  className="text-xs text-slate-300 hover:text-cyan-200 transition-colors px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
+                >
+                  Library
+                </a>
               </div>
               {dashboardLoading && (
                 <div className="text-xs text-gray-500 mb-2">Updating…</div>
@@ -779,8 +785,8 @@ function HomeContent() {
                     event.preventDefault()
                     void handleSubmitSearch()
                   }}
-                  placeholder="Search movies and TV shows..."
-                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs text-slate-200 placeholder-slate-500"
+                  placeholder="Search Movies and TV..."
+                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-md text-slate-200 placeholder-slate-500"
                 />
                 <button
                   type="submit"

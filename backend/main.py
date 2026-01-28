@@ -470,6 +470,86 @@ async def get_sonarr_series_episodes(series_id: int):
         raise HTTPException(status_code=500, detail="Sonarr request failed")
 
 
+@app.post("/sonarr/episode/{episode_id}/search")
+async def search_sonarr_episode(episode_id: int):
+    """Trigger a Sonarr episode search."""
+    sonarr = get_sonarr_client()
+    if not sonarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr not configured")
+    try:
+        result = await sonarr.search_episode(episode_id)
+    except Exception:
+        logger.error("Error triggering Sonarr episode search: unexpected")
+        raise HTTPException(status_code=500, detail="Sonarr request failed")
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "Sonarr request failed"))
+    return {"status": "ok"}
+
+
+@app.post("/sonarr/series/{series_id}/search")
+async def search_sonarr_series(series_id: int):
+    """Trigger a Sonarr series search."""
+    sonarr = get_sonarr_client()
+    if not sonarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr not configured")
+    try:
+        result = await sonarr.search_series(series_id)
+    except Exception:
+        logger.error("Error triggering Sonarr series search: unexpected")
+        raise HTTPException(status_code=500, detail="Sonarr request failed")
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "Sonarr request failed"))
+    return {"status": "ok"}
+
+
+@app.post("/radarr/movie/{movie_id}/search")
+async def search_radarr_movie(movie_id: int):
+    """Trigger a Radarr movie search."""
+    radarr = get_radarr_client()
+    if not radarr.is_configured:
+        raise HTTPException(status_code=503, detail="Radarr not configured")
+    try:
+        result = await radarr.search_movie(movie_id)
+    except Exception:
+        logger.error("Error triggering Radarr movie search: unexpected")
+        raise HTTPException(status_code=500, detail="Radarr request failed")
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "Radarr request failed"))
+    return {"status": "ok"}
+
+
+@app.delete("/sonarr/series/{series_id}")
+async def delete_sonarr_series(series_id: int, delete_files: bool = Query(False)):
+    """Remove a series from Sonarr."""
+    sonarr = get_sonarr_client()
+    if not sonarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr not configured")
+    try:
+        result = await sonarr.delete_series(series_id, delete_files)
+    except Exception:
+        logger.error("Error deleting Sonarr series: unexpected")
+        raise HTTPException(status_code=500, detail="Sonarr request failed")
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "Sonarr request failed"))
+    return {"status": "ok"}
+
+
+@app.delete("/radarr/movie/{movie_id}")
+async def delete_radarr_movie(movie_id: int, delete_files: bool = Query(False)):
+    """Remove a movie from Radarr."""
+    radarr = get_radarr_client()
+    if not radarr.is_configured:
+        raise HTTPException(status_code=503, detail="Radarr not configured")
+    try:
+        result = await radarr.delete_movie(movie_id, delete_files)
+    except Exception:
+        logger.error("Error deleting Radarr movie: unexpected")
+        raise HTTPException(status_code=500, detail="Radarr request failed")
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "Radarr request failed"))
+    return {"status": "ok"}
+
+
 @app.post("/sab/queue/pause")
 async def pause_sab_queue():
     """Pause the full SABnzbd queue."""
