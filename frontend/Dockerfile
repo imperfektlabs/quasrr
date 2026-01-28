@@ -16,8 +16,6 @@ RUN chown -R node:node /app && \
     mkdir -p /app/.next /app/.next/cache /app/.next/static /app/.next/standalone && \
     chown -R node:node /app/.next
 
-USER node
-
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
