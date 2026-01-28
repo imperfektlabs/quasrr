@@ -239,7 +239,7 @@ export function DetailModal({
     setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Searching...' }))
     try {
       await fetchLibraryReleases({ season: seasonNumber, episode: episodeNumber })
-      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Results below' }))
+      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: '' }))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Search failed'
       setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: `Search failed: ${message}` }))
@@ -621,16 +621,18 @@ export function DetailModal({
             disabled={libraryActionBusy}
             title="Interactive Search"
             aria-label="Interactive Search"
-            className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+            className="bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 py-2 px-4 rounded text-sm font-medium transition-colors"
           >
             🔍
           </button>
           <button
             type="button"
             onClick={() => setDeleteConfirmOpen(true)}
+            title="Remove from Library"
+            aria-label="Remove from Library"
             className="bg-rose-500/70 hover:bg-rose-500/80 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
           >
-            Remove from Library
+            ✕
           </button>
         </div>
         {libraryActionMessage && <div className="text-xs text-cyan-200">{libraryActionMessage}</div>}
