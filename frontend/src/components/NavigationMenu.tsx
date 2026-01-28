@@ -85,6 +85,7 @@ export function NavigationMenu({
         <button
           type="button"
           onClick={() => setMenuOpen((prev) => !prev)}
+          onMouseEnter={() => setMenuOpen(true)}
           className="px-2 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center"
           aria-label="Toggle menu"
           aria-expanded={menuOpen}
@@ -108,7 +109,11 @@ export function NavigationMenu({
       </div>
 
       {menuOpen && (
-        <div ref={menuPanelRef} className="mt-3 grid gap-2 text-sm text-slate-200">
+        <div
+          ref={menuPanelRef}
+          onMouseLeave={() => setMenuOpen(false)}
+          className="mt-3 grid gap-2 text-sm text-slate-200"
+        >
           {/* Home Button */}
           <button
             type="button"

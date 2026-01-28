@@ -192,6 +192,15 @@ function LibraryContent() {
     handleMediaTypeChange(mediaType === nextType ? 'all' : nextType)
   }
 
+  const handleLibraryDelete = (item: LibraryItem) => {
+    if (item.mediaType === 'tv') {
+      setSonarrItems((prev) => prev.filter((entry) => entry.id !== item.id))
+    } else {
+      setRadarrItems((prev) => prev.filter((entry) => entry.id !== item.id))
+    }
+    setSelectedItem(null)
+  }
+
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
       <NavigationMenu
@@ -278,7 +287,7 @@ function LibraryContent() {
                     }, 0)
                   }}
                   placeholder="Search library..."
-                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500"
+                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-md text-slate-200 placeholder-slate-500"
                 />
               </div>
 
@@ -347,6 +356,7 @@ function LibraryContent() {
           mode="library"
           libraryItem={selectedItem}
           onClose={() => setSelectedItem(null)}
+          onLibraryDelete={handleLibraryDelete}
         />
       )}
     </main>
