@@ -17,9 +17,18 @@ type MediaCardProps = {
   onClick?: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
   onTypeToggle?: (type: DiscoveryResult['type']) => void
+  onLibrarySearch?: () => void
+  onLibraryDelete?: () => void
 }
 
-export function MediaCard({ item, onClick, onShowReleases, onTypeToggle }: MediaCardProps) {
+export function MediaCard({
+  item,
+  onClick,
+  onShowReleases,
+  onTypeToggle,
+  onLibrarySearch,
+  onLibraryDelete,
+}: MediaCardProps) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
 
   // Extract common fields based on source
@@ -157,11 +166,37 @@ export function MediaCard({ item, onClick, onShowReleases, onTypeToggle }: Media
           {libItem.mediaType === 'movies' ? 'Movie' : 'TV'}
         </button>
         {libItem.mediaType === 'tv' && (
-          <span className="text-xs text-slate-400">
+          <span className="glass-chip text-xs px-2 py-1 rounded">
             {libItem.episodeFileCount || 0}/{libItem.episodeCount || 0} eps
           </span>
         )}
-        <span className="text-xs text-slate-400">{formatSize(libItem.sizeOnDisk)}</span>
+        <span className="glass-chip text-xs px-2 py-1 rounded">{formatSize(libItem.sizeOnDisk)}</span>
+        <div className="flex items-center gap-2 ml-auto">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onLibrarySearch?.()
+            }}
+            className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 text-xs"
+            title="Search All"
+            aria-label="Search All"
+          >
+            ⌕
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onLibraryDelete?.()
+            }}
+            className="px-2 py-1 rounded bg-rose-500/70 text-white hover:bg-rose-500/80 text-xs"
+            title="Remove title from library"
+            aria-label="Remove title from library"
+          >
+            ✕
+          </button>
+        </div>
       </div>
     )
 

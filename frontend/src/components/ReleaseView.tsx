@@ -110,6 +110,7 @@ export function ReleaseView({
   aiSuggestBusy,
   aiSuggestError,
   onAiSuggest,
+  variant = 'modal',
 }: {
   data: ReleaseResponse
   result?: DiscoveryResult
@@ -123,7 +124,9 @@ export function ReleaseView({
   aiSuggestBusy: boolean
   aiSuggestError: string | null
   onAiSuggest: (releases: Release[]) => void
+  variant?: 'modal' | 'embedded'
 }) {
+  const isEmbedded = variant === 'embedded'
   const [sortField, setSortField] = useState<SortField>('size')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [groupFocus, setGroupFocus] = useState<string | null>(null)
@@ -140,6 +143,7 @@ export function ReleaseView({
   const posterUrl = data.poster || result?.poster
 
   useEffect(() => {
+    if (isEmbedded) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose()
@@ -148,7 +152,7 @@ export function ReleaseView({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [isEmbedded, onClose])
 
   useEffect(() => {
     if (data.type !== 'tv') {
@@ -840,13 +844,285 @@ export function ReleaseView({
     )
   }
 
-  return (
-    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
-      <div className="min-h-screen p-4">
-        <div
-          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl"
-          onClick={(event) => event.stopPropagation()}
-        >
+  const releaseList = (
+    <div className="mt-4">
+      {data.releases.length === 0 ? (
+        <div className="p-8 text-center text-gray-400">
+          {data.message || 'No releases found. Check indexer configuration.'}
+        </div>
+      ) : (
+        <>
+          {/* Desktop table header */}
+          <div className="hidden">
+            <div className="col-span-4">
+              <SortHeader
+                label="Release"
+                field="title"
+                currentSort={sortField}
+                currentDirection={sortDirection}
+                onSort={handleSort}
+              />
+            </div>
+            <div className="col-span-2 text-gray-400">Indexer</div>
+            <div className="col-span-2">
+              <SortHeader
+                label="Size"
+                field="size"
+                currentSort={sortField}
+                currentDirection={sortDirection}
+                onSort={handleSort}
+              />
+            </div>
+            <div className="col-span-2">
+              <SortHeader
+                label="Quality"
+                field="quality"
+                currentSort={sortField}
+                currentDirection={sortDirection}
+                onSort={handleSort}
+              />
+            </div>
+            <div className="col-span-1">
+              <SortHeader
+                label="Age"
+                field="age"
+                currentSort={sortField}
+                currentDirection={sortDirection}
+                onSort={handleSort}
+              />
+            </div>
+            <div className="col-span-1"></div>
+          </div>
+
+          {/* Mobile sort buttons */}
+          <div className="hidden">
+            <span className="text-gray-400 text-sm">Sort:</span>
+            {(['title', 'size', 'quality', 'age'] as SortField[]).map((field) => (
+              <button
+                key={field}
+                onClick={() => handleSort(field)}
+                className={`px-2 py-1 rounded text-xs ${
+                  sortField === field
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-slate-800/60 text-slate-300'
+                }`}
+              >
+                {field.charAt(0).toUpperCase() + field.slice(1)}
+                {sortField === field && sortDirection && (sortDirection === 'asc' ? ' ^' : ' v')}
+              </button>
+            ))}
+          </div>
+
+          {/* Release rows */}
+          <div className="p-3 space-y-2">
+            {isMultiSeason ? (
+              seasonGroups.map((seasonGroup) => {
+                const seasonKey = seasonGroup.key
+                const isSeasonCollapsed = collapsedSeasons.has(seasonKey)
+                const groups = buildEpisodeGroups(seasonGroup.releases).map((group) => ({
+                  key: `${seasonKey}:${group.key}`,
+                  label: group.label,
+                  releases: group.releases,
+                  showGrabAll: false,
+                }))
+
+                return (
+                  <div key={seasonKey} className="glass-card rounded-md px-3 py-2 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => toggleSeason(seasonKey)}
+                      className="w-full flex items-center justify-between text-slate-200"
+                    >
+                      <span>
+                        {seasonGroup.label}
+                        {(() => {
+                          const progressLabel = getSeasonProgressLabel(seasonGroup.season)
+                          if (!progressLabel) return null
+                          return (
+                            <span className="ml-2 text-cyan-200">
+                              {progressLabel}
+                            </span>
+                          )
+                        })()}
+                        <span className="ml-2 text-slate-400">
+                          ({seasonGroup.releases.length} releases)
+                        </span>
+                      </span>
+                      <span className="text-slate-400">
+                        {isSeasonCollapsed ? 'Show' : 'Hide'}
+                      </span>
+                    </button>
+
+                    {!isSeasonCollapsed && (
+                      <div className="mt-2 space-y-2">
+                        {groups.map((group) => {
+                          const groupReleases = sortReleases(group.releases)
+                          const isCollapsed = collapsedGroups.has(group.key)
+
+                          return (
+                            <div key={group.key} className="rounded-md border border-slate-800/60 overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => toggleGroup(group.key)}
+                                className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span>{group.label} ({groupReleases.length})</span>
+                                  {(() => {
+                                    const status = getEpisodeGroupStatus(group.releases)
+                                    if (!status) return null
+                                    return (
+                                      <span
+                                        className={`px-1.5 rounded ${status.className}`}
+                                        title={status.label}
+                                      >
+                                        {status.icon}
+                                      </span>
+                                    )
+                                  })()}
+                                </span>
+                                <span className="text-slate-400">
+                                  {isCollapsed ? 'Show' : 'Hide'}
+                                </span>
+                              </button>
+
+                              {!isCollapsed && (
+                                <div className="divide-y divide-slate-800/60">
+                                  {groupReleases.map((release, index) => (
+                                    renderReleaseRow(release, group.key, index)
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            ) : (
+              ((data.type === 'tv' && groupFocus)
+                ? buildSeasonGroups(data.releases).flatMap((seasonGroup) => {
+                    const groupReleases = seasonGroup.releases.filter(
+                      (release) => extractGroup(release.title) === groupFocus
+                    )
+                    if (!groupReleases.length) return []
+                    return buildFormatBuckets(groupReleases).map((bucket) => ({
+                      key: `${seasonGroup.key}:${groupFocus}:${bucket.key}`,
+                      label: `${seasonGroup.label} • ${groupFocus} • ${bucket.label}`,
+                      releases: bucket.releases,
+                      showGrabAll: true,
+                    }))
+                  })
+                : (tvGroups
+                  ? tvGroups.map((group) => ({
+                      key: group.key,
+                      label: group.label,
+                      releases: group.releases,
+                      showGrabAll: false,
+                    }))
+                  : [{ key: 'all', label: '', releases: sortedReleases, showGrabAll: false }]
+                )
+              ).map((group) => {
+                const groupReleases = data.type === 'tv' && groupFocus
+                  ? sortByEpisodeOrder(group.releases)
+                  : sortReleases(group.releases)
+                const isCollapsed = collapsedGroups.has(group.key)
+
+                return (
+                  <div key={group.key} className="glass-card rounded-md px-3 py-2 text-sm">
+                    {group.label && (
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(group.key)}
+                        className="w-full px-2 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between rounded-md"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{group.label} ({groupReleases.length})</span>
+                          {(() => {
+                            const status = getEpisodeGroupStatus(group.releases)
+                            if (!status) return null
+                            return (
+                              <span
+                                className={`px-1.5 rounded ${status.className}`}
+                                title={status.label}
+                              >
+                                {status.icon}
+                              </span>
+                            )
+                          })()}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {group.showGrabAll && (
+                            (() => {
+                              const grabAllCandidates = groupReleases.filter(
+                                (release) => release.guid && release.indexer_id
+                              )
+                              const grabAllBusy = grabAllCandidates.some((release) =>
+                                grabBusyIds.has(getReleaseKey(release))
+                              )
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={grabAllCandidates.length === 0 || grabAllBusy}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    openGrabAllModal(grabAllCandidates)
+                                  }}
+                                  className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
+                                    grabAllCandidates.length === 0 || grabAllBusy
+                                      ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                                      : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
+                                  }`}
+                                  title={grabAllCandidates.length === 0
+                                    ? 'Missing release identifiers'
+                                    : 'Send all releases in this group'}
+                                  aria-label="Grab all releases"
+                                >
+                                  {grabAllBusy ? (
+                                    <span className="text-[10px]">...</span>
+                                  ) : (
+                                    <DownloadAllIcon className="h-4 w-4" />
+                                  )}
+                                </button>
+                              )
+                            })()
+                          )}
+                          <span className="text-slate-400">
+                            {isCollapsed ? 'Show' : 'Hide'}
+                          </span>
+                        </span>
+                      </button>
+                    )}
+
+                    {!isCollapsed && (
+                      <div className={`mt-2 ${group.label ? 'rounded-md border border-slate-800/60 overflow-hidden' : ''}`}>
+                        <div className={group.label ? 'divide-y divide-slate-800/60' : ''}>
+                          {groupReleases.map((release, index) => (
+                            renderReleaseRow(release, group.key, index)
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+
+  const panel = (
+    <div
+      className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl"
+      onClick={(event) => {
+        if (isEmbedded) return
+        event.stopPropagation()
+      }}
+    >
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -974,382 +1250,140 @@ export function ReleaseView({
           </div>
 
           {/* Release list */}
-          <div className="mt-4">
-            {data.releases.length === 0 ? (
-              <div className="p-8 text-center text-gray-400">
-                {data.message || 'No releases found. Check indexer configuration.'}
-              </div>
-            ) : (
-              <>
-                {/* Desktop table header */}
-                <div className="hidden">
-                  <div className="col-span-4">
-                    <SortHeader
-                      label="Release"
-                      field="title"
-                      currentSort={sortField}
-                      currentDirection={sortDirection}
-                      onSort={handleSort}
-                    />
+          {releaseList}
+        </div>
+  )
+
+  const grabAllOverlay = grabAllModal && (
+    <div className="fixed inset-0 z-50">
+      <div
+        className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+        onClick={() => setGrabAllModal(null)}
+      />
+      <div className="relative flex items-center justify-center p-4">
+        <div
+          className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold">Confirm Grab All</h3>
+              <p className="text-xs text-gray-400">
+                Review releases to grab. Uncheck duplicates if needed.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGrabAllModal(null)}
+              className="text-gray-400 hover:text-white text-2xl px-2"
+            >
+              X
+            </button>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              ref={grabAllSelectAllRef}
+              checked={grabAllModal.selected.size === grabAllModal.releases.length}
+              onChange={toggleGrabAllAll}
+            />
+            <span>Select all</span>
+          </div>
+
+          <div className="mt-3 max-h-[60vh] overflow-auto space-y-2">
+            {sortByEpisodeOrder(grabAllModal.releases).map((release) => {
+              const key = getReleaseKey(release)
+              const checked = grabAllModal.selected.has(key)
+              const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
+              const episodeStatus = getEpisodeStatus(release)
+              return (
+                <label
+                  key={key}
+                  className="flex items-start gap-3 p-2 rounded bg-slate-900/40 border border-slate-800/60"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleGrabAllSelection(release)}
+                    className="mt-1"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-xs text-slate-100 break-words">{release.title}</div>
+                    <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-2">
+                      {episodeLabel && <span>{episodeLabel}</span>}
+                      {episodeStatus && (
+                        <span
+                          className={`px-1.5 rounded ${episodeStatus.className}`}
+                          title={episodeStatus.label}
+                        >
+                          {episodeStatus.icon}
+                        </span>
+                      )}
+                      <span>{release.size_formatted}</span>
+                      <span className="text-cyan-300">{release.quality}</span>
+                      <span className="text-slate-500">{getResolutionLabel(release)}</span>
+                      <span className="text-slate-500">{getSourceLabel(release)}</span>
+                      <span className="text-slate-500">{getCodecLabel(release)}</span>
+                    </div>
                   </div>
-                  <div className="col-span-2 text-gray-400">Indexer</div>
-                  <div className="col-span-2">
-                    <SortHeader
-                      label="Size"
-                      field="size"
-                      currentSort={sortField}
-                      currentDirection={sortDirection}
-                      onSort={handleSort}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <SortHeader
-                      label="Quality"
-                      field="quality"
-                      currentSort={sortField}
-                      currentDirection={sortDirection}
-                      onSort={handleSort}
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <SortHeader
-                      label="Age"
-                      field="age"
-                      currentSort={sortField}
-                      currentDirection={sortDirection}
-                      onSort={handleSort}
-                    />
-                  </div>
-                  <div className="col-span-1"></div>
-                </div>
+                </label>
+              )
+            })}
+          </div>
 
-                {/* Mobile sort buttons */}
-                <div className="hidden">
-                  <span className="text-gray-400 text-sm">Sort:</span>
-                  {(['title', 'size', 'quality', 'age'] as SortField[]).map((field) => (
-                    <button
-                      key={field}
-                      onClick={() => handleSort(field)}
-                      className={`px-2 py-1 rounded text-xs ${
-                        sortField === field
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-slate-800/60 text-slate-300'
-                      }`}
-                    >
-                      {field.charAt(0).toUpperCase() + field.slice(1)}
-                      {sortField === field && sortDirection && (sortDirection === 'asc' ? ' ^' : ' v')}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Release rows */}
-                <div className="p-3 space-y-2">
-                  {isMultiSeason ? (
-                    seasonGroups.map((seasonGroup) => {
-                      const seasonKey = seasonGroup.key
-                      const isSeasonCollapsed = collapsedSeasons.has(seasonKey)
-                      const groups = buildEpisodeGroups(seasonGroup.releases).map((group) => ({
-                        key: `${seasonKey}:${group.key}`,
-                        label: group.label,
-                        releases: group.releases,
-                        showGrabAll: false,
-                      }))
-
-                      return (
-                        <div key={seasonKey} className="glass-card rounded-md px-3 py-2 text-sm">
-                          <button
-                            type="button"
-                            onClick={() => toggleSeason(seasonKey)}
-                            className="w-full flex items-center justify-between text-slate-200"
-                          >
-                            <span>
-                              {seasonGroup.label}
-                              {(() => {
-                                const progressLabel = getSeasonProgressLabel(seasonGroup.season)
-                                if (!progressLabel) return null
-                                return (
-                                  <span className="ml-2 text-cyan-200">
-                                    {progressLabel}
-                                  </span>
-                                )
-                              })()}
-                              <span className="ml-2 text-slate-400">
-                                ({seasonGroup.releases.length} releases)
-                              </span>
-                            </span>
-                            <span className="text-slate-400">
-                              {isSeasonCollapsed ? 'Show' : 'Hide'}
-                            </span>
-                          </button>
-
-                          {!isSeasonCollapsed && (
-                            <div className="mt-2 space-y-2">
-                              {groups.map((group) => {
-                                const groupReleases = sortReleases(group.releases)
-                                const isCollapsed = collapsedGroups.has(group.key)
-
-                                return (
-                                  <div key={group.key} className="rounded-md border border-slate-800/60 overflow-hidden">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleGroup(group.key)}
-                                      className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
-                                    >
-                                      <span className="flex items-center gap-2">
-                                        <span>{group.label} ({groupReleases.length})</span>
-                                        {(() => {
-                                          const status = getEpisodeGroupStatus(group.releases)
-                                          if (!status) return null
-                                          return (
-                                            <span
-                                              className={`px-1.5 rounded ${status.className}`}
-                                              title={status.label}
-                                            >
-                                              {status.icon}
-                                            </span>
-                                          )
-                                        })()}
-                                      </span>
-                                      <span className="text-slate-400">
-                                        {isCollapsed ? 'Show' : 'Hide'}
-                                      </span>
-                                    </button>
-
-                                    {!isCollapsed && (
-                                      <div className="divide-y divide-slate-800/60">
-                                        {groupReleases.map((release, index) => (
-                                          renderReleaseRow(release, group.key, index)
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })
-                  ) : (
-                    ((data.type === 'tv' && groupFocus)
-                      ? buildSeasonGroups(data.releases).flatMap((seasonGroup) => {
-                          const groupReleases = seasonGroup.releases.filter(
-                            (release) => extractGroup(release.title) === groupFocus
-                          )
-                          if (!groupReleases.length) return []
-                          return buildFormatBuckets(groupReleases).map((bucket) => ({
-                            key: `${seasonGroup.key}:${groupFocus}:${bucket.key}`,
-                            label: `${seasonGroup.label} • ${groupFocus} • ${bucket.label}`,
-                            releases: bucket.releases,
-                            showGrabAll: true,
-                          }))
-                        })
-                      : (tvGroups
-                        ? tvGroups.map((group) => ({
-                            key: group.key,
-                            label: group.label,
-                            releases: group.releases,
-                            showGrabAll: false,
-                          }))
-                        : [{ key: 'all', label: '', releases: sortedReleases, showGrabAll: false }]
-                      )
-                    ).map((group) => {
-                      const groupReleases = data.type === 'tv' && groupFocus
-                        ? sortByEpisodeOrder(group.releases)
-                        : sortReleases(group.releases)
-                      const isCollapsed = collapsedGroups.has(group.key)
-
-                      return (
-                        <div key={group.key} className="glass-card rounded-md px-3 py-2 text-sm">
-                          {group.label && (
-                            <button
-                              type="button"
-                              onClick={() => toggleGroup(group.key)}
-                              className="w-full px-2 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between rounded-md"
-                            >
-                              <span className="flex items-center gap-2">
-                                <span>{group.label} ({groupReleases.length})</span>
-                                {(() => {
-                                  const status = getEpisodeGroupStatus(group.releases)
-                                  if (!status) return null
-                                  return (
-                                    <span
-                                      className={`px-1.5 rounded ${status.className}`}
-                                      title={status.label}
-                                    >
-                                      {status.icon}
-                                    </span>
-                                  )
-                                })()}
-                              </span>
-                              <span className="flex items-center gap-2">
-                                {group.showGrabAll && (
-                                  (() => {
-                                    const grabAllCandidates = groupReleases.filter(
-                                      (release) => release.guid && release.indexer_id
-                                    )
-                                    const grabAllBusy = grabAllCandidates.some((release) =>
-                                      grabBusyIds.has(getReleaseKey(release))
-                                    )
-                                    return (
-                                      <button
-                                        type="button"
-                                        disabled={grabAllCandidates.length === 0 || grabAllBusy}
-                                        onClick={(event) => {
-                                          event.stopPropagation()
-                                          openGrabAllModal(grabAllCandidates)
-                                        }}
-                                        className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
-                                          grabAllCandidates.length === 0 || grabAllBusy
-                                            ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                                            : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
-                                        }`}
-                                        title={grabAllCandidates.length === 0
-                                          ? 'Missing release identifiers'
-                                          : 'Send all releases in this group'}
-                                        aria-label="Grab all releases"
-                                      >
-                                        {grabAllBusy ? (
-                                          <span className="text-[10px]">...</span>
-                                        ) : (
-                                          <DownloadAllIcon className="h-4 w-4" />
-                                        )}
-                                      </button>
-                                    )
-                                  })()
-                                )}
-                                <span className="text-slate-400">
-                                  {isCollapsed ? 'Show' : 'Hide'}
-                                </span>
-                              </span>
-                            </button>
-                          )}
-
-                          {!isCollapsed && (
-                            <div className={`mt-2 ${group.label ? 'rounded-md border border-slate-800/60 overflow-hidden' : ''}`}>
-                              <div className={group.label ? 'divide-y divide-slate-800/60' : ''}>
-                                {groupReleases.map((release, index) => (
-                                  renderReleaseRow(release, group.key, index)
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </>
-            )}
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setGrabAllModal(null)}
+              className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={grabAllModal.selected.size === 0}
+              onClick={() => {
+                const selected = grabAllModal.releases.filter((release) =>
+                  grabAllModal.selected.has(getReleaseKey(release))
+                )
+                setGrabAllModal(null)
+                onGrabAll(selected)
+              }}
+              className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
+            >
+              Grab Selected
+            </button>
           </div>
         </div>
       </div>
+    </div>
+  )
 
-      {grabAllModal && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={() => setGrabAllModal(null)}
-          />
-          <div className="relative flex items-center justify-center p-4">
-            <div
-              className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
-              onClick={(event) => event.stopPropagation()}
-            >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold">Confirm Grab All</h3>
-                <p className="text-xs text-gray-400">
-                  Review releases to grab. Uncheck duplicates if needed.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setGrabAllModal(null)}
-                className="text-gray-400 hover:text-white text-2xl px-2"
-              >
-                X
-              </button>
-            </div>
-
-            <div className="mt-4 flex items-center gap-2 text-xs text-slate-300">
-              <input
-                type="checkbox"
-                ref={grabAllSelectAllRef}
-                checked={grabAllModal.selected.size === grabAllModal.releases.length}
-                onChange={toggleGrabAllAll}
-              />
-              <span>Select all</span>
-            </div>
-
-            <div className="mt-3 max-h-[60vh] overflow-auto space-y-2">
-              {sortByEpisodeOrder(grabAllModal.releases).map((release) => {
-                const key = getReleaseKey(release)
-                const checked = grabAllModal.selected.has(key)
-                const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
-                const episodeStatus = getEpisodeStatus(release)
-                return (
-                  <label
-                    key={key}
-                    className="flex items-start gap-3 p-2 rounded bg-slate-900/40 border border-slate-800/60"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleGrabAllSelection(release)}
-                      className="mt-1"
-                    />
-                    <div className="min-w-0">
-                      <div className="text-xs text-slate-100 break-words">{release.title}</div>
-                      <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-2">
-                        {episodeLabel && <span>{episodeLabel}</span>}
-                        {episodeStatus && (
-                          <span
-                            className={`px-1.5 rounded ${episodeStatus.className}`}
-                            title={episodeStatus.label}
-                          >
-                            {episodeStatus.icon}
-                          </span>
-                        )}
-                        <span>{release.size_formatted}</span>
-                        <span className="text-cyan-300">{release.quality}</span>
-                        <span className="text-slate-500">{getResolutionLabel(release)}</span>
-                        <span className="text-slate-500">{getSourceLabel(release)}</span>
-                        <span className="text-slate-500">{getCodecLabel(release)}</span>
-                      </div>
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setGrabAllModal(null)}
-                className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={grabAllModal.selected.size === 0}
-                onClick={() => {
-                  const selected = grabAllModal.releases.filter((release) =>
-                    grabAllModal.selected.has(getReleaseKey(release))
-                  )
-                  setGrabAllModal(null)
-                  onGrabAll(selected)
-                }}
-                className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
-              >
-                Grab Selected
-              </button>
-            </div>
-            </div>
-          </div>
+  if (isEmbedded) {
+    return (
+      <div className="mt-6">
+        <div className="glass-panel rounded-lg p-4 md:p-6 max-w-3xl">
+          {grabFeedback && (
+            <p className={`mb-3 text-xs ${
+              grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
+            }`}>
+              {grabFeedback.text}
+            </p>
+          )}
+          {releaseList}
         </div>
-      )}
+        {grabAllOverlay}
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
+      <div className="min-h-screen p-4">
+        {panel}
+        {grabAllOverlay}
+      </div>
     </div>
   )
 }
