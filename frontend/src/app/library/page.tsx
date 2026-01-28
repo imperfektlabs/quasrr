@@ -39,6 +39,8 @@ function LibraryContent() {
   const [filterMode, setFilterMode] = useState<'all' | 'downloaded' | 'missing' | 'monitored' | 'unmonitored'>('all')
   const [mediaType, setMediaType] = useState<MediaType>((searchParams.get('type') as MediaType) || 'all')
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
+  const [autoSearch, setAutoSearch] = useState(false)
+  const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -192,6 +194,15 @@ function LibraryContent() {
     handleMediaTypeChange(mediaType === nextType ? 'all' : nextType)
   }
 
+  const handleLibraryDelete = (item: LibraryItem) => {
+    if (item.mediaType === 'tv') {
+      setSonarrItems((prev) => prev.filter((entry) => entry.id !== item.id))
+    } else {
+      setRadarrItems((prev) => prev.filter((entry) => entry.id !== item.id))
+    }
+    setSelectedItem(null)
+  }
+
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
       <NavigationMenu
@@ -333,7 +344,21 @@ function LibraryContent() {
                 <MediaCard
                   key={`${item.mediaType}-${item.id}`}
                   item={{ source: 'library', data: item }}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => {
+                    setSelectedItem(item)
+                    setAutoSearch(false)
+                    setAutoDeleteOpen(false)
+                  }}
+                  onLibrarySearch={() => {
+                    setSelectedItem(item)
+                    setAutoSearch(true)
+                    setAutoDeleteOpen(false)
+                  }}
+                  onLibraryDelete={() => {
+                    setSelectedItem(item)
+                    setAutoSearch(false)
+                    setAutoDeleteOpen(true)
+                  }}
                   onTypeToggle={handleTypeToggle}
                 />
               ))}
@@ -346,7 +371,14 @@ function LibraryContent() {
         <DetailModal
           mode="library"
           libraryItem={selectedItem}
-          onClose={() => setSelectedItem(null)}
+          autoSearch={autoSearch}
+          autoDeleteOpen={autoDeleteOpen}
+          onClose={() => {
+            setSelectedItem(null)
+            setAutoSearch(false)
+            setAutoDeleteOpen(false)
+          }}
+          onLibraryDelete={handleLibraryDelete}
         />
       )}
     </main>
