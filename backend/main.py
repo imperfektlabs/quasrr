@@ -534,6 +534,22 @@ async def delete_sonarr_series(series_id: int, delete_files: bool = Query(False)
     return {"status": "ok"}
 
 
+@app.delete("/sonarr/episodefile/{episode_file_id}")
+async def delete_sonarr_episode_file(episode_file_id: int):
+    """Remove an episode file from Sonarr."""
+    sonarr = get_sonarr_client()
+    if not sonarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr not configured")
+    try:
+        result = await sonarr.delete_episode_file(episode_file_id)
+    except Exception:
+        logger.error("Error deleting Sonarr episode file: unexpected")
+        raise HTTPException(status_code=500, detail="Sonarr request failed")
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=result.get("message", "Sonarr request failed"))
+    return {"status": "ok"}
+
+
 @app.delete("/radarr/movie/{movie_id}")
 async def delete_radarr_movie(movie_id: int, delete_files: bool = Query(False)):
     """Remove a movie from Radarr."""
