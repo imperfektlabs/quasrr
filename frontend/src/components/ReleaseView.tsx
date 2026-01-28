@@ -1364,6 +1364,13 @@ export function ReleaseView({
     return (
       <div className="mt-6">
         <div className="glass-panel rounded-lg p-4 md:p-6 max-w-3xl">
+          {grabFeedback && (
+            <p className={`mb-3 text-xs ${
+              grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
+            }`}>
+              {grabFeedback.text}
+            </p>
+          )}
           {releaseList}
         </div>
         {grabAllOverlay}
