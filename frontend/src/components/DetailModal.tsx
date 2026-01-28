@@ -179,7 +179,7 @@ export function DetailModal({
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || `HTTP ${response.status}`)
       }
-      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Search queued' }))
+      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Queued in Sonarr activity' }))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Search failed'
       setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: `Search failed: ${message}` }))
@@ -208,7 +208,9 @@ export function DetailModal({
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || `HTTP ${response.status}`)
       }
-      setLibraryActionMessage('Search queued')
+      setLibraryActionMessage(
+        libraryItem.mediaType === 'tv' ? 'Queued in Sonarr activity' : 'Queued in Radarr activity'
+      )
     } catch (err) {
       setLibraryActionError(err instanceof Error ? err.message : 'Search failed')
     } finally {
@@ -469,9 +471,11 @@ export function DetailModal({
                             type="button"
                             onClick={() => handleEpisodeSearch(ep.id)}
                             disabled={!ep.id || isSearching}
+                            title="Interactive Search"
+                            aria-label="Interactive Search"
                             className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
                           >
-                            {isSearching ? 'Searching...' : 'Search'}
+                            🔍
                           </button>
                         </div>
                       </div>
@@ -555,9 +559,11 @@ export function DetailModal({
             type="button"
             onClick={handleLibrarySearch}
             disabled={libraryActionBusy}
+            title="Interactive Search"
+            aria-label="Interactive Search"
             className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium transition-colors"
           >
-            {libraryActionBusy ? 'Searching...' : `Search ${libraryItem.mediaType === 'tv' ? 'Series' : 'Movie'}`}
+            🔍
           </button>
           <button
             type="button"
