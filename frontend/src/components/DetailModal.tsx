@@ -30,6 +30,7 @@ type DetailModalProps = {
   result?: DiscoveryResult
   // Library mode props
   libraryItem?: LibraryItem
+  onLibraryDelete?: (item: LibraryItem) => void
   // Common props
   onClose: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
@@ -47,6 +48,7 @@ export function DetailModal({
   onSearch,
   onClose,
   onShowReleases,
+  onLibraryDelete,
 }: DetailModalProps) {
   const [manualQuery, setManualQuery] = useState(plan?.query || '')
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -58,6 +60,15 @@ export function DetailModal({
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(new Set())
   const [episodesBySeason, setEpisodesBySeason] = useState<Record<number, SonarrEpisode[]>>({})
   const [episodesLoading, setEpisodesLoading] = useState(false)
+  const [episodeSearchBusyIds, setEpisodeSearchBusyIds] = useState<Set<number>>(new Set())
+  const [episodeSearchStatus, setEpisodeSearchStatus] = useState<Record<number, string>>({})
+  const [libraryActionBusy, setLibraryActionBusy] = useState(false)
+  const [libraryActionMessage, setLibraryActionMessage] = useState<string | null>(null)
+  const [libraryActionError, setLibraryActionError] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteFiles, setDeleteFiles] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Escape key handler
   useEffect(() => {
@@ -137,6 +148,100 @@ export function DetailModal({
     fetchEpisodes()
     return () => { active = false }
   }, [mode, libraryItem])
+
+  useEffect(() => {
+    if (mode !== 'library') return
+    setEpisodeSearchBusyIds(new Set())
+    setEpisodeSearchStatus({})
+    setLibraryActionBusy(false)
+    setLibraryActionMessage(null)
+    setLibraryActionError(null)
+    setDeleteConfirmOpen(false)
+    setDeleteFiles(false)
+    setDeleteBusy(false)
+    setDeleteError(null)
+  }, [mode, libraryItem?.id])
+
+  const handleEpisodeSearch = async (episodeId?: number) => {
+    if (!episodeId || episodeSearchBusyIds.has(episodeId)) return
+    setEpisodeSearchBusyIds((prev) => {
+      const next = new Set(prev)
+      next.add(episodeId)
+      return next
+    })
+    setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: '' }))
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/sonarr/episode/${episodeId}/search`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Search queued' }))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Search failed'
+      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: `Search failed: ${message}` }))
+    } finally {
+      setEpisodeSearchBusyIds((prev) => {
+        const next = new Set(prev)
+        next.delete(episodeId)
+        return next
+      })
+    }
+  }
+
+  const handleLibrarySearch = async () => {
+    if (mode !== 'library' || !libraryItem || libraryActionBusy) return
+    setLibraryActionBusy(true)
+    setLibraryActionMessage(null)
+    setLibraryActionError(null)
+    try {
+      const backendUrl = getBackendUrl()
+      const endpoint =
+        libraryItem.mediaType === 'tv'
+          ? `${backendUrl}/sonarr/series/${libraryItem.id}/search`
+          : `${backendUrl}/radarr/movie/${libraryItem.id}/search`
+      const response = await fetch(endpoint, { method: 'POST' })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      setLibraryActionMessage('Search queued')
+    } catch (err) {
+      setLibraryActionError(err instanceof Error ? err.message : 'Search failed')
+    } finally {
+      setLibraryActionBusy(false)
+    }
+  }
+
+  const handleLibraryDelete = async () => {
+    if (mode !== 'library' || !libraryItem || deleteBusy) return
+    setDeleteBusy(true)
+    setDeleteError(null)
+    try {
+      const backendUrl = getBackendUrl()
+      const endpoint =
+        libraryItem.mediaType === 'tv'
+          ? `${backendUrl}/sonarr/series/${libraryItem.id}`
+          : `${backendUrl}/radarr/movie/${libraryItem.id}`
+      const params = new URLSearchParams({
+        delete_files: deleteFiles ? 'true' : 'false',
+      })
+      const response = await fetch(`${endpoint}?${params.toString()}`, { method: 'DELETE' })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      onLibraryDelete?.(libraryItem)
+      onClose()
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
 
   // Early return checks
   if (mode === 'ai' && !plan) return null
@@ -345,16 +450,29 @@ export function DetailModal({
                     const titleText = ep.title || 'Untitled'
                     const episodePrefix = ep.episodeNumber != null ? `E${String(ep.episodeNumber).padStart(2, '0')}` : 'E--'
                     const fullTitle = `${episodePrefix} ${titleText}`
+                    const searchStatus = ep.id ? episodeSearchStatus[ep.id] : ''
+                    const isSearching = ep.id ? episodeSearchBusyIds.has(ep.id) : false
                     return (
                       <div key={ep.id} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                         <div className="min-w-0">
                           <span className="block truncate" title={fullTitle}>
                             {fullTitle}
                           </span>
+                          {searchStatus && (
+                            <span className="block text-xs text-slate-400">{searchStatus}</span>
+                          )}
                         </div>
                         <div className="flex items-center justify-end gap-2 text-slate-500">
                           {airDateLabel && <span className="text-slate-400">{airDateLabel}</span>}
                           <span className={`text-xs ${qualityClass}`} title={qualityTitle}>{qualityIcon}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleEpisodeSearch(ep.id)}
+                            disabled={!ep.id || isSearching}
+                            className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
+                          >
+                            {isSearching ? 'Searching...' : 'Search'}
+                          </button>
                         </div>
                       </div>
                     )
@@ -427,6 +545,64 @@ export function DetailModal({
         >
           Find Releases
         </button>
+      </div>
+    )
+  } else if (mode === 'library' && libraryItem) {
+    actionButtons = (
+      <div className="mt-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleLibrarySearch}
+            disabled={libraryActionBusy}
+            className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+          >
+            {libraryActionBusy ? 'Searching...' : `Search ${libraryItem.mediaType === 'tv' ? 'Series' : 'Movie'}`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteConfirmOpen(true)}
+            className="bg-rose-500/70 hover:bg-rose-500/80 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+          >
+            Remove from Library
+          </button>
+        </div>
+        {libraryActionMessage && <div className="text-xs text-cyan-200">{libraryActionMessage}</div>}
+        {libraryActionError && <div className="text-xs text-amber-300">Search: {libraryActionError}</div>}
+        {deleteConfirmOpen && (
+          <div className="rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
+            <div className="font-semibold text-rose-200">Confirm removal</div>
+            <p className="text-slate-300">
+              This will remove the title from your {libraryItem.mediaType === 'tv' ? 'Sonarr' : 'Radarr'} library.
+            </p>
+            <label className="flex items-center gap-2 text-slate-300">
+              <input
+                type="checkbox"
+                checked={deleteFiles}
+                onChange={(event) => setDeleteFiles(event.target.checked)}
+              />
+              Delete files from disk
+            </label>
+            {deleteError && <div className="text-amber-300">Delete: {deleteError}</div>}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleLibraryDelete}
+                disabled={deleteBusy}
+                className="bg-rose-500/80 hover:bg-rose-500 disabled:bg-rose-900/50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded text-xs font-semibold"
+              >
+                {deleteBusy ? 'Removing...' : 'Confirm remove'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="bg-slate-800/70 hover:bg-slate-700/70 text-slate-200 px-3 py-1.5 rounded text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

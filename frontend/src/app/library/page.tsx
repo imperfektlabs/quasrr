@@ -192,6 +192,15 @@ function LibraryContent() {
     handleMediaTypeChange(mediaType === nextType ? 'all' : nextType)
   }
 
+  const handleLibraryDelete = (item: LibraryItem) => {
+    if (item.mediaType === 'tv') {
+      setSonarrItems((prev) => prev.filter((entry) => entry.id !== item.id))
+    } else {
+      setRadarrItems((prev) => prev.filter((entry) => entry.id !== item.id))
+    }
+    setSelectedItem(null)
+  }
+
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
       <NavigationMenu
@@ -347,6 +356,7 @@ function LibraryContent() {
           mode="library"
           libraryItem={selectedItem}
           onClose={() => setSelectedItem(null)}
+          onLibraryDelete={handleLibraryDelete}
         />
       )}
     </main>
