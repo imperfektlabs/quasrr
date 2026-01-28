@@ -109,7 +109,11 @@ export function NavigationMenu({
       </div>
 
       {menuOpen && (
-        <div ref={menuPanelRef} className="mt-3 grid gap-2 text-sm text-slate-200">
+        <div
+          ref={menuPanelRef}
+          onMouseLeave={() => setMenuOpen(false)}
+          className="mt-3 grid gap-2 text-sm text-slate-200"
+        >
           {/* Home Button */}
           <button
             type="button"

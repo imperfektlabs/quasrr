@@ -610,7 +610,7 @@ function HomeContent() {
                 <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
                 <a
                   href="/library"
-                  className="text-xs text-slate-300 hover:text-cyan-200 transition-colors"
+                  className="text-xs text-slate-300 hover:text-cyan-200 transition-colors px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
                 >
                   Library
                 </a>
