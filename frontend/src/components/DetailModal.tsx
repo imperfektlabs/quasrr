@@ -508,7 +508,7 @@ export function DetailModal({
         <div className="mb-3 rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
           <div className="font-semibold text-rose-200">Confirm removal</div>
           <p className="text-slate-300">
-            This will remove the title from your {libraryItem.mediaType === 'tv' ? 'Sonarr' : 'Radarr'} library.
+            This will remove the title from your Sonarr library.
           </p>
           <label className="flex items-center gap-2 text-slate-300">
             <input
@@ -712,7 +712,7 @@ export function DetailModal({
           <div className="rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
             <div className="font-semibold text-rose-200">Confirm removal</div>
             <p className="text-slate-300">
-              This will remove the title from your {libraryItem.mediaType === 'tv' ? 'Sonarr' : 'Radarr'} library.
+              This will remove the title from your Radarr library.
             </p>
             <label className="flex items-center gap-2 text-slate-300">
               <input
