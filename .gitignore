@@ -1,5 +1,9 @@
 # --- .gitignore for Media Stack ---
 
+# 0. Scratch Folder
+.scratch/
+
+
 # 1. System Junk
 .DS_Store
 Thumbs.db
