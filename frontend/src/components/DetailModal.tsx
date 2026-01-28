@@ -91,7 +91,12 @@ export function DetailModal({
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
   }, [onClose])
 
   // Fetch availability for AI or discovery modes
@@ -688,7 +693,10 @@ export function DetailModal({
   return (
     <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
       <div className="min-h-screen p-4">
-        <div className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
 
           {/* HEADER - identical for all modes */}
           <div className="flex justify-between items-start gap-4">
