@@ -685,7 +685,7 @@ export function DetailModal({
   } else if (mode === 'library' && libraryItem && libraryItem.mediaType !== 'tv') {
     actionButtons = (
       <div className="mt-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={handleLibrarySearch}
