@@ -785,8 +785,8 @@ function HomeContent() {
                     event.preventDefault()
                     void handleSubmitSearch()
                   }}
-                  placeholder="Search movies and TV shows..."
-                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs text-slate-200 placeholder-slate-500"
+                  placeholder="Search Movies and TV..."
+                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-md text-slate-200 placeholder-slate-500"
                 />
                 <button
                   type="submit"
