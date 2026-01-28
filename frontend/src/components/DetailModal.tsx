@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   AIIntentPlan,
   AIAvailability,
@@ -74,6 +74,7 @@ export function DetailModal({
   const [libraryReleaseData, setLibraryReleaseData] = useState<ReleaseResponse | null>(null)
   const [libraryReleaseLoading, setLibraryReleaseLoading] = useState(false)
   const [libraryReleaseError, setLibraryReleaseError] = useState<string | null>(null)
+  const libraryResultsRef = useRef<HTMLDivElement | null>(null)
 
   const {
     busyIds: libraryGrabBusyIds,
@@ -180,6 +181,12 @@ export function DetailModal({
     clearLibraryGrab()
     setLibraryGrabFeedback(null)
   }, [mode, libraryItem?.id, clearLibraryGrab, setLibraryGrabFeedback])
+
+  useEffect(() => {
+    if (mode !== 'library') return
+    if (!libraryReleaseLoading && !libraryReleaseError && !libraryReleaseData) return
+    libraryResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [mode, libraryReleaseData, libraryReleaseError, libraryReleaseLoading])
 
   const fetchLibraryReleases = async (options?: { season?: number; episode?: number }) => {
     if (!libraryItem) throw new Error('Missing library item')
@@ -753,7 +760,7 @@ export function DetailModal({
           {actionButtons}
 
           {mode === 'library' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
-            <div className="mt-6 space-y-3">
+            <div ref={libraryResultsRef} className="mt-6 space-y-3">
               {libraryReleaseLoading && !libraryActionMessage && (
                 <div className="text-sm text-slate-300">Searching...</div>
               )}
