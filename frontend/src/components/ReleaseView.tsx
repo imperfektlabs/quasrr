@@ -110,6 +110,7 @@ export function ReleaseView({
   aiSuggestBusy,
   aiSuggestError,
   onAiSuggest,
+  variant = 'modal',
 }: {
   data: ReleaseResponse
   result?: DiscoveryResult
@@ -123,7 +124,9 @@ export function ReleaseView({
   aiSuggestBusy: boolean
   aiSuggestError: string | null
   onAiSuggest: (releases: Release[]) => void
+  variant?: 'modal' | 'embedded'
 }) {
+  const isEmbedded = variant === 'embedded'
   const [sortField, setSortField] = useState<SortField>('size')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [groupFocus, setGroupFocus] = useState<string | null>(null)
@@ -140,6 +143,7 @@ export function ReleaseView({
   const posterUrl = data.poster || result?.poster
 
   useEffect(() => {
+    if (isEmbedded) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose()
@@ -148,7 +152,7 @@ export function ReleaseView({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [isEmbedded, onClose])
 
   useEffect(() => {
     if (data.type !== 'tv') {
@@ -840,13 +844,15 @@ export function ReleaseView({
     )
   }
 
-  return (
-    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
-      <div className="min-h-screen p-4">
-        <div
-          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl"
-          onClick={(event) => event.stopPropagation()}
-        >
+  const panel = (
+    <>
+    <div
+      className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl"
+      onClick={(event) => {
+        if (isEmbedded) return
+        event.stopPropagation()
+      }}
+    >
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -1243,113 +1249,123 @@ export function ReleaseView({
             )}
           </div>
         </div>
-      </div>
-
-      {grabAllModal && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={() => setGrabAllModal(null)}
-          />
-          <div className="relative flex items-center justify-center p-4">
+        {grabAllModal && (
+          <div className="fixed inset-0 z-50">
             <div
-              className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
-              onClick={(event) => event.stopPropagation()}
-            >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold">Confirm Grab All</h3>
-                <p className="text-xs text-gray-400">
-                  Review releases to grab. Uncheck duplicates if needed.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setGrabAllModal(null)}
-                className="text-gray-400 hover:text-white text-2xl px-2"
+              className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+              onClick={() => setGrabAllModal(null)}
+            />
+            <div className="relative flex items-center justify-center p-4">
+              <div
+                className="glass-panel rounded-lg max-w-3xl w-full p-4 md:p-6"
+                onClick={(event) => event.stopPropagation()}
               >
-                X
-              </button>
-            </div>
-
-            <div className="mt-4 flex items-center gap-2 text-xs text-slate-300">
-              <input
-                type="checkbox"
-                ref={grabAllSelectAllRef}
-                checked={grabAllModal.selected.size === grabAllModal.releases.length}
-                onChange={toggleGrabAllAll}
-              />
-              <span>Select all</span>
-            </div>
-
-            <div className="mt-3 max-h-[60vh] overflow-auto space-y-2">
-              {sortByEpisodeOrder(grabAllModal.releases).map((release) => {
-                const key = getReleaseKey(release)
-                const checked = grabAllModal.selected.has(key)
-                const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
-                const episodeStatus = getEpisodeStatus(release)
-                return (
-                  <label
-                    key={key}
-                    className="flex items-start gap-3 p-2 rounded bg-slate-900/40 border border-slate-800/60"
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Confirm Grab All</h3>
+                    <p className="text-xs text-gray-400">
+                      Review releases to grab. Uncheck duplicates if needed.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGrabAllModal(null)}
+                    className="text-gray-400 hover:text-white text-2xl px-2"
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleGrabAllSelection(release)}
-                      className="mt-1"
-                    />
-                    <div className="min-w-0">
-                      <div className="text-xs text-slate-100 break-words">{release.title}</div>
-                      <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-2">
-                        {episodeLabel && <span>{episodeLabel}</span>}
-                        {episodeStatus && (
-                          <span
-                            className={`px-1.5 rounded ${episodeStatus.className}`}
-                            title={episodeStatus.label}
-                          >
-                            {episodeStatus.icon}
-                          </span>
-                        )}
-                        <span>{release.size_formatted}</span>
-                        <span className="text-cyan-300">{release.quality}</span>
-                        <span className="text-slate-500">{getResolutionLabel(release)}</span>
-                        <span className="text-slate-500">{getSourceLabel(release)}</span>
-                        <span className="text-slate-500">{getCodecLabel(release)}</span>
-                      </div>
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
+                    X
+                  </button>
+                </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setGrabAllModal(null)}
-                className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={grabAllModal.selected.size === 0}
-                onClick={() => {
-                  const selected = grabAllModal.releases.filter((release) =>
-                    grabAllModal.selected.has(getReleaseKey(release))
-                  )
-                  setGrabAllModal(null)
-                  onGrabAll(selected)
-                }}
-                className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
-              >
-                Grab Selected
-              </button>
-            </div>
+                <div className="mt-4 flex items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    ref={grabAllSelectAllRef}
+                    checked={grabAllModal.selected.size === grabAllModal.releases.length}
+                    onChange={toggleGrabAllAll}
+                  />
+                  <span>Select all</span>
+                </div>
+
+                <div className="mt-3 max-h-[60vh] overflow-auto space-y-2">
+                  {sortByEpisodeOrder(grabAllModal.releases).map((release) => {
+                    const key = getReleaseKey(release)
+                    const checked = grabAllModal.selected.has(key)
+                    const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
+                    const episodeStatus = getEpisodeStatus(release)
+                    return (
+                      <label
+                        key={key}
+                        className="flex items-start gap-3 p-2 rounded bg-slate-900/40 border border-slate-800/60"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleGrabAllSelection(release)}
+                          className="mt-1"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs text-slate-100 break-words">{release.title}</div>
+                          <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-2">
+                            {episodeLabel && <span>{episodeLabel}</span>}
+                            {episodeStatus && (
+                              <span
+                                className={`px-1.5 rounded ${episodeStatus.className}`}
+                                title={episodeStatus.label}
+                              >
+                                {episodeStatus.icon}
+                              </span>
+                            )}
+                            <span>{release.size_formatted}</span>
+                            <span className="text-cyan-300">{release.quality}</span>
+                            <span className="text-slate-500">{getResolutionLabel(release)}</span>
+                            <span className="text-slate-500">{getSourceLabel(release)}</span>
+                            <span className="text-slate-500">{getCodecLabel(release)}</span>
+                          </div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGrabAllModal(null)}
+                    className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={grabAllModal.selected.size === 0}
+                    onClick={() => {
+                      const selected = grabAllModal.releases.filter((release) =>
+                        grabAllModal.selected.has(getReleaseKey(release))
+                      )
+                      setGrabAllModal(null)
+                      onGrabAll(selected)
+                    }}
+                    className="bg-cyan-600/90 hover:bg-cyan-500 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm"
+                  >
+                    Grab Selected
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </>
+  )
+
+  if (isEmbedded) {
+    return <div className="mt-6">{panel}</div>
+  }
+
+  return (
+    <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
+      <div className="min-h-screen p-4">
+        {panel}
+      </div>
     </div>
   )
 }

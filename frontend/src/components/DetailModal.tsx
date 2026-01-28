@@ -10,10 +10,12 @@ import type {
   RadarrLibraryItem,
   SonarrEpisode,
 } from '@/types'
+import { useReleaseGrab } from '@/hooks'
 import { getBackendUrl } from '@/utils/backend'
 import { getRatingLink, formatSize } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
+import { ReleaseView } from './ReleaseView'
 
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 
@@ -69,6 +71,18 @@ export function DetailModal({
   const [deleteFiles, setDeleteFiles] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [libraryReleaseData, setLibraryReleaseData] = useState<ReleaseResponse | null>(null)
+  const [libraryReleaseLoading, setLibraryReleaseLoading] = useState(false)
+  const [libraryReleaseError, setLibraryReleaseError] = useState<string | null>(null)
+
+  const {
+    busyIds: libraryGrabBusyIds,
+    feedback: libraryGrabFeedback,
+    setFeedback: setLibraryGrabFeedback,
+    grab: grabLibraryRelease,
+    grabAll: grabAllLibraryReleases,
+    clear: clearLibraryGrab,
+  } = useReleaseGrab(libraryReleaseData, false, async () => {})
 
   // Escape key handler
   useEffect(() => {
@@ -160,26 +174,72 @@ export function DetailModal({
     setDeleteFiles(false)
     setDeleteBusy(false)
     setDeleteError(null)
-  }, [mode, libraryItem?.id])
+    setLibraryReleaseData(null)
+    setLibraryReleaseLoading(false)
+    setLibraryReleaseError(null)
+    clearLibraryGrab()
+    setLibraryGrabFeedback(null)
+  }, [mode, libraryItem?.id, clearLibraryGrab, setLibraryGrabFeedback])
 
-  const handleEpisodeSearch = async (episodeId?: number) => {
-    if (!episodeId || episodeSearchBusyIds.has(episodeId)) return
+  const fetchLibraryReleases = async (options?: { season?: number; episode?: number }) => {
+    if (!libraryItem) throw new Error('Missing library item')
+    setLibraryReleaseLoading(true)
+    setLibraryReleaseError(null)
+    setLibraryReleaseData(null)
+    setLibraryGrabFeedback(null)
+    try {
+      const backendUrl = getBackendUrl()
+      const isTv = libraryItem.mediaType === 'tv'
+      const params = new URLSearchParams({
+        type: isTv ? 'tv' : 'movie',
+        title: libraryItem.title,
+      })
+
+      if (isTv) {
+        if (!libraryItem.tvdbId) {
+          throw new Error('Missing TVDB ID')
+        }
+        params.set('tvdb_id', libraryItem.tvdbId.toString())
+        if (typeof options?.season === 'number') {
+          params.set('season', options.season.toString())
+        }
+        if (typeof options?.episode === 'number') {
+          params.set('episode', options.episode.toString())
+        }
+      } else {
+        if (!libraryItem.tmdbId) {
+          throw new Error('Missing TMDB ID')
+        }
+        params.set('tmdb_id', libraryItem.tmdbId.toString())
+      }
+
+      const response = await fetch(`${backendUrl}/releases?${params.toString()}`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      const data = await response.json()
+      setLibraryReleaseData(data)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Search failed'
+      setLibraryReleaseError(message)
+      throw err
+    } finally {
+      setLibraryReleaseLoading(false)
+    }
+  }
+
+  const handleEpisodeSearch = async (episodeId?: number, seasonNumber?: number, episodeNumber?: number) => {
+    if (!episodeId || seasonNumber == null || episodeNumber == null) return
     setEpisodeSearchBusyIds((prev) => {
       const next = new Set(prev)
       next.add(episodeId)
       return next
     })
-    setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: '' }))
+    setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Searching...' }))
     try {
-      const backendUrl = getBackendUrl()
-      const response = await fetch(`${backendUrl}/sonarr/episode/${episodeId}/search`, {
-        method: 'POST',
-      })
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `HTTP ${response.status}`)
-      }
-      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Queued in Sonarr activity' }))
+      await fetchLibraryReleases({ season: seasonNumber, episode: episodeNumber })
+      setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Results below' }))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Search failed'
       setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: `Search failed: ${message}` }))
@@ -195,24 +255,14 @@ export function DetailModal({
   const handleLibrarySearch = async () => {
     if (mode !== 'library' || !libraryItem || libraryActionBusy) return
     setLibraryActionBusy(true)
-    setLibraryActionMessage(null)
+    setLibraryActionMessage('Searching...')
     setLibraryActionError(null)
     try {
-      const backendUrl = getBackendUrl()
-      const endpoint =
-        libraryItem.mediaType === 'tv'
-          ? `${backendUrl}/sonarr/series/${libraryItem.id}/search`
-          : `${backendUrl}/radarr/movie/${libraryItem.id}/search`
-      const response = await fetch(endpoint, { method: 'POST' })
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `HTTP ${response.status}`)
-      }
-      setLibraryActionMessage(
-        libraryItem.mediaType === 'tv' ? 'Queued in Sonarr activity' : 'Queued in Radarr activity'
-      )
+      await fetchLibraryReleases()
+      setLibraryActionMessage(null)
     } catch (err) {
       setLibraryActionError(err instanceof Error ? err.message : 'Search failed')
+      setLibraryActionMessage(null)
     } finally {
       setLibraryActionBusy(false)
     }
@@ -243,6 +293,14 @@ export function DetailModal({
     } finally {
       setDeleteBusy(false)
     }
+  }
+
+  const handleLibraryReleaseClose = () => {
+    setLibraryReleaseData(null)
+    setLibraryReleaseError(null)
+    setLibraryReleaseLoading(false)
+    clearLibraryGrab()
+    setLibraryGrabFeedback(null)
   }
 
   // Early return checks
@@ -453,6 +511,8 @@ export function DetailModal({
                     const episodePrefix = ep.episodeNumber != null ? `E${String(ep.episodeNumber).padStart(2, '0')}` : 'E--'
                     const fullTitle = `${episodePrefix} ${titleText}`
                     const searchStatus = ep.id ? episodeSearchStatus[ep.id] : ''
+                    const canSearchEpisode =
+                      ep.id != null && ep.seasonNumber != null && ep.episodeNumber != null
                     const isSearching = ep.id ? episodeSearchBusyIds.has(ep.id) : false
                     return (
                       <div key={ep.id} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -469,8 +529,8 @@ export function DetailModal({
                           <span className={`text-xs ${qualityClass}`} title={qualityTitle}>{qualityIcon}</span>
                           <button
                             type="button"
-                            onClick={() => handleEpisodeSearch(ep.id)}
-                            disabled={!ep.id || isSearching}
+                            onClick={() => handleEpisodeSearch(ep.id, ep.seasonNumber, ep.episodeNumber)}
+                            disabled={!canSearchEpisode || isSearching}
                             title="Interactive Search"
                             aria-label="Interactive Search"
                             className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
@@ -689,6 +749,33 @@ export function DetailModal({
 
           {/* ACTION BUTTONS - mode-specific */}
           {actionButtons}
+
+          {mode === 'library' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
+            <div className="mt-6 space-y-3">
+              {libraryReleaseLoading && !libraryActionMessage && (
+                <div className="text-sm text-slate-300">Searching...</div>
+              )}
+              {libraryReleaseError && (
+                <div className="text-xs text-amber-300">Search: {libraryReleaseError}</div>
+              )}
+              {libraryReleaseData && (
+                <ReleaseView
+                  data={libraryReleaseData}
+                  onClose={handleLibraryReleaseClose}
+                  onGrabRelease={grabLibraryRelease}
+                  onGrabAll={grabAllLibraryReleases}
+                  grabBusyIds={libraryGrabBusyIds}
+                  grabFeedback={libraryGrabFeedback}
+                  aiEnabled={false}
+                  aiSuggestion={null}
+                  aiSuggestBusy={false}
+                  aiSuggestError={null}
+                  onAiSuggest={() => {}}
+                  variant="embedded"
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
