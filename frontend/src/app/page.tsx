@@ -608,6 +608,12 @@ function HomeContent() {
             <div className="glass-panel rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
+                <a
+                  href="/library"
+                  className="text-xs text-slate-300 hover:text-cyan-200 transition-colors"
+                >
+                  Library
+                </a>
               </div>
               {dashboardLoading && (
                 <div className="text-xs text-gray-500 mb-2">Updating…</div>

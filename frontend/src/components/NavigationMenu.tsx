@@ -85,6 +85,7 @@ export function NavigationMenu({
         <button
           type="button"
           onClick={() => setMenuOpen((prev) => !prev)}
+          onMouseEnter={() => setMenuOpen(true)}
           className="px-2 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center"
           aria-label="Toggle menu"
           aria-expanded={menuOpen}
