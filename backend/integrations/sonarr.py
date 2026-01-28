@@ -352,6 +352,31 @@ class SonarrClient:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    async def delete_episode_file(self, episode_file_id: int) -> dict:
+        """Remove an episode file from Sonarr."""
+        if not self.is_configured:
+            return {"status": "error", "message": "Sonarr not configured"}
+
+        logger.info("Removing Sonarr episode file: episodeFileId=%s", episode_file_id)
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.delete(
+                    f"{self.base_url}/api/v3/episodefile/{episode_file_id}",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                return {"status": "ok"}
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "Sonarr timeout"}
+        except httpx.HTTPStatusError as e:
+            try:
+                err = e.response.json().get("message", "")[:200]
+            except Exception:
+                err = str(e.response.text)[:200]
+            return {"status": "error", "message": f"Sonarr error: {err}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
     async def get_episode_list(self, series_id: int) -> list[dict]:
         """Fetch episode list for a series."""
         if not self.is_configured:
@@ -640,6 +665,7 @@ class SonarrClient:
                 return [
                     {
                         "id": episode.get("id"),
+                        "episodeFileId": episode.get("episodeFileId"),
                         "seasonNumber": episode.get("seasonNumber"),
                         "episodeNumber": episode.get("episodeNumber"),
                         "title": episode.get("title"),

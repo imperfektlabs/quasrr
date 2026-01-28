@@ -179,10 +179,10 @@ export function MediaCard({
               onLibrarySearch?.()
             }}
             className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 text-xs"
-            title="Interactive Search"
-            aria-label="Interactive Search"
+            title="Search All"
+            aria-label="Search All"
           >
-            🔍
+            ⌕
           </button>
           <button
             type="button"
@@ -191,8 +191,8 @@ export function MediaCard({
               onLibraryDelete?.()
             }}
             className="px-2 py-1 rounded bg-rose-500/70 text-white hover:bg-rose-500/80 text-xs"
-            title="Remove from Library"
-            aria-label="Remove from Library"
+            title="Remove title from library"
+            aria-label="Remove title from library"
           >
             ✕
           </button>

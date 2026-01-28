@@ -305,6 +305,7 @@ export type SonarrLibraryItem = {
 
 export type SonarrEpisode = {
   id?: number
+  episodeFileId?: number
   seasonNumber?: number
   episodeNumber?: number
   title?: string

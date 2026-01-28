@@ -68,6 +68,8 @@ export function DetailModal({
   const [episodesLoading, setEpisodesLoading] = useState(false)
   const [episodeSearchBusyIds, setEpisodeSearchBusyIds] = useState<Set<number>>(new Set())
   const [episodeSearchStatus, setEpisodeSearchStatus] = useState<Record<number, string>>({})
+  const [episodeDeleteBusyIds, setEpisodeDeleteBusyIds] = useState<Set<number>>(new Set())
+  const [episodeDeleteStatus, setEpisodeDeleteStatus] = useState<Record<number, string>>({})
   const [libraryActionBusy, setLibraryActionBusy] = useState(false)
   const [libraryActionMessage, setLibraryActionMessage] = useState<string | null>(null)
   const [libraryActionError, setLibraryActionError] = useState<string | null>(null)
@@ -79,6 +81,7 @@ export function DetailModal({
   const [libraryReleaseLoading, setLibraryReleaseLoading] = useState(false)
   const [libraryReleaseError, setLibraryReleaseError] = useState<string | null>(null)
   const libraryResultsRef = useRef<HTMLDivElement | null>(null)
+  const deleteConfirmRef = useRef<HTMLDivElement | null>(null)
   const autoSearchHandled = useRef(false)
 
   const {
@@ -184,6 +187,8 @@ export function DetailModal({
     if (mode !== 'library') return
     setEpisodeSearchBusyIds(new Set())
     setEpisodeSearchStatus({})
+    setEpisodeDeleteBusyIds(new Set())
+    setEpisodeDeleteStatus({})
     setLibraryActionBusy(false)
     setLibraryActionMessage(null)
     setLibraryActionError(null)
@@ -211,6 +216,13 @@ export function DetailModal({
       setDeleteConfirmOpen(true)
     }
   }, [mode, autoDeleteOpen])
+
+  useEffect(() => {
+    if (!deleteConfirmOpen) return
+    requestAnimationFrame(() => {
+      deleteConfirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [deleteConfirmOpen])
 
   const fetchLibraryReleases = async (options?: { season?: number; episode?: number }) => {
     if (!libraryItem) throw new Error('Missing library item')
@@ -276,6 +288,45 @@ export function DetailModal({
       setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: `Search failed: ${message}` }))
     } finally {
       setEpisodeSearchBusyIds((prev) => {
+        const next = new Set(prev)
+        next.delete(episodeId)
+        return next
+      })
+    }
+  }
+
+  const handleEpisodeDelete = async (episodeFileId?: number, episodeId?: number) => {
+    if (!episodeFileId || !episodeId) return
+    setEpisodeDeleteBusyIds((prev) => {
+      const next = new Set(prev)
+      next.add(episodeId)
+      return next
+    })
+    setEpisodeDeleteStatus((prev) => ({ ...prev, [episodeId]: 'Deleting...' }))
+    try {
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/sonarr/episodefile/${episodeFileId}`, { method: 'DELETE' })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `HTTP ${response.status}`)
+      }
+      setEpisodeDeleteStatus((prev) => ({ ...prev, [episodeId]: 'Deleted' }))
+      setEpisodesBySeason((prev) => {
+        const next = { ...prev }
+        for (const [seasonKey, episodes] of Object.entries(next)) {
+          next[Number(seasonKey)] = episodes.map((episode) =>
+            episode.id === episodeId
+              ? { ...episode, hasFile: false, quality: null, episodeFileId: undefined }
+              : episode
+          )
+        }
+        return next
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Delete failed'
+      setEpisodeDeleteStatus((prev) => ({ ...prev, [episodeId]: `Delete failed: ${message}` }))
+    } finally {
+      setEpisodeDeleteBusyIds((prev) => {
         const next = new Set(prev)
         next.delete(episodeId)
         return next
@@ -510,17 +561,17 @@ export function DetailModal({
             type="button"
             onClick={handleLibrarySearch}
             disabled={libraryActionBusy}
-            title="Interactive Search"
-            aria-label="Interactive Search"
+            title="Search All"
+            aria-label="Search All"
             className="bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 py-2 px-3 rounded text-sm font-medium transition-colors"
           >
-            🔍
+            ⌕
           </button>
           <button
             type="button"
             onClick={() => setDeleteConfirmOpen(true)}
-            title="Remove from Library"
-            aria-label="Remove from Library"
+            title="Remove title from library"
+            aria-label="Remove title from library"
             className="bg-rose-500/70 hover:bg-rose-500/80 text-white py-2 px-3 rounded text-sm font-medium transition-colors"
           >
             ✕
@@ -530,7 +581,7 @@ export function DetailModal({
       {libraryActionMessage && <div className="text-xs text-cyan-200 mb-2">{libraryActionMessage}</div>}
       {libraryActionError && <div className="text-xs text-amber-300 mb-2">Search: {libraryActionError}</div>}
       {deleteConfirmOpen && (
-        <div className="mb-3 rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
+        <div ref={deleteConfirmRef} className="mb-3 rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
           <div className="font-semibold text-rose-200">Confirm removal</div>
           <p className="text-slate-300">
             This will remove the title from your Sonarr library.
@@ -588,7 +639,7 @@ export function DetailModal({
                 <span className="text-slate-300">{season.episodeFileCount || 0}/{season.episodeCount || 0} eps</span>
               </button>
               {isExpanded && (
-                <div className="mt-2 space-y-1 text-sm text-slate-300">
+                <div className="mt-2 space-y-1 text-xs text-slate-300">
                   {episodes.length === 0 && (
                     <div className="text-slate-500">{episodesLoading ? 'Loading episodes...' : 'No episodes found'}</div>
                   )}
@@ -609,17 +660,20 @@ export function DetailModal({
                     const episodePrefix = ep.episodeNumber != null ? `E${String(ep.episodeNumber).padStart(2, '0')}` : 'E--'
                     const fullTitle = `${episodePrefix} ${titleText}`
                     const searchStatus = ep.id ? episodeSearchStatus[ep.id] : ''
+                    const deleteStatus = ep.id ? episodeDeleteStatus[ep.id] : ''
                     const canSearchEpisode =
                       ep.id != null && ep.seasonNumber != null && ep.episodeNumber != null
                     const isSearching = ep.id ? episodeSearchBusyIds.has(ep.id) : false
+                    const isDeleting = ep.id ? episodeDeleteBusyIds.has(ep.id) : false
+                    const canDeleteEpisode = Boolean(ep.episodeFileId) && Boolean(ep.hasFile)
                     return (
                       <div key={ep.id} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                         <div className="min-w-0">
                           <span className="block truncate" title={fullTitle}>
                             {fullTitle}
                           </span>
-                          {searchStatus && (
-                            <span className="block text-xs text-slate-400">{searchStatus}</span>
+                          {(searchStatus || deleteStatus) && (
+                            <span className="block text-xs text-slate-400">{searchStatus || deleteStatus}</span>
                           )}
                         </div>
                         <div className="flex items-center justify-end gap-2 text-slate-500">
@@ -629,11 +683,21 @@ export function DetailModal({
                             type="button"
                             onClick={() => handleEpisodeSearch(ep.id, ep.seasonNumber, ep.episodeNumber)}
                             disabled={!canSearchEpisode || isSearching}
-                            title="Interactive Search"
-                            aria-label="Interactive Search"
+                            title="Search for episode"
+                            aria-label="Search for episode"
                             className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
                           >
-                            🔍
+                            ⌕
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEpisodeDelete(ep.episodeFileId, ep.id)}
+                            disabled={!canDeleteEpisode || isDeleting}
+                            title="Delete episode"
+                            aria-label="Delete episode"
+                            className="px-2 py-1 text-xs rounded bg-rose-500/70 text-white hover:bg-rose-500/80 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                          >
+                            ✕
                           </button>
                         </div>
                       </div>
@@ -717,17 +781,17 @@ export function DetailModal({
             type="button"
             onClick={handleLibrarySearch}
             disabled={libraryActionBusy}
-            title="Interactive Search"
-            aria-label="Interactive Search"
+            title="Search All"
+            aria-label="Search All"
             className="bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 py-2 px-4 rounded text-sm font-medium transition-colors"
           >
-            🔍
+            ⌕
           </button>
           <button
             type="button"
             onClick={() => setDeleteConfirmOpen(true)}
-            title="Remove from Library"
-            aria-label="Remove from Library"
+            title="Remove title from library"
+            aria-label="Remove title from library"
             className="bg-rose-500/70 hover:bg-rose-500/80 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
           >
             ✕
@@ -736,7 +800,7 @@ export function DetailModal({
         {libraryActionMessage && <div className="text-xs text-cyan-200">{libraryActionMessage}</div>}
         {libraryActionError && <div className="text-xs text-amber-300">Search: {libraryActionError}</div>}
         {deleteConfirmOpen && (
-          <div className="rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
+          <div ref={deleteConfirmRef} className="rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
             <div className="font-semibold text-rose-200">Confirm removal</div>
             <p className="text-slate-300">
               This will remove the title from your Radarr library.
