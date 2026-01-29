@@ -45,6 +45,9 @@ export type ConfigStatus = {
     show_sabnzbd: boolean
     show_plex: boolean
   }
+  sabnzbd: {
+    recent_group_limit: number
+  }
 } | null
 
 // ============================================

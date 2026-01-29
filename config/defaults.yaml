@@ -83,3 +83,7 @@ dashboard:
   show_radarr: true
   show_sabnzbd: true
   show_plex: false
+
+# --- SABnzbd ---
+sabnzbd:
+  recent_group_limit: 10
