@@ -21,6 +21,7 @@ type ConfigResponse = {
 
 type MediaType = 'all' | 'movies' | 'tv'
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
+type RawLibraryItem = SonarrLibraryItem | RadarrLibraryItem
 
 function LibraryContent() {
   const router = useRouter()
@@ -36,6 +37,7 @@ function LibraryContent() {
   const [sortField, setSortField] = useState<'added' | 'title' | 'year' | 'size'>('added')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [searchText, setSearchText] = useState('')
+  const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'downloaded' | 'missing' | 'monitored' | 'unmonitored'>('all')
   const [mediaType, setMediaType] = useState<MediaType>((searchParams.get('type') as MediaType) || 'all')
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
@@ -89,6 +91,11 @@ function LibraryContent() {
     searchInputRef.current?.focus()
   }, [])
 
+  useEffect(() => {
+    const q = searchParams.get('q') || ''
+    setSearchText(q)
+  }, [searchParams])
+
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
@@ -97,6 +104,13 @@ function LibraryContent() {
     const radarr = radarrItems.map((item) => ({ ...item, mediaType: 'movies' as const }))
     return [...sonarr, ...radarr]
   }, [sonarrItems, radarrItems])
+
+  const toLibraryItem = (item: RawLibraryItem): LibraryItem => {
+    if ('hasFile' in item) {
+      return { ...item, mediaType: 'movies' as const }
+    }
+    return { ...item, mediaType: 'tv' as const }
+  }
 
   const sortedItems = useMemo(() => {
     const normalizedQuery = searchText.trim().toLowerCase()
@@ -202,6 +216,41 @@ function LibraryContent() {
     }
     setSelectedItem(null)
   }
+
+  useEffect(() => {
+    if (loading) return
+    const q = (searchParams.get('q') || '').toLowerCase()
+    const tvdb = Number(searchParams.get('tvdb') || '')
+    const tmdb = Number(searchParams.get('tmdb') || '')
+    const season = Number(searchParams.get('season') || '')
+    const wantedSeason = Number.isFinite(season) && season > 0 ? season : null
+
+    let match: LibraryItem | undefined
+    if (tvdb && Number.isFinite(tvdb)) {
+      const found = sonarrItems.find((item) => item.tvdbId === tvdb)
+      match = found ? { ...found, mediaType: 'tv' as const } : undefined
+    } else if (tmdb && Number.isFinite(tmdb)) {
+      const found = radarrItems.find((item) => item.tmdbId === tmdb)
+      match = found ? { ...found, mediaType: 'movies' as const } : undefined
+    } else if (q) {
+      const pool: RawLibraryItem[] = mediaType === 'tv'
+        ? sonarrItems
+        : mediaType === 'movies'
+          ? radarrItems
+          : [...sonarrItems, ...radarrItems]
+      const found = pool.find((item) => item.title.toLowerCase().includes(q))
+      match = found ? toLibraryItem(found) : undefined
+    }
+
+    if (match) {
+        setSelectedItem(match)
+        if (match.mediaType === 'tv') {
+          setAutoExpandSeason(wantedSeason)
+        } else {
+          setAutoExpandSeason(null)
+        }
+      }
+  }, [loading, searchParams, sonarrItems, radarrItems, mediaType])
 
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
@@ -373,10 +422,12 @@ function LibraryContent() {
           libraryItem={selectedItem}
           autoSearch={autoSearch}
           autoDeleteOpen={autoDeleteOpen}
+          autoExpandSeason={autoExpandSeason}
           onClose={() => {
             setSelectedItem(null)
             setAutoSearch(false)
             setAutoDeleteOpen(false)
+            setAutoExpandSeason(null)
           }}
           onLibraryDelete={handleLibraryDelete}
         />

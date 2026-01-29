@@ -8,6 +8,27 @@ export function SabRecent({ data, error }: { data: SabRecentResponse | null, err
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const initializedRef = useRef(false)
 
+  const buildLibraryUrl = ({
+    mediaType,
+    title,
+    season,
+    episode,
+  }: {
+    mediaType: 'movie' | 'tv' | 'unknown'
+    title: string
+    season?: number
+    episode?: number
+  }) => {
+    const params = new URLSearchParams()
+    if (mediaType === 'tv') params.set('type', 'tv')
+    if (mediaType === 'movie') params.set('type', 'movies')
+    if (title) params.set('q', title)
+    if (typeof season === 'number') params.set('season', season.toString())
+    if (typeof episode === 'number') params.set('episode', episode.toString())
+    const query = params.toString()
+    return query ? `/library?${query}` : '/library'
+  }
+
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev)
@@ -66,7 +87,18 @@ export function SabRecent({ data, error }: { data: SabRecentResponse | null, err
               <div className="border-t border-slate-700/60 px-3 py-2 space-y-2">
                 {group.items.map(item => (
                   <div key={item.name} className="text-xs">
-                    <p className="text-gray-300 truncate" title={item.name}>{item.name}</p>
+                    <a
+                      href={buildLibraryUrl({
+                        mediaType: item.mediaType,
+                        title: item.parsedTitle || group.title,
+                        season: item.season,
+                        episode: item.episode,
+                      })}
+                      className="text-gray-300 truncate hover:text-cyan-200 transition-colors"
+                      title={item.name}
+                    >
+                      {item.name}
+                    </a>
                     <div className="text-gray-500 flex justify-between">
                        <span>{item.status} - {item.size}</span>
                        <span>{formatTimestamp(item.completedTime, 'time')}</span>

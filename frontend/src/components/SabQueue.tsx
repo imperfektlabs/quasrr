@@ -28,6 +28,27 @@ export function SabQueue({
     jobName?: string
   } | null>(null)
 
+  const buildLibraryUrl = ({
+    mediaType,
+    title,
+    season,
+    episode,
+  }: {
+    mediaType: 'movie' | 'tv' | 'unknown'
+    title: string
+    season?: number
+    episode?: number
+  }) => {
+    const params = new URLSearchParams()
+    if (mediaType === 'tv') params.set('type', 'tv')
+    if (mediaType === 'movie') params.set('type', 'movies')
+    if (title) params.set('q', title)
+    if (typeof season === 'number') params.set('season', season.toString())
+    if (typeof episode === 'number') params.set('episode', episode.toString())
+    const query = params.toString()
+    return query ? `/library?${query}` : '/library'
+  }
+
   const handleConfirm = () => {
     if (!confirmAction) return
     if (confirmAction.type === 'pauseAll') {
@@ -121,7 +142,18 @@ export function SabQueue({
         const isConfirmingDelete = confirmAction?.type === 'delete' && confirmAction.jobId === job.id
         return (
           <div key={job.name} className="glass-card rounded-lg p-3">
-            <p className="text-sm truncate font-semibold" title={job.name}>{job.name}</p>
+            <a
+              href={buildLibraryUrl({
+                mediaType: job.mediaType,
+                title: job.parsedTitle || job.name,
+                season: job.season,
+                episode: job.episode,
+              })}
+              className="text-sm truncate font-semibold text-slate-100 hover:text-cyan-200 transition-colors"
+              title={job.name}
+            >
+              {job.name}
+            </a>
             <div className="text-xs text-gray-400 mt-1 flex justify-between">
               <span>{job.status}</span>
               <span>{job.eta} remaining</span>
