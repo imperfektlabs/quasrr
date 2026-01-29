@@ -70,6 +70,7 @@ export function DetailModal({
   const [episodeSearchStatus, setEpisodeSearchStatus] = useState<Record<number, string>>({})
   const [episodeDeleteBusyIds, setEpisodeDeleteBusyIds] = useState<Set<number>>(new Set())
   const [episodeDeleteStatus, setEpisodeDeleteStatus] = useState<Record<number, string>>({})
+  const [episodeDeleteConfirmId, setEpisodeDeleteConfirmId] = useState<number | null>(null)
   const [libraryActionBusy, setLibraryActionBusy] = useState(false)
   const [libraryActionMessage, setLibraryActionMessage] = useState<string | null>(null)
   const [libraryActionError, setLibraryActionError] = useState<string | null>(null)
@@ -297,6 +298,7 @@ export function DetailModal({
 
   const handleEpisodeDelete = async (episodeFileId?: number, episodeId?: number) => {
     if (!episodeFileId || !episodeId) return
+    setEpisodeDeleteConfirmId(null)
     setEpisodeDeleteBusyIds((prev) => {
       const next = new Set(prev)
       next.add(episodeId)
@@ -326,6 +328,7 @@ export function DetailModal({
       const message = err instanceof Error ? err.message : 'Delete failed'
       setEpisodeDeleteStatus((prev) => ({ ...prev, [episodeId]: `Delete failed: ${message}` }))
     } finally {
+      setEpisodeDeleteConfirmId((prev) => (prev === episodeId ? null : prev))
       setEpisodeDeleteBusyIds((prev) => {
         const next = new Set(prev)
         next.delete(episodeId)
@@ -666,6 +669,7 @@ export function DetailModal({
                     const isSearching = ep.id ? episodeSearchBusyIds.has(ep.id) : false
                     const isDeleting = ep.id ? episodeDeleteBusyIds.has(ep.id) : false
                     const canDeleteEpisode = Boolean(ep.episodeFileId) && Boolean(ep.hasFile)
+                    const isConfirmingDelete = ep.id ? episodeDeleteConfirmId === ep.id : false
                     return (
                       <div key={ep.id} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                         <div className="min-w-0">
@@ -689,16 +693,44 @@ export function DetailModal({
                           >
                             ⌕
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEpisodeDelete(ep.episodeFileId, ep.id)}
-                            disabled={!canDeleteEpisode || isDeleting}
-                            title="Delete episode"
-                            aria-label="Delete episode"
-                            className="px-2 py-1 text-xs rounded bg-rose-500/70 text-white hover:bg-rose-500/80 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
-                          >
-                            ✕
-                          </button>
+                          {isConfirmingDelete ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleEpisodeDelete(ep.episodeFileId, ep.id)}
+                                disabled={!canDeleteEpisode || isDeleting}
+                                title="Confirm delete episode"
+                                aria-label="Confirm delete episode"
+                                className="px-2 py-1 text-xs rounded bg-rose-500/80 text-white hover:bg-rose-500 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEpisodeDeleteConfirmId(null)}
+                                disabled={isDeleting}
+                                title="Cancel delete"
+                                aria-label="Cancel delete"
+                                className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!canDeleteEpisode) return
+                                setEpisodeDeleteConfirmId(ep.id ?? null)
+                              }}
+                              disabled={!canDeleteEpisode || isDeleting}
+                              title="Delete episode"
+                              aria-label="Delete episode"
+                              className="px-2 py-1 text-xs rounded bg-rose-500/70 text-white hover:bg-rose-500/80 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       </div>
                     )
