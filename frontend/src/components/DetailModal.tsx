@@ -17,7 +17,6 @@ import { getRatingLink, formatSize, getReleaseKey } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
 import { DownloadIcon } from './Icons'
-import { ReleaseView } from './ReleaseView'
 
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 
@@ -115,7 +114,6 @@ export function DetailModal({
     feedback: libraryGrabFeedback,
     setFeedback: setLibraryGrabFeedback,
     grab: grabLibraryRelease,
-    grabAll: grabAllLibraryReleases,
     clear: clearLibraryGrab,
   } = useReleaseGrab(libraryReleaseContext, false, async () => {})
 
@@ -126,10 +124,15 @@ export function DetailModal({
     }
     window.addEventListener('keydown', onKeyDown)
     const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    if (!isIOS) {
+      document.body.style.overflow = 'hidden'
+    }
     return () => {
       window.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = previousOverflow
+      if (!/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        document.body.style.overflow = previousOverflow
+      }
     }
   }, [onClose])
 
@@ -336,6 +339,113 @@ export function DetailModal({
     return promise
   }
 
+  const getSizeWarning = (release: Release, mediaType: 'movie' | 'tv'): string | null => {
+    const sizeGB = release.size_gb
+    const sizeMB = sizeGB * 1024
+    const quality = (release.quality || '').toLowerCase()
+
+    if (quality.includes('720') && sizeMB < 300) return 'Suspiciously small for 720p'
+    if (mediaType === 'tv' && !release.full_season && sizeGB > 3) return 'Very large for single episode'
+    if (mediaType === 'movie') {
+      if (sizeGB < 1 && quality.includes('720')) return 'May be low quality'
+      if (sizeGB > 10) return 'Very large file'
+    }
+    return null
+  }
+
+  const getSizeRecommendation = (release: Release, mediaType: 'movie' | 'tv'): { text: string; color: string } | null => {
+    const sizeGB = release.size_gb
+    const sizeMB = sizeGB * 1024
+
+    if (mediaType === 'movie') {
+      if (sizeGB >= 2 && sizeGB <= 4) {
+        return { text: 'Good size', color: 'text-green-400' }
+      }
+    } else if (mediaType === 'tv') {
+      if (release.full_season) return null
+      if (sizeMB >= 400 && sizeMB <= 1200) {
+        return { text: 'Good size', color: 'text-green-400' }
+      }
+    }
+    return null
+  }
+
+  const renderInlineReleaseList = (releases: Release[], mediaType: 'movie' | 'tv', contextKey: string) => {
+    if (!releases || releases.length === 0) {
+      return <div className="text-xs text-slate-400">No releases found.</div>
+    }
+
+    return (
+      <div className="divide-y divide-slate-800/60 min-w-0 overflow-x-hidden">
+        {releases.map((release, index) => {
+          const key = release.guid || `${contextKey}-${index}`
+          const releaseKey = getReleaseKey(release)
+          const isGrabBusy = libraryGrabBusyIds.has(releaseKey)
+          const warning = getSizeWarning(release, mediaType)
+          const recommendation = getSizeRecommendation(release, mediaType)
+          const rejectionText = release.rejected && release.rejections && release.rejections.length > 0
+            ? release.rejections.join(', ')
+            : null
+          return (
+            <div key={key} className="py-2 min-w-0">
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <div className="min-w-0">
+                  <div className="text-xs text-slate-100 break-words break-all">{release.title}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => grabLibraryRelease(release)}
+                  disabled={isGrabBusy}
+                  className={`h-6 w-6 inline-flex items-center justify-center rounded text-[10px] flex-none ${
+                    isGrabBusy
+                      ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                      : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
+                  }`}
+                  title="Send to download client"
+                  aria-label="Grab release"
+                >
+                  {isGrabBusy ? (
+                    <span className="text-[9px]">...</span>
+                  ) : (
+                    <DownloadIcon className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                <span>{release.size_formatted}</span>
+                <span className="text-cyan-300">{release.quality}</span>
+                <span>{release.age}</span>
+                <span className={`px-1.5 rounded ${
+                  release.protocol === 'usenet'
+                    ? 'bg-purple-900/60 text-purple-200'
+                    : 'bg-orange-900/60 text-orange-200'
+                }`}>
+                  {release.protocol}
+                </span>
+                {recommendation && !warning && !rejectionText && (
+                  <span
+                    title={recommendation.text}
+                    className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-cyan-400 text-cyan-300 text-[11px]"
+                  >
+                    OK
+                  </span>
+                )}
+                {(warning || rejectionText) && (
+                  <span
+                    title={warning || rejectionText || ''}
+                    className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-red-400 text-red-300 text-[11px]"
+                  >
+                    !
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   const fetchEpisodeReleases = async (seasonNumber: number, episodeNumber: number) => {
     if (!libraryItem || libraryItem.mediaType !== 'tv') {
       throw new Error('Missing TV library item')
@@ -353,6 +463,12 @@ export function DetailModal({
       episode: episodeNumber.toString(),
     })
 
+    console.log('[library-episode-search]', {
+      title: libraryItem.title,
+      tvdb_id: libraryItem.tvdbId,
+      season: seasonNumber,
+      episode: episodeNumber,
+    })
     const response = await fetch(`${backendUrl}/releases?${params.toString()}`)
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
@@ -413,6 +529,14 @@ export function DetailModal({
         params.set('tmdb_id', libraryItem.tmdbId.toString())
       }
 
+      console.log('[library-release-search]', {
+        title: libraryItem.title,
+        type: isTv ? 'tv' : 'movie',
+        tvdb_id: isTv ? libraryItem.tvdbId : undefined,
+        tmdb_id: !isTv ? libraryItem.tmdbId : undefined,
+        season: options?.season,
+        episode: options?.episode,
+      })
       const response = await fetch(`${backendUrl}/releases?${params.toString()}`)
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -594,14 +718,6 @@ export function DetailModal({
     }
   }
 
-  const handleLibraryReleaseClose = () => {
-    setLibraryReleaseData(null)
-    setLibraryReleaseError(null)
-    setLibraryReleaseLoading(false)
-    clearLibraryGrab()
-    setLibraryGrabFeedback(null)
-  }
-
   // Early return checks
   if (mode === 'ai' && !plan) return null
   if (mode === 'discovery' && !result) return null
@@ -772,7 +888,7 @@ export function DetailModal({
           onClick={() => setDeleteConfirmOpen(true)}
           title="Remove title from library"
           aria-label="Remove title from library"
-          className="bg-rose-500/70 hover:bg-rose-500/80 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+          className="h-6 w-6 inline-flex items-center justify-center rounded bg-rose-500/70 hover:bg-rose-500/80 text-white text-xs font-medium transition-colors"
         >
           ✕
         </button>
@@ -838,23 +954,36 @@ export function DetailModal({
                   <span>Season {season.seasonNumber ?? '—'}</span>
                   <span className="text-slate-300">{season.episodeFileCount || 0}/{season.episodeCount || 0} eps</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleSeasonSearch(seasonNumber)}
-                  disabled={seasonSearchBusy.has(seasonNumber)}
-                  title="Search season"
-                  aria-label="Search season"
-                  className={`px-2 py-1 text-xs rounded border ${
-                    seasonReleaseCache[seasonNumber]
-                      ? 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40'
-                      : 'bg-slate-800/60 text-slate-200 border-transparent'
-                  } ${seasonSearchBusy.has(seasonNumber)
-                    ? 'opacity-60 cursor-not-allowed'
-                    : 'hover:bg-slate-700/60'
-                  }`}
-                >
-                  ⌕
-                </button>
+                <div className="grid grid-cols-[auto_auto_auto_auto] items-center justify-end gap-2 text-slate-500">
+                  <span className="w-[72px]" />
+                  <span className="w-4" />
+                  <button
+                    type="button"
+                    onClick={() => handleSeasonSearch(seasonNumber)}
+                    disabled={seasonSearchBusy.has(seasonNumber)}
+                    title="Search season"
+                    aria-label="Search season"
+                    className={`h-6 w-6 inline-flex items-center justify-center text-xs rounded border ${
+                      seasonReleaseCache[seasonNumber]
+                        ? 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40'
+                        : 'bg-slate-800/60 text-slate-200 border-transparent'
+                    } ${seasonSearchBusy.has(seasonNumber)
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'hover:bg-slate-700/60'
+                    }`}
+                  >
+                    ⌕
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    title="Remove title from library"
+                    aria-label="Remove title from library"
+                    className="h-6 w-6 inline-flex items-center justify-center rounded bg-rose-500/70 hover:bg-rose-500/80 text-white text-xs font-medium transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
               {isExpanded && (
                 <div className="mt-2 space-y-1 text-xs text-slate-300">
@@ -908,16 +1037,16 @@ export function DetailModal({
                               <span className="block text-xs text-slate-400">{statusLine}</span>
                             )}
                           </div>
-                          <div className="flex items-center justify-end gap-2 text-slate-500">
-                            {airDateLabel && <span className="text-slate-400">{airDateLabel}</span>}
-                            <span className={`text-xs ${qualityClass}`} title={qualityTitle}>{qualityIcon}</span>
+                          <div className="grid grid-cols-[auto_auto_auto_auto] items-center justify-end gap-2 text-slate-500">
+                            <span className="text-slate-400 w-[72px] text-right">{airDateLabel || ''}</span>
+                            <span className={`text-xs w-4 text-center ${qualityClass}`} title={qualityTitle}>{qualityIcon}</span>
                             <button
                               type="button"
                               onClick={() => handleEpisodeSearch(ep.id, ep.seasonNumber, ep.episodeNumber)}
                               disabled={!canSearchEpisode || isSearching}
                               title={isReleaseOpen ? 'Hide releases' : 'Search for episode'}
                               aria-label={isReleaseOpen ? 'Hide releases' : 'Search for episode'}
-                              className={`px-2 py-1 text-xs rounded border transition-colors ${
+                              className={`h-6 w-6 inline-flex items-center justify-center text-xs rounded border transition-colors ${
                                 hasCachedReleases
                                   ? 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40'
                                   : 'bg-slate-800/60 text-slate-200 border-transparent'
@@ -936,7 +1065,7 @@ export function DetailModal({
                                   disabled={!canDeleteEpisode || isDeleting}
                                   title="Confirm delete episode"
                                   aria-label="Confirm delete episode"
-                                  className="px-2 py-1 text-xs rounded bg-rose-500/80 text-white hover:bg-rose-500 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                                  className="h-6 w-14 inline-flex items-center justify-center text-xs rounded bg-rose-500/80 text-white hover:bg-rose-500 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
                                 >
                                   Confirm
                                 </button>
@@ -946,7 +1075,7 @@ export function DetailModal({
                                   disabled={isDeleting}
                                   title="Cancel delete"
                                   aria-label="Cancel delete"
-                                  className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
+                                  className="h-6 w-14 inline-flex items-center justify-center text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
                                 >
                                   Cancel
                                 </button>
@@ -961,7 +1090,7 @@ export function DetailModal({
                                 disabled={!canDeleteEpisode || isDeleting}
                                 title="Delete episode"
                                 aria-label="Delete episode"
-                                className="px-2 py-1 text-xs rounded bg-rose-500/70 text-white hover:bg-rose-500/80 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                                className="h-6 w-6 inline-flex items-center justify-center text-xs rounded bg-rose-500/70 text-white hover:bg-rose-500/80 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
                               >
                                 ✕
                               </button>
@@ -969,7 +1098,7 @@ export function DetailModal({
                           </div>
                         </div>
                         {isReleaseOpen && (
-                          <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 space-y-2 w-full max-w-full overflow-x-hidden">
+                          <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 space-y-2 w-full max-w-full min-w-0 overflow-x-hidden">
                             {libraryGrabFeedback && (
                               <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
                                 {libraryGrabFeedback.text}
@@ -982,52 +1111,7 @@ export function DetailModal({
                               <div className="text-xs text-amber-300">Search: {releaseError}</div>
                             )}
                             {!isReleaseLoading && !releaseError && (
-                              cachedReleases.length === 0 ? (
-                                <div className="text-xs text-slate-400">No releases found.</div>
-                              ) : (
-                                <div className="divide-y divide-slate-800/60">
-                                  {cachedReleases.map((release, index) => {
-                                    const releaseKey = getReleaseKey(release)
-                                    const isGrabBusy = libraryGrabBusyIds.has(releaseKey)
-                                    return (
-                                      <div key={release.guid || `${episodeKey}-${index}`} className="py-2 min-w-0">
-                                      <div className="text-xs text-slate-100 break-words">{release.title}</div>
-                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                                        <span>{release.size_formatted}</span>
-                                        <span className="text-cyan-300">{release.quality}</span>
-                                        <span>{release.age}</span>
-                                        <span className={`px-1.5 rounded ${
-                                          release.protocol === 'usenet'
-                                            ? 'bg-purple-900/60 text-purple-200'
-                                            : 'bg-orange-900/60 text-orange-200'
-                                        }`}>
-                                          {release.protocol}
-                                        </span>
-                                      </div>
-                                      <div className="mt-2 flex items-center gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => grabLibraryRelease(release)}
-                                          disabled={isGrabBusy}
-                                          className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
-                                            isGrabBusy
-                                              ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                                              : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
-                                          }`}
-                                          title="Send to download client"
-                                          aria-label="Grab release"
-                                        >
-                                          {isGrabBusy ? (
-                                            <span className="text-[10px]">...</span>
-                                          ) : (
-                                            <DownloadIcon className="h-4 w-4" />
-                                          )}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )})}
-                                </div>
-                              )
+                              renderInlineReleaseList(cachedReleases, 'tv', episodeKey)
                             )}
                           </div>
                         )}
@@ -1114,7 +1198,7 @@ export function DetailModal({
             disabled={libraryActionBusy}
             title="Search All"
             aria-label="Search All"
-            className="bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 py-2 px-4 rounded text-sm font-medium transition-colors"
+            className="h-6 w-6 inline-flex items-center justify-center bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 rounded text-xs font-medium transition-colors"
           >
             ⌕
           </button>
@@ -1123,7 +1207,7 @@ export function DetailModal({
             onClick={() => setDeleteConfirmOpen(true)}
             title="Remove title from library"
             aria-label="Remove title from library"
-            className="bg-rose-500/70 hover:bg-rose-500/80 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+            className="h-6 w-6 inline-flex items-center justify-center bg-rose-500/70 hover:bg-rose-500/80 text-white rounded text-xs font-medium transition-colors"
           >
             ✕
           </button>
@@ -1175,7 +1259,7 @@ export function DetailModal({
     <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
       <div className="min-h-screen p-4">
         <div
-          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl max-h-[90vh] overflow-y-auto"
+          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl w-full max-h-[calc(100vh-2rem)] min-h-[calc(100vh-2rem)] overflow-y-auto flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
 
@@ -1249,28 +1333,22 @@ export function DetailModal({
           {actionButtons}
 
           {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
-            <div ref={libraryResultsRef} className="mt-6 space-y-3">
+            <div ref={libraryResultsRef} className="mt-4 space-y-2">
+              {libraryGrabFeedback && (
+                <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
+                  {libraryGrabFeedback.text}
+                </div>
+              )}
               {libraryReleaseLoading && !libraryActionMessage && (
-                <div className="text-sm text-slate-300">Searching...</div>
+                <div className="text-xs text-slate-300">Searching...</div>
               )}
               {libraryReleaseError && (
                 <div className="text-xs text-amber-300">Search: {libraryReleaseError}</div>
               )}
               {libraryReleaseData && (
-                <ReleaseView
-                  data={libraryReleaseData}
-                  onClose={handleLibraryReleaseClose}
-                  onGrabRelease={grabLibraryRelease}
-                  onGrabAll={grabAllLibraryReleases}
-                  grabBusyIds={libraryGrabBusyIds}
-                  grabFeedback={libraryGrabFeedback}
-                  aiEnabled={false}
-                  aiSuggestion={null}
-                  aiSuggestBusy={false}
-                  aiSuggestError={null}
-                  onAiSuggest={() => {}}
-                  variant="embedded"
-                />
+                <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 w-full max-w-full min-w-0 overflow-x-hidden">
+                  {renderInlineReleaseList(libraryReleaseData.releases || [], 'movie', 'movie')}
+                </div>
               )}
             </div>
           )}
