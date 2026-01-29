@@ -172,18 +172,20 @@ export function MediaCard({
         )}
         <span className="glass-chip text-xs px-2 py-1 rounded">{formatSize(libItem.sizeOnDisk)}</span>
         <div className="flex items-center gap-2 ml-auto">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onLibrarySearch?.()
-            }}
-            className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 text-xs"
-            title="Search All"
-            aria-label="Search All"
-          >
-            ⌕
-          </button>
+          {libItem.mediaType === 'movies' && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onLibrarySearch?.()
+              }}
+              className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 text-xs"
+              title="Search All"
+              aria-label="Search All"
+            >
+              ⌕
+            </button>
+          )}
           <button
             type="button"
             onClick={(event) => {

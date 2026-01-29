@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AIIntentPlan,
   AIAvailability,
   DiscoveryResult,
+  Release,
   ReleaseResponse,
   SonarrLibraryItem,
   RadarrLibraryItem,
@@ -12,9 +13,10 @@ import type {
 } from '@/types'
 import { useReleaseGrab } from '@/hooks'
 import { getBackendUrl } from '@/utils/backend'
-import { getRatingLink, formatSize } from '@/utils/formatting'
+import { getRatingLink, formatSize, getReleaseKey } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
+import { DownloadIcon } from './Icons'
 import { ReleaseView } from './ReleaseView'
 
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
@@ -68,6 +70,13 @@ export function DetailModal({
   const [episodesLoading, setEpisodesLoading] = useState(false)
   const [episodeSearchBusyIds, setEpisodeSearchBusyIds] = useState<Set<number>>(new Set())
   const [episodeSearchStatus, setEpisodeSearchStatus] = useState<Record<number, string>>({})
+  const [episodeReleaseOpenKeys, setEpisodeReleaseOpenKeys] = useState<Set<string>>(new Set())
+  const [episodeReleaseLoadingKeys, setEpisodeReleaseLoadingKeys] = useState<Set<string>>(new Set())
+  const [episodeReleaseErrors, setEpisodeReleaseErrors] = useState<Record<string, string>>({})
+  const [seasonReleaseCache, setSeasonReleaseCache] = useState<Record<number, {
+    byEpisode: Record<number, Release[]>
+  }>>({})
+  const [seasonSearchBusy, setSeasonSearchBusy] = useState<Set<number>>(new Set())
   const [episodeDeleteBusyIds, setEpisodeDeleteBusyIds] = useState<Set<number>>(new Set())
   const [episodeDeleteStatus, setEpisodeDeleteStatus] = useState<Record<number, string>>({})
   const [episodeDeleteConfirmId, setEpisodeDeleteConfirmId] = useState<number | null>(null)
@@ -84,6 +93,22 @@ export function DetailModal({
   const libraryResultsRef = useRef<HTMLDivElement | null>(null)
   const deleteConfirmRef = useRef<HTMLDivElement | null>(null)
   const autoSearchHandled = useRef(false)
+  const seasonSearchInFlight = useRef<Map<number, Promise<void>>>(new Map())
+
+  const libraryReleaseContext = useMemo<ReleaseResponse | null>(() => {
+    if (libraryReleaseData) return libraryReleaseData
+    if (mode !== 'library' || !libraryItem) return null
+    const isTv = libraryItem.mediaType === 'tv'
+    return {
+      title: libraryItem.title,
+      type: isTv ? 'tv' : 'movie',
+      releases: [],
+      tvdb_id: isTv ? libraryItem.tvdbId : undefined,
+      tmdb_id: !isTv ? libraryItem.tmdbId : undefined,
+      sonarr_id: isTv ? libraryItem.id : undefined,
+      radarr_id: !isTv ? libraryItem.id : undefined,
+    }
+  }, [libraryReleaseData, libraryItem, mode])
 
   const {
     busyIds: libraryGrabBusyIds,
@@ -92,7 +117,7 @@ export function DetailModal({
     grab: grabLibraryRelease,
     grabAll: grabAllLibraryReleases,
     clear: clearLibraryGrab,
-  } = useReleaseGrab(libraryReleaseData, false, async () => {})
+  } = useReleaseGrab(libraryReleaseContext, false, async () => {})
 
   // Escape key handler
   useEffect(() => {
@@ -200,6 +225,11 @@ export function DetailModal({
     setLibraryReleaseData(null)
     setLibraryReleaseLoading(false)
     setLibraryReleaseError(null)
+    setEpisodeReleaseOpenKeys(new Set())
+    setEpisodeReleaseLoadingKeys(new Set())
+    setEpisodeReleaseErrors({})
+    setSeasonReleaseCache({})
+    setSeasonSearchBusy(new Set())
     clearLibraryGrab()
     setLibraryGrabFeedback(null)
     autoSearchHandled.current = false
@@ -207,9 +237,10 @@ export function DetailModal({
 
   useEffect(() => {
     if (mode !== 'library') return
+    if (libraryItem?.mediaType === 'tv') return
     if (!libraryReleaseLoading && !libraryReleaseError && !libraryReleaseData) return
     libraryResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [mode, libraryReleaseData, libraryReleaseError, libraryReleaseLoading])
+  }, [mode, libraryReleaseData, libraryReleaseError, libraryReleaseLoading, libraryItem?.mediaType])
 
   useEffect(() => {
     if (mode !== 'library') return
@@ -224,6 +255,131 @@ export function DetailModal({
       deleteConfirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
   }, [deleteConfirmOpen])
+
+  const buildEpisodeKey = (seasonNumber: number, episodeNumber: number) =>
+    `${seasonNumber}:${episodeNumber}`
+
+  const fetchSeasonReleases = async (seasonNumber: number) => {
+    if (!libraryItem || libraryItem.mediaType !== 'tv') {
+      throw new Error('Missing TV library item')
+    }
+
+    const existing = seasonSearchInFlight.current.get(seasonNumber)
+    if (existing) return existing
+
+    const promise = (async () => {
+      setSeasonSearchBusy((prev) => new Set(prev).add(seasonNumber))
+      try {
+        const backendUrl = getBackendUrl()
+        if (!libraryItem.tvdbId) {
+          throw new Error('Missing TVDB ID')
+        }
+        const params = new URLSearchParams({
+          type: 'tv',
+          title: libraryItem.title,
+          tvdb_id: libraryItem.tvdbId.toString(),
+          season: seasonNumber.toString(),
+        })
+
+        const response = await fetch(`${backendUrl}/releases?${params.toString()}`)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.detail || `HTTP ${response.status}`)
+        }
+        const data = await response.json()
+        const byEpisode: Record<number, Release[]> = {}
+
+        for (const release of data.releases || []) {
+          if (release.full_season) continue
+          const releaseSeason = typeof release.season === 'number' ? release.season : seasonNumber
+          if (releaseSeason !== seasonNumber) continue
+          const episodes = Array.isArray(release.episode) ? release.episode : []
+          if (episodes.length === 0) continue
+          for (const epNumber of episodes) {
+            if (!byEpisode[epNumber]) byEpisode[epNumber] = []
+            byEpisode[epNumber].push(release)
+          }
+        }
+
+        const seasonEpisodes = episodesBySeason[seasonNumber] || []
+        for (const episode of seasonEpisodes) {
+          const epNumber = episode.episodeNumber
+          if (typeof epNumber !== 'number') continue
+          if (!byEpisode[epNumber]) byEpisode[epNumber] = []
+        }
+
+        setSeasonReleaseCache((prev) => ({
+          ...prev,
+          [seasonNumber]: { byEpisode },
+        }))
+        setEpisodeReleaseErrors((prev) => {
+          const next = { ...prev }
+          for (const episode of seasonEpisodes) {
+            const epNumber = episode.episodeNumber
+            if (typeof epNumber !== 'number') continue
+            const key = buildEpisodeKey(seasonNumber, epNumber)
+            delete next[key]
+          }
+          return next
+        })
+      } finally {
+        setSeasonSearchBusy((prev) => {
+          const next = new Set(prev)
+          next.delete(seasonNumber)
+          return next
+        })
+        seasonSearchInFlight.current.delete(seasonNumber)
+      }
+    })()
+
+    seasonSearchInFlight.current.set(seasonNumber, promise)
+    return promise
+  }
+
+  const fetchEpisodeReleases = async (seasonNumber: number, episodeNumber: number) => {
+    if (!libraryItem || libraryItem.mediaType !== 'tv') {
+      throw new Error('Missing TV library item')
+    }
+
+    const backendUrl = getBackendUrl()
+    if (!libraryItem.tvdbId) {
+      throw new Error('Missing TVDB ID')
+    }
+    const params = new URLSearchParams({
+      type: 'tv',
+      title: libraryItem.title,
+      tvdb_id: libraryItem.tvdbId.toString(),
+      season: seasonNumber.toString(),
+      episode: episodeNumber.toString(),
+    })
+
+    const response = await fetch(`${backendUrl}/releases?${params.toString()}`)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `HTTP ${response.status}`)
+    }
+    const data = await response.json()
+    const releases = (data.releases || []).filter((release: Release) => !release.full_season)
+
+    setSeasonReleaseCache((prev) => {
+      const existing = prev[seasonNumber]?.byEpisode ?? {}
+      return {
+        ...prev,
+        [seasonNumber]: {
+          byEpisode: {
+            ...existing,
+            [episodeNumber]: releases,
+          },
+        },
+      }
+    })
+
+    setEpisodeReleaseErrors((prev) => {
+      const next = { ...prev }
+      delete next[buildEpisodeKey(seasonNumber, episodeNumber)]
+      return next
+    })
+  }
 
   const fetchLibraryReleases = async (options?: { season?: number; episode?: number }) => {
     if (!libraryItem) throw new Error('Missing library item')
@@ -275,22 +431,53 @@ export function DetailModal({
 
   const handleEpisodeSearch = async (episodeId?: number, seasonNumber?: number, episodeNumber?: number) => {
     if (!episodeId || seasonNumber == null || episodeNumber == null) return
+    const episodeKey = buildEpisodeKey(seasonNumber, episodeNumber)
+    const cachedSeason = seasonReleaseCache[seasonNumber]
+    const hasCache = Boolean(cachedSeason?.byEpisode?.[episodeNumber])
+    const isOpen = episodeReleaseOpenKeys.has(episodeKey)
+
+    if (hasCache) {
+      setEpisodeReleaseOpenKeys((prev) => {
+        const next = new Set(prev)
+        if (isOpen) next.delete(episodeKey)
+        else next.add(episodeKey)
+        return next
+      })
+      return
+    }
+
+    if (episodeReleaseLoadingKeys.has(episodeKey)) return
+
     setEpisodeSearchBusyIds((prev) => {
       const next = new Set(prev)
       next.add(episodeId)
       return next
     })
     setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: 'Searching...' }))
+    setEpisodeReleaseLoadingKeys((prev) => new Set(prev).add(episodeKey))
+    setEpisodeReleaseErrors((prev) => {
+      const next = { ...prev }
+      delete next[episodeKey]
+      return next
+    })
+    setEpisodeReleaseOpenKeys((prev) => new Set(prev).add(episodeKey))
+
     try {
-      await fetchLibraryReleases({ season: seasonNumber, episode: episodeNumber })
+      await fetchEpisodeReleases(seasonNumber, episodeNumber)
       setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: '' }))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Search failed'
       setEpisodeSearchStatus((prev) => ({ ...prev, [episodeId]: `Search failed: ${message}` }))
+      setEpisodeReleaseErrors((prev) => ({ ...prev, [episodeKey]: message }))
     } finally {
       setEpisodeSearchBusyIds((prev) => {
         const next = new Set(prev)
         next.delete(episodeId)
+        return next
+      })
+      setEpisodeReleaseLoadingKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(episodeKey)
         return next
       })
     }
@@ -353,11 +540,32 @@ export function DetailModal({
     }
   }
 
+  const handleSeasonSearch = async (seasonNumber: number) => {
+    if (seasonSearchBusy.has(seasonNumber)) return
+    if (seasonReleaseCache[seasonNumber]) return
+    try {
+      await fetchSeasonReleases(seasonNumber)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Search failed'
+      setEpisodeReleaseErrors((prev) => {
+        const next = { ...prev }
+        for (const episode of episodesBySeason[seasonNumber] || []) {
+          const epNumber = episode.episodeNumber
+          if (typeof epNumber !== 'number') continue
+          const key = buildEpisodeKey(seasonNumber, epNumber)
+          next[key] = message
+        }
+        return next
+      })
+    }
+  }
+
   useEffect(() => {
     if (mode !== 'library' || !autoSearch || autoSearchHandled.current) return
     autoSearchHandled.current = true
+    if (libraryItem?.mediaType === 'tv') return
     void handleLibrarySearch()
-  }, [mode, autoSearch, handleLibrarySearch])
+  }, [mode, autoSearch, handleLibrarySearch, libraryItem?.mediaType])
 
   const handleLibraryDelete = async () => {
     if (mode !== 'library' || !libraryItem || deleteBusy) return
@@ -559,27 +767,15 @@ export function DetailModal({
     <div className="mt-4">
       <div className="flex items-center justify-between gap-3 mb-2">
         <span className="text-sm text-slate-400">Seasons</span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleLibrarySearch}
-            disabled={libraryActionBusy}
-            title="Search All"
-            aria-label="Search All"
-            className="bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 py-2 px-3 rounded text-sm font-medium transition-colors"
-          >
-            ⌕
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeleteConfirmOpen(true)}
-            title="Remove title from library"
-            aria-label="Remove title from library"
-            className="bg-rose-500/70 hover:bg-rose-500/80 text-white py-2 px-3 rounded text-sm font-medium transition-colors"
-          >
-            ✕
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setDeleteConfirmOpen(true)}
+          title="Remove title from library"
+          aria-label="Remove title from library"
+          className="bg-rose-500/70 hover:bg-rose-500/80 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+        >
+          ✕
+        </button>
       </div>
       {libraryActionMessage && <div className="text-xs text-cyan-200 mb-2">{libraryActionMessage}</div>}
       {libraryActionError && <div className="text-xs text-amber-300 mb-2">Search: {libraryActionError}</div>}
@@ -626,21 +822,40 @@ export function DetailModal({
           const episodes = episodesBySeason[seasonNumber] || []
           return (
             <div key={seasonNumber} className="glass-card rounded-md px-3 py-2 text-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  setExpandedSeasons((prev) => {
-                    const next = new Set(prev)
-                    if (next.has(seasonNumber)) next.delete(seasonNumber)
-                    else next.add(seasonNumber)
-                    return next
-                  })
-                }}
-                className="w-full flex items-center justify-between"
-              >
-                <span>Season {season.seasonNumber ?? '—'}</span>
-                <span className="text-slate-300">{season.episodeFileCount || 0}/{season.episodeCount || 0} eps</span>
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpandedSeasons((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(seasonNumber)) next.delete(seasonNumber)
+                      else next.add(seasonNumber)
+                      return next
+                    })
+                  }}
+                  className="flex-1 flex items-center justify-between text-left"
+                >
+                  <span>Season {season.seasonNumber ?? '—'}</span>
+                  <span className="text-slate-300">{season.episodeFileCount || 0}/{season.episodeCount || 0} eps</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSeasonSearch(seasonNumber)}
+                  disabled={seasonSearchBusy.has(seasonNumber)}
+                  title="Search season"
+                  aria-label="Search season"
+                  className={`px-2 py-1 text-xs rounded border ${
+                    seasonReleaseCache[seasonNumber]
+                      ? 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40'
+                      : 'bg-slate-800/60 text-slate-200 border-transparent'
+                  } ${seasonSearchBusy.has(seasonNumber)
+                    ? 'opacity-60 cursor-not-allowed'
+                    : 'hover:bg-slate-700/60'
+                  }`}
+                >
+                  ⌕
+                </button>
+              </div>
               {isExpanded && (
                 <div className="mt-2 space-y-1 text-xs text-slate-300">
                   {episodes.length === 0 && (
@@ -670,68 +885,152 @@ export function DetailModal({
                     const isDeleting = ep.id ? episodeDeleteBusyIds.has(ep.id) : false
                     const canDeleteEpisode = Boolean(ep.episodeFileId) && Boolean(ep.hasFile)
                     const isConfirmingDelete = ep.id ? episodeDeleteConfirmId === ep.id : false
+                    const episodeKey = (ep.seasonNumber != null && ep.episodeNumber != null)
+                      ? buildEpisodeKey(ep.seasonNumber, ep.episodeNumber)
+                      : ''
+                    const cachedSeason = ep.seasonNumber != null ? seasonReleaseCache[ep.seasonNumber] : undefined
+                    const cachedReleases = (ep.episodeNumber != null && cachedSeason)
+                      ? cachedSeason.byEpisode[ep.episodeNumber] || []
+                      : []
+                    const hasCachedReleases = cachedReleases.length > 0
+                    const isReleaseOpen = episodeKey ? episodeReleaseOpenKeys.has(episodeKey) : false
+                    const isReleaseLoading = episodeKey ? episodeReleaseLoadingKeys.has(episodeKey) : false
+                    const releaseError = episodeKey ? episodeReleaseErrors[episodeKey] : null
+                    const statusLine = deleteStatus || (searchStatus && !isReleaseOpen ? searchStatus : '')
                     return (
-                      <div key={ep.id} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                        <div className="min-w-0">
-                          <span className="block truncate" title={fullTitle}>
-                            {fullTitle}
-                          </span>
-                          {(searchStatus || deleteStatus) && (
-                            <span className="block text-xs text-slate-400">{searchStatus || deleteStatus}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-end gap-2 text-slate-500">
-                          {airDateLabel && <span className="text-slate-400">{airDateLabel}</span>}
-                          <span className={`text-xs ${qualityClass}`} title={qualityTitle}>{qualityIcon}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleEpisodeSearch(ep.id, ep.seasonNumber, ep.episodeNumber)}
-                            disabled={!canSearchEpisode || isSearching}
-                            title="Search for episode"
-                            aria-label="Search for episode"
-                            className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
-                          >
-                            ⌕
-                          </button>
-                          {isConfirmingDelete ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleEpisodeDelete(ep.episodeFileId, ep.id)}
-                                disabled={!canDeleteEpisode || isDeleting}
-                                title="Confirm delete episode"
-                                aria-label="Confirm delete episode"
-                                className="px-2 py-1 text-xs rounded bg-rose-500/80 text-white hover:bg-rose-500 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
-                              >
-                                Confirm
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEpisodeDeleteConfirmId(null)}
-                                disabled={isDeleting}
-                                title="Cancel delete"
-                                aria-label="Cancel delete"
-                                className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
+                      <div key={ep.id} className="space-y-2">
+                        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                          <div className="min-w-0">
+                            <span className="block truncate" title={fullTitle}>
+                              {fullTitle}
+                            </span>
+                            {statusLine && (
+                              <span className="block text-xs text-slate-400">{statusLine}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-end gap-2 text-slate-500">
+                            {airDateLabel && <span className="text-slate-400">{airDateLabel}</span>}
+                            <span className={`text-xs ${qualityClass}`} title={qualityTitle}>{qualityIcon}</span>
                             <button
                               type="button"
-                              onClick={() => {
-                                if (!canDeleteEpisode) return
-                                setEpisodeDeleteConfirmId(ep.id ?? null)
-                              }}
-                              disabled={!canDeleteEpisode || isDeleting}
-                              title="Delete episode"
-                              aria-label="Delete episode"
-                              className="px-2 py-1 text-xs rounded bg-rose-500/70 text-white hover:bg-rose-500/80 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              onClick={() => handleEpisodeSearch(ep.id, ep.seasonNumber, ep.episodeNumber)}
+                              disabled={!canSearchEpisode || isSearching}
+                              title={isReleaseOpen ? 'Hide releases' : 'Search for episode'}
+                              aria-label={isReleaseOpen ? 'Hide releases' : 'Search for episode'}
+                              className={`px-2 py-1 text-xs rounded border transition-colors ${
+                                hasCachedReleases
+                                  ? 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40'
+                                  : 'bg-slate-800/60 text-slate-200 border-transparent'
+                              } ${isSearching || !canSearchEpisode
+                                ? 'bg-slate-800/30 text-slate-500 cursor-not-allowed'
+                                : 'hover:bg-slate-700/60'
+                              }`}
                             >
-                              ✕
+                              ⌕
                             </button>
-                          )}
+                            {isConfirmingDelete ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEpisodeDelete(ep.episodeFileId, ep.id)}
+                                  disabled={!canDeleteEpisode || isDeleting}
+                                  title="Confirm delete episode"
+                                  aria-label="Confirm delete episode"
+                                  className="px-2 py-1 text-xs rounded bg-rose-500/80 text-white hover:bg-rose-500 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEpisodeDeleteConfirmId(null)}
+                                  disabled={isDeleting}
+                                  title="Cancel delete"
+                                  aria-label="Cancel delete"
+                                  className="px-2 py-1 text-xs rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:text-slate-500 disabled:cursor-not-allowed"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!canDeleteEpisode) return
+                                  setEpisodeDeleteConfirmId(ep.id ?? null)
+                                }}
+                                disabled={!canDeleteEpisode || isDeleting}
+                                title="Delete episode"
+                                aria-label="Delete episode"
+                                className="px-2 py-1 text-xs rounded bg-rose-500/70 text-white hover:bg-rose-500/80 disabled:bg-rose-900/40 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </div>
+                        {isReleaseOpen && (
+                          <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 space-y-2 w-full max-w-full overflow-x-hidden">
+                            {libraryGrabFeedback && (
+                              <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
+                                {libraryGrabFeedback.text}
+                              </div>
+                            )}
+                            {isReleaseLoading && (
+                              <div className="text-xs text-slate-400">Searching...</div>
+                            )}
+                            {!isReleaseLoading && releaseError && (
+                              <div className="text-xs text-amber-300">Search: {releaseError}</div>
+                            )}
+                            {!isReleaseLoading && !releaseError && (
+                              cachedReleases.length === 0 ? (
+                                <div className="text-xs text-slate-400">No releases found.</div>
+                              ) : (
+                                <div className="divide-y divide-slate-800/60">
+                                  {cachedReleases.map((release, index) => {
+                                    const releaseKey = getReleaseKey(release)
+                                    const isGrabBusy = libraryGrabBusyIds.has(releaseKey)
+                                    return (
+                                      <div key={release.guid || `${episodeKey}-${index}`} className="py-2 min-w-0">
+                                      <div className="text-xs text-slate-100 break-words">{release.title}</div>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                                        <span>{release.size_formatted}</span>
+                                        <span className="text-cyan-300">{release.quality}</span>
+                                        <span>{release.age}</span>
+                                        <span className={`px-1.5 rounded ${
+                                          release.protocol === 'usenet'
+                                            ? 'bg-purple-900/60 text-purple-200'
+                                            : 'bg-orange-900/60 text-orange-200'
+                                        }`}>
+                                          {release.protocol}
+                                        </span>
+                                      </div>
+                                      <div className="mt-2 flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => grabLibraryRelease(release)}
+                                          disabled={isGrabBusy}
+                                          className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
+                                            isGrabBusy
+                                              ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                                              : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
+                                          }`}
+                                          title="Send to download client"
+                                          aria-label="Grab release"
+                                        >
+                                          {isGrabBusy ? (
+                                            <span className="text-[10px]">...</span>
+                                          ) : (
+                                            <DownloadIcon className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )})}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -949,7 +1248,7 @@ export function DetailModal({
           {/* ACTION BUTTONS - mode-specific */}
           {actionButtons}
 
-          {mode === 'library' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
+          {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
             <div ref={libraryResultsRef} className="mt-6 space-y-3">
               {libraryReleaseLoading && !libraryActionMessage && (
                 <div className="text-sm text-slate-300">Searching...</div>
