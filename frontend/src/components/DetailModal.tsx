@@ -36,6 +36,7 @@ type DetailModalProps = {
   onLibraryDelete?: (item: LibraryItem) => void
   autoSearch?: boolean
   autoDeleteOpen?: boolean
+  autoExpandSeason?: number | null
   // Common props
   onClose: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
@@ -56,6 +57,7 @@ export function DetailModal({
   onLibraryDelete,
   autoSearch = false,
   autoDeleteOpen = false,
+  autoExpandSeason = null,
 }: DetailModalProps) {
   const [manualQuery, setManualQuery] = useState(plan?.query || '')
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -237,6 +239,18 @@ export function DetailModal({
     setLibraryGrabFeedback(null)
     autoSearchHandled.current = false
   }, [mode, libraryItem?.id])
+
+  useEffect(() => {
+    if (mode !== 'library') return
+    if (!libraryItem || libraryItem.mediaType !== 'tv') return
+    if (autoExpandSeason == null) return
+    setExpandedSeasons((prev) => {
+      const next = new Set(prev)
+      next.add(autoExpandSeason)
+      return next
+    })
+  }, [mode, libraryItem, autoExpandSeason])
+
 
   useEffect(() => {
     if (mode !== 'library') return

@@ -97,6 +97,10 @@ class DashboardConfig(BaseModel):
     show_plex: bool = False
 
 
+class SabnzbdConfig(BaseModel):
+    recent_group_limit: int = Field(default=10, ge=1, le=20)
+
+
 class UserConfig(BaseModel):
     country: str = "CA"
     language: str = "en"
@@ -130,6 +134,7 @@ class Config(BaseModel):
     ai: AIConfig = Field(default_factory=AIConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
     dashboard: DashboardConfig = Field(default_factory=DashboardConfig)
+    sabnzbd: SabnzbdConfig = Field(default_factory=SabnzbdConfig)
     integrations: IntegrationConfig = Field(default_factory=IntegrationConfig)
 
 
@@ -375,7 +380,8 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
 def update_basic_settings(
     country: Optional[str] = None,
     ai_provider: Optional[str] = None,
-    dashboard: Optional[dict] = None
+    dashboard: Optional[dict] = None,
+    sabnzbd: Optional[dict] = None
 ) -> Config:
     """Persist non-secret settings to settings.yaml."""
     settings = load_yaml_file(SETTINGS_FILE)
@@ -388,6 +394,9 @@ def update_basic_settings(
 
     if dashboard:
         settings.setdefault("dashboard", {}).update(dashboard)
+
+    if sabnzbd:
+        settings.setdefault("sabnzbd", {}).update(sabnzbd)
 
     try:
         with open(SETTINGS_FILE, "w") as f:

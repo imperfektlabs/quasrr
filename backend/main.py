@@ -10,7 +10,7 @@ from typing import Optional, Literal
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from config import get_config, reload_config, redact_secrets, update_streaming_services, update_basic_settings
 from integrations.ai import get_ai_client
@@ -92,10 +92,15 @@ class DashboardSettingsUpdate(BaseModel):
     show_plex: Optional[bool] = None
 
 
+class SabnzbdSettingsUpdate(BaseModel):
+    recent_group_limit: Optional[int] = Field(default=None, ge=1, le=20)
+
+
 class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
     ai_provider: Optional[str] = None
     dashboard: Optional[DashboardSettingsUpdate] = None
+    sabnzbd: Optional[SabnzbdSettingsUpdate] = None
 
 
 async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
@@ -282,10 +287,12 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
 async def update_basic_settings_config(payload: BasicSettingsUpdate):
     """Update non-secret settings in settings.yaml."""
     dashboard_settings = payload.dashboard.model_dump(exclude_unset=True) if payload.dashboard else None
+    sabnzbd_settings = payload.sabnzbd.model_dump(exclude_unset=True) if payload.sabnzbd else None
     config = update_basic_settings(
         payload.country,
         ai_provider=payload.ai_provider,
         dashboard=dashboard_settings,
+        sabnzbd=sabnzbd_settings,
     )
     logger.info("Basic settings updated")
     return {"status": "updated", "config": redact_secrets(config)}
@@ -414,13 +421,15 @@ async def get_sab_queue():
 
 
 @app.get("/sab/recent")
-async def get_sab_recent(limit: int = Query(5, ge=1, le=20, description="Number of groups to return")):
+async def get_sab_recent(limit: Optional[int] = Query(None, ge=1, le=20, description="Number of groups to return")):
     """Get recent SABnzbd download history, grouped."""
     sab = get_sabnzbd_client()
     if not sab.is_configured:
         raise HTTPException(status_code=503, detail="SABnzbd not configured")
     try:
-        history = await sab.get_history(group_limit=limit)
+        config = get_config()
+        group_limit = limit or config.sabnzbd.recent_group_limit
+        history = await sab.get_history(group_limit=group_limit)
         return history
     except SabnzbdError as e:
         logger.error(f"Error fetching SABnzbd history: {e.code}")
