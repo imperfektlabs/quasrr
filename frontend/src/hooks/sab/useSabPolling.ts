@@ -23,7 +23,8 @@ export type SabPollingResult = {
  */
 export function useSabPolling(
   enabled: boolean,
-  pollingInterval: number = 2000
+  pollingInterval: number = 2000,
+  recentLimit: number = 10
 ): SabPollingResult {
   const [queue, setQueue] = useState<SabQueueResponse | null>(null)
   const [recent, setRecent] = useState<SabRecentResponse | null>(null)
@@ -47,9 +48,10 @@ export function useSabPolling(
     try {
       const backendUrl = getBackendUrl()
 
+      const limitParam = Number.isFinite(recentLimit) ? Math.max(1, Math.min(20, recentLimit)) : 10
       const [queueRes, recentRes] = await Promise.all([
         fetch(`${backendUrl}/sab/queue`),
-        fetch(`${backendUrl}/sab/recent?limit=5`),
+        fetch(`${backendUrl}/sab/recent?limit=${limitParam}`),
       ])
 
       // Handle queue response

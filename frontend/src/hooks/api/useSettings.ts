@@ -20,6 +20,8 @@ export type SettingsResult = {
   setShowSabnzbd: (next: boolean) => void
   showPlex: boolean
   setShowPlex: (next: boolean) => void
+  sabRecentLimit: number
+  setSabRecentLimit: (next: number) => void
   saving: boolean
   error: string | null
   saved: boolean
@@ -36,6 +38,7 @@ export type SettingsResult = {
   saveSettings: (next?: Partial<{
     country: string
     ai_provider: string
+    sab_recent_group_limit: number
   }>) => Promise<void>
 }
 
@@ -54,6 +57,7 @@ export function useSettings(
   const [showRadarr, setShowRadarr] = useState(true)
   const [showSabnzbd, setShowSabnzbd] = useState(true)
   const [showPlex, setShowPlex] = useState(false)
+  const [sabRecentLimit, setSabRecentLimit] = useState(10)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -70,6 +74,7 @@ export function useSettings(
       setShowRadarr(config.dashboard.show_radarr)
       setShowSabnzbd(config.dashboard.show_sabnzbd)
       setShowPlex(config.dashboard.show_plex)
+      setSabRecentLimit(config.sabnzbd?.recent_group_limit ?? 10)
     }
   }, [config])
 
@@ -164,6 +169,7 @@ export function useSettings(
   const saveSettings = async (next?: Partial<{
     country: string
     ai_provider: string
+    sab_recent_group_limit: number
   }>) => {
     setSaving(true)
     setError(null)
@@ -171,6 +177,7 @@ export function useSettings(
 
     const nextCountry = next?.country ?? country
     const nextAiProvider = next?.ai_provider ?? aiProvider
+    const nextSabRecentLimit = next?.sab_recent_group_limit ?? sabRecentLimit
 
     try {
       const backendUrl = getBackendUrl()
@@ -180,6 +187,9 @@ export function useSettings(
         body: JSON.stringify({
           country: nextCountry,
           ai_provider: nextAiProvider,
+          sabnzbd: {
+            recent_group_limit: nextSabRecentLimit,
+          },
         }),
       })
 
@@ -215,6 +225,8 @@ export function useSettings(
     setShowSabnzbd,
     showPlex,
     setShowPlex,
+    sabRecentLimit,
+    setSabRecentLimit,
     saving,
     error,
     saved,

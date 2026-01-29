@@ -261,7 +261,7 @@ function HomeContent() {
     queueError: sabQueueError,
     recentError: sabRecentError,
     refetch: fetchSabData,
-  } = useSabPolling(sabPollingEnabled, 2000)
+  } = useSabPolling(sabPollingEnabled, 2000, config?.sabnzbd?.recent_group_limit ?? 10)
 
   // SABnzbd actions
   const {
@@ -318,6 +318,8 @@ function HomeContent() {
     setShowSabnzbd: setSettingsShowSabnzbd,
     showPlex: settingsShowPlex,
     setShowPlex: setSettingsShowPlex,
+    sabRecentLimit: settingsSabRecentLimit,
+    setSabRecentLimit: setSettingsSabRecentLimit,
     saving: settingsSaving,
     error: settingsError,
     saved: settingsSaved,
@@ -1270,6 +1272,32 @@ function HomeContent() {
                     }}
                   />
                   <span>Plex</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-gray-400 mb-2">Downloads</h4>
+              <div className="grid md:grid-cols-2 gap-3 text-sm">
+                <label className="grid gap-1">
+                  <span className="text-xs text-gray-400">Recent download groups</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={settingsSabRecentLimit}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (Number.isNaN(value)) return
+                      setSettingsSabRecentLimit(value)
+                    }}
+                    onBlur={() => {
+                      const value = Math.max(1, Math.min(20, settingsSabRecentLimit || 10))
+                      setSettingsSabRecentLimit(value)
+                      void saveSettings({ sab_recent_group_limit: value })
+                    }}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  />
                 </label>
               </div>
             </div>
