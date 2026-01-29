@@ -757,18 +757,18 @@ export function ReleaseView({
       <div
         key={release.guid || `${groupKey}-${index}`}
         data-release-guid={release.guid || undefined}
-        className={`px-3 py-2 text-sm hover:bg-slate-800/40 ${
+        className={`px-3 py-2 text-xs hover:bg-slate-800/40 ${
           isAiPick ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
         } ${
           isRequested ? 'ring-1 ring-fuchsia-400/60 bg-fuchsia-900/10' : ''
         }`}
       >
         <div>
-          <p className="text-sm text-slate-100 leading-snug break-words">
+          <p className="text-xs text-slate-100 leading-snug break-words">
             {release.title}
           </p>
 
-          <div className="mt-2 grid gap-2 text-sm text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+          <div className="mt-1.5 grid gap-2 text-[11px] text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <span>{release.size_formatted}</span>
               <span className="text-cyan-300">{release.quality}</span>
@@ -845,9 +845,9 @@ export function ReleaseView({
   }
 
   const releaseList = (
-    <div className="mt-4">
+    <div className="mt-3 glass-card rounded-md px-3 py-2 text-xs">
       {data.releases.length === 0 ? (
-        <div className="p-8 text-center text-gray-400">
+        <div className="py-6 text-center text-xs text-gray-400">
           {data.message || 'No releases found. Check indexer configuration.'}
         </div>
       ) : (
@@ -914,7 +914,7 @@ export function ReleaseView({
           </div>
 
           {/* Release rows */}
-          <div className="p-3 space-y-2">
+          <div className="space-y-2">
             {isMultiSeason ? (
               seasonGroups.map((seasonGroup) => {
                 const seasonKey = seasonGroup.key
@@ -927,7 +927,7 @@ export function ReleaseView({
                 }))
 
                 return (
-                  <div key={seasonKey} className="glass-card rounded-md px-3 py-2 text-sm">
+                  <div key={seasonKey} className="rounded-md border border-slate-800/60 px-3 py-2 text-xs">
                     <button
                       type="button"
                       onClick={() => toggleSeason(seasonKey)}
@@ -964,7 +964,7 @@ export function ReleaseView({
                               <button
                                 type="button"
                                 onClick={() => toggleGroup(group.key)}
-                                className="w-full px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
+                                className="w-full px-3 py-2 text-[11px] font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
                               >
                                 <span className="flex items-center gap-2">
                                   <span>{group.label} ({groupReleases.length})</span>
@@ -1031,12 +1031,12 @@ export function ReleaseView({
                 const isCollapsed = collapsedGroups.has(group.key)
 
                 return (
-                  <div key={group.key} className="glass-card rounded-md px-3 py-2 text-sm">
+                  <div key={group.key} className="rounded-md border border-slate-800/60 px-3 py-2 text-xs">
                     {group.label && (
                       <button
                         type="button"
                         onClick={() => toggleGroup(group.key)}
-                        className="w-full px-2 py-2 text-xs font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between rounded-md"
+                        className="w-full px-2 py-2 text-[11px] font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between rounded-md"
                       >
                         <span className="flex items-center gap-2">
                           <span>{group.label} ({groupReleases.length})</span>
@@ -1117,7 +1117,7 @@ export function ReleaseView({
 
   const panel = (
     <div
-      className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl"
+      className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl w-full"
       onClick={(event) => {
         if (isEmbedded) return
         event.stopPropagation()
@@ -1362,17 +1362,15 @@ export function ReleaseView({
 
   if (isEmbedded) {
     return (
-      <div className="mt-6">
-        <div className="glass-panel rounded-lg p-4 md:p-6 max-w-3xl">
-          {grabFeedback && (
-            <p className={`mb-3 text-xs ${
-              grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
-            }`}>
-              {grabFeedback.text}
-            </p>
-          )}
-          {releaseList}
-        </div>
+      <div className="mt-6 w-full">
+        {grabFeedback && (
+          <p className={`mb-3 text-xs ${
+            grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
+          }`}>
+            {grabFeedback.text}
+          </p>
+        )}
+        {releaseList}
         {grabAllOverlay}
       </div>
     )
