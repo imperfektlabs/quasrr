@@ -644,7 +644,7 @@ function HomeContent() {
                     <div className="mt-2 grid gap-1 text-[11px] leading-tight text-emerald-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Series count / episode count">
                           {dashboardSummary?.sonarr?.configured
                             ? `${dashboardSummary.sonarr.series_count} / ${dashboardSummary.sonarr.episode_count}`
                             : '—'}
@@ -652,7 +652,7 @@ function HomeContent() {
                       </div>
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <DiskIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Total size on disk">
                           {dashboardSummary?.sonarr?.configured ? formatSize(dashboardSummary.sonarr.size_on_disk) : '—'}
                         </span>
                       </div>
@@ -678,7 +678,7 @@ function HomeContent() {
                     <div className="mt-2 grid gap-1 text-[11px] leading-tight text-sky-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Downloaded movies / total movies">
                           {dashboardSummary?.radarr?.configured
                             ? `${dashboardSummary.radarr.movie_files_count} / ${dashboardSummary.radarr.movies_count}`
                             : '—'}
@@ -686,7 +686,7 @@ function HomeContent() {
                       </div>
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <DiskIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Total size on disk">
                           {dashboardSummary?.radarr?.configured ? formatSize(dashboardSummary.radarr.size_on_disk) : '—'}
                         </span>
                       </div>
@@ -712,11 +712,13 @@ function HomeContent() {
                     <div className="mt-2 grid gap-1 text-[11px] leading-tight text-amber-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">{sabQueueCount !== null ? sabQueueCount : '—'}</span>
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Queue items">
+                          {sabQueueCount !== null ? sabQueueCount : '—'}
+                        </span>
                       </div>
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <DiskIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Downloaded today / this month">
                           {dashboardSummary?.sabnzbd?.configured
                             ? formatDownloadTotals(dashboardSummary.sabnzbd.download_today, dashboardSummary.sabnzbd.download_month)
                             : '—'}
@@ -744,13 +746,13 @@ function HomeContent() {
                     <div className="mt-2 grid gap-1 text-[11px] leading-tight text-yellow-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Recently added items">
                           {dashboardSummary?.plex?.configured ? dashboardSummary.plex.recently_added : '—'}
                         </span>
                       </div>
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
-                        <span className="min-w-0 truncate whitespace-nowrap">
+                        <span className="min-w-0 truncate whitespace-nowrap" title="Active streams">
                           {dashboardSummary?.plex?.configured ? dashboardSummary.plex.active_streams : '—'}
                         </span>
                       </div>
