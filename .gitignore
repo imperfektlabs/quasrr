@@ -22,6 +22,7 @@ TODOS.md
 *.avif
 *.png
 
+
 # Prompts for agents
 AGENT_INITIALIZATION.md
 EXECUTION*.md
