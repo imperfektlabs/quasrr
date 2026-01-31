@@ -17,6 +17,9 @@ export const STREAMING_LOGOS: Record<string, string> = {
   ctv: '/logos/streaming/ctv.svg',
   global_tv: '/logos/streaming/global_tv.svg',
   citytvplus: '/logos/streaming/citytvplus.svg',
+  google_play_movies: '/logos/streaming/google_play_store.svg',
+  apple_tv_store: '/logos/streaming/apple_store.svg',
+  youtube: '/logos/streaming/youtube.svg',
 }
 
 /**
@@ -29,6 +32,9 @@ export const STREAMING_LINKS: Record<string, string> = {
   amazon_prime: 'https://www.primevideo.com',
   apple_tv: 'https://tv.apple.com',
   paramount_plus: 'https://www.paramountplus.com',
+  google_play_movies: 'https://play.google.com/store/movies',
+  apple_tv_store: 'https://tv.apple.com/store',
+  youtube: 'https://www.youtube.com',
 }
 
 /**
