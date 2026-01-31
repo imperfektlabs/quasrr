@@ -19,7 +19,7 @@ type ConfigResponse = {
   }
 }
 
-type MediaType = 'all' | 'movies' | 'tv'
+type MediaType = 'movies' | 'tv'
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 type RawLibraryItem = SonarrLibraryItem | RadarrLibraryItem
 
@@ -34,12 +34,18 @@ function LibraryContent() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
-  const [sortField, setSortField] = useState<'added' | 'title' | 'year' | 'size'>('added')
+  const [sortField, setSortField] = useState<'added' | 'imdbRating' | 'popularity' | 'releaseDate' | 'size' | 'title'>('added')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [searchText, setSearchText] = useState('')
   const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
-  const [filterMode, setFilterMode] = useState<'all' | 'downloaded' | 'missing' | 'monitored' | 'unmonitored'>('all')
-  const [mediaType, setMediaType] = useState<MediaType>((searchParams.get('type') as MediaType) || 'all')
+  const [filterModes, setFilterModes] = useState<Set<'downloaded' | 'missing' | 'monitored' | 'unmonitored'>>(new Set())
+  const [mediaTypes, setMediaTypes] = useState<Set<MediaType>>(() => {
+    const type = searchParams.get('type')
+    if (type === 'movies' || type === 'tv') {
+      return new Set<MediaType>([type])
+    }
+    return new Set<MediaType>(['movies', 'tv'])
+  })
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
   const [autoSearch, setAutoSearch] = useState(false)
   const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
@@ -96,6 +102,15 @@ function LibraryContent() {
     setSearchText(q)
   }, [searchParams])
 
+  useEffect(() => {
+    const type = searchParams.get('type')
+    if (type === 'movies' || type === 'tv') {
+      setMediaTypes(new Set<MediaType>([type]))
+    } else {
+      setMediaTypes(new Set<MediaType>(['movies', 'tv']))
+    }
+  }, [searchParams])
+
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
@@ -118,7 +133,7 @@ function LibraryContent() {
       if (normalizedQuery && !item.title.toLowerCase().includes(normalizedQuery)) {
         return false
       }
-      if (mediaType !== 'all' && item.mediaType !== mediaType) {
+      if (!mediaTypes.has(item.mediaType)) {
         return false
       }
 
@@ -134,10 +149,11 @@ function LibraryContent() {
         isMissing = (item.episodeCount || 0) > (item.episodeFileCount || 0)
       }
 
-      if (filterMode === 'downloaded') return isDownloaded
-      if (filterMode === 'missing') return isMissing
-      if (filterMode === 'monitored') return item.monitored
-      if (filterMode === 'unmonitored') return !item.monitored
+      if (filterModes.size === 0) return true
+      if (filterModes.has('downloaded') && !isDownloaded) return false
+      if (filterModes.has('missing') && !isMissing) return false
+      if (filterModes.has('monitored') && !item.monitored) return false
+      if (filterModes.has('unmonitored') && item.monitored) return false
       return true
     })
 
@@ -148,20 +164,30 @@ function LibraryContent() {
       if (sortField === 'title') {
         return (a.title || '').localeCompare(b.title || '') * (sortDir === 'asc' ? 1 : -1)
       }
-      if (sortField === 'year') {
-        left = a.year || 0
-        right = b.year || 0
+      if (sortField === 'releaseDate') {
+        left = a.releaseDate ? Date.parse(a.releaseDate) : 0
+        right = b.releaseDate ? Date.parse(b.releaseDate) : 0
+      } else if (sortField === 'imdbRating') {
+        left = a.imdbRating || 0
+        right = b.imdbRating || 0
+      } else if (sortField === 'popularity') {
+        left = a.popularity || 0
+        right = b.popularity || 0
       } else if (sortField === 'size') {
         left = a.sizeOnDisk || 0
         right = b.sizeOnDisk || 0
       } else {
+        left = a.year || 0
+        right = b.year || 0
+      }
+      if (sortField === 'added') {
         left = a.added ? Date.parse(a.added) : 0
         right = b.added ? Date.parse(b.added) : 0
       }
       return (left - right) * (sortDir === 'asc' ? 1 : -1)
     })
     return next
-  }, [combinedItems, sortField, sortDir, searchText, filterMode, mediaType])
+  }, [combinedItems, sortField, sortDir, searchText, filterModes, mediaTypes])
 
   const totalSize = useMemo(
     () => sortedItems.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
@@ -191,21 +217,49 @@ function LibraryContent() {
     [sortedItems]
   )
 
-  const handleMediaTypeChange = (type: MediaType) => {
-    setMediaType(type)
-    const params = new URLSearchParams(searchParams.toString())
-    if (type === 'all') {
-      params.delete('type')
-    } else {
-      params.set('type', type)
-    }
-    const newUrl = params.toString() ? `?${params.toString()}` : '/library'
-    router.push(newUrl)
+  const updateMediaTypes = (updater: (prev: Set<MediaType>) => Set<MediaType>) => {
+    setMediaTypes((prev) => {
+      const next = updater(prev)
+      const params = new URLSearchParams(searchParams.toString())
+      if (next.size === 1) {
+        const [only] = Array.from(next.values())
+        params.set('type', only)
+      } else {
+        params.delete('type')
+      }
+      const newUrl = params.toString() ? `?${params.toString()}` : '/library'
+      router.push(newUrl)
+      return next
+    })
+  }
+
+  const toggleMediaType = (type: MediaType) => {
+    updateMediaTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(type)) {
+        if (next.size === 1) return next
+        next.delete(type)
+      } else {
+        next.add(type)
+      }
+      return next
+    })
   }
 
   const handleTypeToggle = (type: 'movie' | 'tv') => {
-    const nextType = type === 'movie' ? 'movies' : 'tv'
-    handleMediaTypeChange(mediaType === nextType ? 'all' : nextType)
+    toggleMediaType(type === 'movie' ? 'movies' : 'tv')
+  }
+
+  const toggleFilterMode = (mode: 'downloaded' | 'missing' | 'monitored' | 'unmonitored') => {
+    setFilterModes((prev) => {
+      const next = new Set(prev)
+      if (next.has(mode)) {
+        next.delete(mode)
+      } else {
+        next.add(mode)
+      }
+      return next
+    })
   }
 
   const handleLibraryDelete = (item: LibraryItem) => {
@@ -233,11 +287,11 @@ function LibraryContent() {
       const found = radarrItems.find((item) => item.tmdbId === tmdb)
       match = found ? { ...found, mediaType: 'movies' as const } : undefined
     } else if (q) {
-      const pool: RawLibraryItem[] = mediaType === 'tv'
-        ? sonarrItems
-        : mediaType === 'movies'
-          ? radarrItems
-          : [...sonarrItems, ...radarrItems]
+      const pool: RawLibraryItem[] = mediaTypes.size === 1
+        ? mediaTypes.has('tv')
+          ? sonarrItems
+          : radarrItems
+        : [...sonarrItems, ...radarrItems]
       const found = pool.find((item) => item.title.toLowerCase().includes(q))
       match = found ? toLibraryItem(found) : undefined
     }
@@ -250,7 +304,7 @@ function LibraryContent() {
           setAutoExpandSeason(null)
         }
       }
-  }, [loading, searchParams, sonarrItems, radarrItems, mediaType])
+  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypes])
 
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
@@ -271,16 +325,46 @@ function LibraryContent() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-baseline gap-2">
                     <span className="text-base font-semibold text-slate-100">
-                      {mediaType === 'movies' ? 'Movies' : mediaType === 'tv' ? 'Series' : 'Library'}
+                      {mediaTypes.size === 1 ? (mediaTypes.has('movies') ? 'Movies' : 'Series') : 'Library'}
                     </span>
                     <span className="text-xl font-semibold text-slate-100">{sortedItems.length}</span>
                   </div>
                   <span>Total size: {formatSize(totalSize)}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="glass-chip px-2 py-1 rounded">Downloaded: {totalDownloaded}</span>
-                  <span className="glass-chip px-2 py-1 rounded">Missing: {totalMissing}</span>
-                  <span className="glass-chip px-2 py-1 rounded">Monitored: {totalMonitored}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleFilterMode('downloaded')}
+                    className={`glass-chip px-2 py-1 rounded transition ${
+                      filterModes.has('downloaded')
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Downloaded: {totalDownloaded}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleFilterMode('missing')}
+                    className={`glass-chip px-2 py-1 rounded transition ${
+                      filterModes.has('missing')
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Missing: {totalMissing}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleFilterMode('monitored')}
+                    className={`glass-chip px-2 py-1 rounded transition ${
+                      filterModes.has('monitored')
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Monitored: {totalMonitored}
+                  </button>
                 </div>
               </div>
 
@@ -288,20 +372,9 @@ function LibraryContent() {
                 <div className="flex flex-wrap gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => handleMediaTypeChange('all')}
+                    onClick={() => toggleMediaType('movies')}
                     className={`px-2.5 py-1 rounded transition ${
-                      mediaType === 'all'
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMediaTypeChange('movies')}
-                    className={`px-2.5 py-1 rounded transition ${
-                      mediaType === 'movies'
+                      mediaTypes.has('movies')
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
                     }`}
@@ -310,9 +383,9 @@ function LibraryContent() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleMediaTypeChange('tv')}
+                    onClick={() => toggleMediaType('tv')}
                     className={`px-2.5 py-1 rounded transition ${
-                      mediaType === 'tv'
+                      mediaTypes.has('tv')
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
                     }`}
@@ -320,26 +393,26 @@ function LibraryContent() {
                     TV
                   </button>
                 </div>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchText}
-                  onChange={(event) => setSearchText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                    event.preventDefault()
-                    setTimeout(() => {
-                      searchInputRef.current?.focus()
-                    }, 0)
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      searchInputRef.current?.focus()
-                    }, 0)
-                  }}
-                  placeholder="Search library..."
-                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-md text-slate-200 placeholder-slate-500"
-                />
+                <div className="relative flex-1 min-w-0">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder="Search library..."
+                    className="w-full min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 pr-8 text-md text-slate-200 placeholder-slate-500"
+                  />
+                  {searchText && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchText('')}
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center text-slate-400 hover:text-slate-200"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
 
               <details>
@@ -347,17 +420,18 @@ function LibraryContent() {
                   Filters/Sorting
                 </summary>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                  <select
-                    value={filterMode}
-                    onChange={(event) => setFilterMode(event.target.value as typeof filterMode)}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
-                  >
-                    <option value="all">All</option>
-                    <option value="downloaded">Downloaded</option>
-                    <option value="missing">Missing</option>
-                    <option value="monitored">Monitored</option>
-                    <option value="unmonitored">Unmonitored</option>
-                  </select>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(['downloaded', 'missing', 'monitored', 'unmonitored'] as const).map((mode) => (
+                      <label key={mode} className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={filterModes.has(mode)}
+                          onChange={() => toggleFilterMode(mode)}
+                        />
+                        <span className="capitalize">{mode}</span>
+                      </label>
+                    ))}
+                  </div>
                   <label className="text-slate-400">Sort</label>
                   <select
                     value={sortField}
@@ -365,9 +439,11 @@ function LibraryContent() {
                     className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
                   >
                     <option value="added">Added</option>
+                    <option value="imdbRating">IMDb Rating</option>
+                    <option value="popularity">Popularity</option>
+                    <option value="releaseDate">Release Date</option>
+                    <option value="size">Size on Disk</option>
                     <option value="title">Title</option>
-                    <option value="year">Year</option>
-                    <option value="size">Size</option>
                   </select>
                   <button
                     type="button"

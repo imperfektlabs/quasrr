@@ -37,6 +37,23 @@ export const STREAMING_LINKS: Record<string, string> = {
   youtube: 'https://www.youtube.com',
 }
 
+const STREAMING_NAME_MAP: Record<string, string> = {
+  netflix: 'netflix',
+  crave: 'crave',
+  disneyplus: 'disney_plus',
+  amazonprimevideo: 'amazon_prime',
+  primevideo: 'amazon_prime',
+  amazonvideo: 'amazon_prime',
+  appletvplus: 'apple_tv',
+  appletv: 'apple_tv',
+  paramountplus: 'paramount_plus',
+  cbcgem: 'cbc_gem',
+  citytvplus: 'citytvplus',
+  googletv: 'google_play_movies',
+  googleplaymovies: 'google_play_movies',
+  youtube: 'youtube',
+}
+
 /**
  * Get the logo path for a streaming service
  * @param id - Streaming service ID
@@ -44,6 +61,17 @@ export const STREAMING_LINKS: Record<string, string> = {
  */
 export function getStreamingLogo(id: string): string | undefined {
   return STREAMING_LOGOS[id]
+}
+
+/**
+ * Get the logo path for a streaming provider name
+ * @param name - Provider name from availability data
+ * @returns Logo path or undefined if not found
+ */
+export function getStreamingLogoForProvider(name: string): string | undefined {
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const id = STREAMING_NAME_MAP[normalized]
+  return id ? getStreamingLogo(id) : undefined
 }
 
 /**

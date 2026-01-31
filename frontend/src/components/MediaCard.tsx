@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import type { DiscoveryResult, SonarrLibraryItem, RadarrLibraryItem } from '@/types'
-import { getRatingLink } from '@/utils/formatting'
-import { formatSize } from '@/utils/formatting'
+import { formatSeriesYearSpan, formatSize, getRatingLink } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
 
@@ -144,10 +143,17 @@ export function MediaCard({
 
     status = isDownloaded ? 'downloaded' : 'not_in_library'
 
-    // Library metadata: year only
-    metadata = libItem.year ? (
+    const libraryYearLabel = libItem.mediaType === 'tv'
+      ? formatSeriesYearSpan({
+        year: libItem.year,
+        firstAired: libItem.firstAired,
+        lastAired: libItem.lastAired,
+        ended: libItem.ended,
+      })
+      : (libItem.year ? `${libItem.year}` : '')
+    metadata = libraryYearLabel ? (
       <div className="text-xs text-gray-400 mt-0.5">
-        {libItem.year}
+        {libraryYearLabel}
       </div>
     ) : null
 

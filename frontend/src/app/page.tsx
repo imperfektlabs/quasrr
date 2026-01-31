@@ -103,6 +103,7 @@ function HomeContent() {
   const [activeSection, setActiveSection] = useState<'search' | 'downloads' | 'status' | 'settings'>('search')
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
+  const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
   const [releaseContext, setReleaseContext] = useState<DiscoveryResult | null>(null)
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
@@ -399,7 +400,10 @@ function HomeContent() {
     await getAiSuggestion(releasesForAi)
   }
 
-  const handleSubmitSearch = async (overrideQuery?: string) => {
+  const handleSubmitSearch = async (
+    overrideQuery?: string,
+    options?: { keepAiModal?: boolean },
+  ) => {
     const rawQuery = overrideQuery ?? searchQuery
     const trimmed = rawQuery.trim()
     if (!trimmed) return
@@ -416,9 +420,11 @@ function HomeContent() {
     }
 
     // Clear AI state from previous search
-    clearAiIntent()
-    setAiTranslation(null)
-    setShowAiAvailability(false)
+    if (!options?.keepAiModal) {
+      clearAiIntent()
+      setAiTranslation(null)
+      setShowAiAvailability(false)
+    }
 
     // If ID query or AI disabled, do search immediately
     if (normalized.isIdQuery || !aiEnabled || !aiIntentEnabled) {
@@ -778,25 +784,42 @@ function HomeContent() {
             <div className="glass-panel rounded-lg p-4 mb-4">
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value)
-                    // Clear AI translation when user starts typing a new search
-                    if (aiTranslation) {
-                      setAiTranslation(null)
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                    event.preventDefault()
-                    void handleSubmitSearch()
-                  }}
-                  placeholder="Search Movies and TV..."
-                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-md text-slate-200 placeholder-slate-500"
-                />
+                <div className="relative flex-1">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      // Clear AI translation when user starts typing a new search
+                      if (aiTranslation) {
+                        setAiTranslation(null)
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                      event.preventDefault()
+                      void handleSubmitSearch()
+                    }}
+                    placeholder="Search Movies and TV..."
+                    className="w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 pr-8 text-md text-slate-200 placeholder-slate-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('')
+                        if (aiTranslation) {
+                          setAiTranslation(null)
+                        }
+                      }}
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center text-slate-400 hover:text-slate-200"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={searching || aiIntentBusy || !searchQuery.trim()}
@@ -1377,16 +1400,19 @@ function HomeContent() {
           mode="ai"
           plan={aiIntentPlan}
           releaseData={releaseData}
+          busy={aiIntentBusy || aiModalSearchBusy}
           onConfirm={handleAiConfirm}
-          onSearch={(query) => {
-            setShowAiAvailability(false)
-            void handleSubmitSearch(query)
-            setTimeout(() => {
-              searchInputRef.current?.focus()
-            }, 0)
+          onSearch={async (query) => {
+            setAiModalSearchBusy(true)
+            try {
+              await handleSubmitSearch(query, { keepAiModal: true })
+            } finally {
+              setAiModalSearchBusy(false)
+            }
           }}
           onClose={() => {
             setShowAiAvailability(false)
+            setAiModalSearchBusy(false)
           }}
         />
       )}

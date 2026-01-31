@@ -77,6 +77,9 @@ export type DiscoveryResult = {
   type: SearchType
   title: string
   year?: number
+  first_aired?: string
+  last_aired?: string
+  ended?: boolean
   overview?: string
   poster?: string
   status: 'not_in_library' | 'in_library' | 'downloaded'
@@ -193,6 +196,9 @@ export type AIAvailability = {
   tmdb_id?: number
   title?: string
   year?: string
+  first_aired?: string
+  last_aired?: string
+  ended?: boolean | null
   overview?: string
   poster_url?: string
   link?: string
@@ -278,6 +284,9 @@ export type RadarrLibraryItem = {
   sizeOnDisk?: number
   tmdbId?: number
   imdbId?: string
+  imdbRating?: number
+  popularity?: number
+  releaseDate?: string
   added?: string
   poster?: string
 }
@@ -297,6 +306,12 @@ export type SonarrLibraryItem = {
   sizeOnDisk?: number
   tvdbId?: number
   imdbId?: string
+  imdbRating?: number
+  popularity?: number
+  releaseDate?: string
+  firstAired?: string
+  lastAired?: string
+  ended?: boolean
   added?: string
   poster?: string
   seasons?: Array<{
