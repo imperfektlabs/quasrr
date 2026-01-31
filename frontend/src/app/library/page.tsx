@@ -7,7 +7,8 @@ import { getBackendUrl } from '@/utils/backend'
 import { formatSize } from '@/utils/formatting'
 import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
-import { MediaCard } from '@/components/MediaCard'
+import { MediaRail } from '@/components/MediaRail'
+import { MediaRailCard } from '@/components/MediaRailCard'
 import { DetailModal } from '@/components/DetailModal'
 
 type ConfigResponse = {
@@ -246,10 +247,6 @@ function LibraryContent() {
     })
   }
 
-  const handleTypeToggle = (type: 'movie' | 'tv') => {
-    toggleMediaType(type === 'movie' ? 'movies' : 'tv')
-  }
-
   const toggleFilterMode = (mode: 'downloaded' | 'missing' | 'monitored' | 'unmonitored') => {
     setFilterModes((prev) => {
       const next = new Set(prev)
@@ -320,7 +317,7 @@ function LibraryContent() {
       <div className="max-w-5xl mx-auto space-y-4">
         <section className="space-y-3">
           <div className="sticky top-20 z-20">
-            <div className="glass-panel rounded-lg p-3 space-y-3">
+            <div className="glass-panel glass-header p-3 space-y-3">
               <div className="space-y-2 text-xs text-slate-300">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-baseline gap-2">
@@ -464,29 +461,20 @@ function LibraryContent() {
           )}
 
           {!loading && !error && sortedItems.length > 0 && (
-            <div className="grid gap-2">
-              {sortedItems.map((item) => (
-                <MediaCard
-                  key={`${item.mediaType}-${item.id}`}
-                  item={{ source: 'library', data: item }}
-                  onClick={() => {
-                    setSelectedItem(item)
-                    setAutoSearch(false)
-                    setAutoDeleteOpen(false)
-                  }}
-                  onLibrarySearch={() => {
-                    setSelectedItem(item)
-                    setAutoSearch(true)
-                    setAutoDeleteOpen(false)
-                  }}
-                  onLibraryDelete={() => {
-                    setSelectedItem(item)
-                    setAutoSearch(false)
-                    setAutoDeleteOpen(true)
-                  }}
-                  onTypeToggle={handleTypeToggle}
-                />
-              ))}
+            <div className="rail-bleed">
+              <MediaRail>
+                {sortedItems.map((item) => (
+                  <MediaRailCard
+                    key={`${item.mediaType}-${item.id}`}
+                    item={{ source: 'library', data: item }}
+                    onClick={() => {
+                      setSelectedItem(item)
+                      setAutoSearch(false)
+                      setAutoDeleteOpen(false)
+                    }}
+                  />
+                ))}
+              </MediaRail>
             </div>
           )}
         </section>

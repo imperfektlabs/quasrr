@@ -67,7 +67,6 @@ import {
 import {
   ReleaseView,
   DetailModal,
-  MediaCard,
   MediaRail,
   MediaRailCard,
   SabQueue,
@@ -783,7 +782,7 @@ function HomeContent() {
         {activeSection === 'search' && (
         <section id="search" className="scroll-mt-24">
           <div className="sticky top-20 z-20">
-            <div className="glass-panel rounded-lg p-4 mb-4">
+            <div className="glass-panel glass-header p-4 mb-4">
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -994,16 +993,50 @@ function HomeContent() {
                   No results found
                 </div>
               ) : (
-                <MediaRail>
-                  {searchResults.results.map((result, index) => (
-                    <MediaRailCard
-                      key={result.tmdb_id || result.tvdb_id || index}
-                      result={result}
-                      onClick={() => setSelectedResult(result)}
-                      onShowReleases={handleShowReleases}
-                    />
-                  ))}
-                </MediaRail>
+                <div className="rail-bleed">
+                  <MediaRail>
+                    {(aiIntentPlan || aiIntentBusy || aiIntentError || aiTranslation) && (
+                      <div className="rail-card rail-card--ai">
+                        <div className="rail-card__body">
+                          <span className="rail-card__eyebrow">AI summary</span>
+                          <h3 className="rail-card__title">
+                            {aiTranslation || aiIntentPlan?.intent?.title || 'Interpreting search'}
+                          </h3>
+                          <div className="rail-card__meta">
+                            {aiIntentPlan?.availability?.year || '—'}
+                            {aiIntentPlan?.intent?.media_type && aiIntentPlan.intent.media_type !== 'unknown'
+                              ? ` • ${aiIntentPlan.intent.media_type}`
+                              : ''}
+                          </div>
+                          <div className="rail-card__chips">
+                            {aiIntentPlan?.intent?.season && (
+                              <span className="glass-chip">S{String(aiIntentPlan.intent.season).padStart(2, '0')}</span>
+                            )}
+                            {aiIntentPlan?.intent?.episode && (
+                              <span className="glass-chip">E{String(aiIntentPlan.intent.episode).padStart(2, '0')}</span>
+                            )}
+                            {aiIntentPlan?.intent?.quality && (
+                              <span className="glass-chip">{aiIntentPlan.intent.quality}</span>
+                            )}
+                            {aiIntentBusy && <span className="glass-chip">Thinking…</span>}
+                            {aiIntentError && <span className="glass-chip">AI error</span>}
+                          </div>
+                          {aiIntentPlan?.intent?.notes && (
+                            <p className="rail-card__overview">{aiIntentPlan.intent.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {searchResults.results.map((result, index) => (
+                      <MediaRailCard
+                        key={result.tmdb_id || result.tvdb_id || index}
+                        item={{ source: 'discovery', data: result }}
+                        onClick={() => setSelectedResult(result)}
+                        onShowReleases={handleShowReleases}
+                      />
+                    ))}
+                  </MediaRail>
+                </div>
               )}
 
               {searchResults.total_pages > 1 && (
