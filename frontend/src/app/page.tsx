@@ -103,6 +103,7 @@ function HomeContent() {
   const [activeSection, setActiveSection] = useState<'search' | 'downloads' | 'status' | 'settings'>('search')
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
+  const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
   const [releaseContext, setReleaseContext] = useState<DiscoveryResult | null>(null)
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
@@ -399,7 +400,10 @@ function HomeContent() {
     await getAiSuggestion(releasesForAi)
   }
 
-  const handleSubmitSearch = async (overrideQuery?: string) => {
+  const handleSubmitSearch = async (
+    overrideQuery?: string,
+    options?: { keepAiModal?: boolean },
+  ) => {
     const rawQuery = overrideQuery ?? searchQuery
     const trimmed = rawQuery.trim()
     if (!trimmed) return
@@ -416,9 +420,11 @@ function HomeContent() {
     }
 
     // Clear AI state from previous search
-    clearAiIntent()
-    setAiTranslation(null)
-    setShowAiAvailability(false)
+    if (!options?.keepAiModal) {
+      clearAiIntent()
+      setAiTranslation(null)
+      setShowAiAvailability(false)
+    }
 
     // If ID query or AI disabled, do search immediately
     if (normalized.isIdQuery || !aiEnabled || !aiIntentEnabled) {
@@ -1394,16 +1400,19 @@ function HomeContent() {
           mode="ai"
           plan={aiIntentPlan}
           releaseData={releaseData}
+          busy={aiIntentBusy || aiModalSearchBusy}
           onConfirm={handleAiConfirm}
-          onSearch={(query) => {
-            setShowAiAvailability(false)
-            void handleSubmitSearch(query)
-            setTimeout(() => {
-              searchInputRef.current?.focus()
-            }, 0)
+          onSearch={async (query) => {
+            setAiModalSearchBusy(true)
+            try {
+              await handleSubmitSearch(query, { keepAiModal: true })
+            } finally {
+              setAiModalSearchBusy(false)
+            }
           }}
           onClose={() => {
             setShowAiAvailability(false)
+            setAiModalSearchBusy(false)
           }}
         />
       )}
