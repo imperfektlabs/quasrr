@@ -13,7 +13,7 @@ import type {
 } from '@/types'
 import { useReleaseGrab } from '@/hooks'
 import { getBackendUrl } from '@/utils/backend'
-import { getRatingLink, formatSize, getReleaseKey } from '@/utils/formatting'
+import { getRatingLink, formatSeriesYearSpan, formatSize, getReleaseKey } from '@/utils/formatting'
 import { getStreamingLogoForProvider } from '@/utils/streaming'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
@@ -814,11 +814,19 @@ export function DetailModal({
       )
     }
   } else if (mode === 'library' && libraryItem) {
+    const libraryYearLabel = libraryItem.mediaType === 'tv'
+      ? formatSeriesYearSpan({
+        year: libraryItem.year,
+        firstAired: libraryItem.firstAired,
+        lastAired: libraryItem.lastAired,
+        ended: libraryItem.ended,
+      })
+      : (libraryItem.year ? `${libraryItem.year}` : '—')
     headerTitle = libraryItem.title
-    headerSubtitle = `${libraryItem.year || '—'}${libraryItem.mediaType === 'tv' && 'network' in libraryItem && libraryItem.network ? ` • ${libraryItem.network}` : ''}`
+    headerSubtitle = `${libraryYearLabel || '—'}${libraryItem.mediaType === 'tv' && 'network' in libraryItem && libraryItem.network ? ` • ${libraryItem.network}` : ''}`
     poster = libraryItem.poster
     displayTitle = libraryItem.title
-    metadata = `${libraryItem.year || ''}`
+    metadata = libraryYearLabel
     overview = libraryItem.overview
 
     // Library status

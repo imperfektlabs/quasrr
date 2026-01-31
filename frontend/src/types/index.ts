@@ -303,6 +303,9 @@ export type SonarrLibraryItem = {
   imdbRating?: number
   popularity?: number
   releaseDate?: string
+  firstAired?: string
+  lastAired?: string
+  ended?: boolean
   added?: string
   poster?: string
   seasons?: Array<{
