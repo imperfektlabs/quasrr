@@ -608,6 +608,9 @@ class SonarrClient:
                                 "episodeFileCount": season_stats.get("episodeFileCount", 0),
                             }
                         )
+                    ended_value = series.get("ended")
+                    if not isinstance(ended_value, bool):
+                        ended_value = (series.get("status") or "").lower() == "ended"
                     trimmed.append(
                         {
                             "id": series.get("id"),
@@ -627,6 +630,9 @@ class SonarrClient:
                             "imdbRating": (series.get("ratings", {}) or {}).get("imdb", {}).get("value"),
                             "popularity": series.get("popularity"),
                             "releaseDate": series.get("firstAired"),
+                            "firstAired": series.get("firstAired"),
+                            "lastAired": series.get("previousAiring") or series.get("lastAired"),
+                            "ended": ended_value,
                             "added": series.get("added"),
                             "poster": extract_poster(series.get("images", [])),
                             "seasons": seasons,
