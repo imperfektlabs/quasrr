@@ -138,3 +138,27 @@ export function formatSize(bytes: number | null | undefined): string {
   }
   return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
 }
+
+function parseYear(value?: string | null): string | null {
+  if (!value) return null
+  const match = value.match(/^(\d{4})/)
+  return match ? match[1] : null
+}
+
+/**
+ * Format a TV series year span (e.g., "2006-2010" or "2020-").
+ */
+export function formatSeriesYearSpan(params: {
+  year?: number
+  firstAired?: string
+  lastAired?: string
+  ended?: boolean
+}): string {
+  const start = parseYear(params.firstAired) ?? (params.year ? `${params.year}` : null)
+  if (!start) return ''
+  const ended = params.ended === true
+  if (!ended) return `${start}-`
+  const end = parseYear(params.lastAired)
+  if (!end) return `${start}-${start}`
+  return `${start}-${end}`
+}
