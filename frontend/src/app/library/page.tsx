@@ -320,26 +320,38 @@ function LibraryContent() {
                     TV
                   </button>
                 </div>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchText}
-                  onChange={(event) => setSearchText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                    event.preventDefault()
-                    setTimeout(() => {
-                      searchInputRef.current?.focus()
-                    }, 0)
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      searchInputRef.current?.focus()
-                    }, 0)
-                  }}
-                  placeholder="Search library..."
-                  className="flex-1 min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 text-md text-slate-200 placeholder-slate-500"
-                />
+                <div className="relative flex-1 min-w-0">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                      event.preventDefault()
+                      setTimeout(() => {
+                        searchInputRef.current?.focus()
+                      }, 0)
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        searchInputRef.current?.focus()
+                      }, 0)
+                    }}
+                    placeholder="Search library..."
+                    className="w-full min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 pr-8 text-md text-slate-200 placeholder-slate-500"
+                  />
+                  {searchText && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchText('')}
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center text-slate-400 hover:text-slate-200"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
 
               <details>
