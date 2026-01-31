@@ -27,10 +27,10 @@ streaming_services:
     name: "Disney+"
     enabled: true
   - id: amazon_prime
-    name: "Amazon Prime Video"
+    name: "PrimeVideo"
     enabled: true
   - id: apple_tv
-    name: "Apple TV+"
+    name: "AppleTV+"
     enabled: false
   - id: paramount_plus
     name: "Paramount+"
