@@ -278,9 +278,39 @@ function LibraryContent() {
                   <span>Total size: {formatSize(totalSize)}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="glass-chip px-2 py-1 rounded">Downloaded: {totalDownloaded}</span>
-                  <span className="glass-chip px-2 py-1 rounded">Missing: {totalMissing}</span>
-                  <span className="glass-chip px-2 py-1 rounded">Monitored: {totalMonitored}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('downloaded')}
+                    className={`glass-chip px-2 py-1 rounded transition ${
+                      filterMode === 'downloaded'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Downloaded: {totalDownloaded}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('missing')}
+                    className={`glass-chip px-2 py-1 rounded transition ${
+                      filterMode === 'missing'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Missing: {totalMissing}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('monitored')}
+                    className={`glass-chip px-2 py-1 rounded transition ${
+                      filterMode === 'monitored'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    Monitored: {totalMonitored}
+                  </button>
                 </div>
               </div>
 
