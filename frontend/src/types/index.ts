@@ -278,6 +278,9 @@ export type RadarrLibraryItem = {
   sizeOnDisk?: number
   tmdbId?: number
   imdbId?: string
+  imdbRating?: number
+  popularity?: number
+  releaseDate?: string
   added?: string
   poster?: string
 }
@@ -297,6 +300,9 @@ export type SonarrLibraryItem = {
   sizeOnDisk?: number
   tvdbId?: number
   imdbId?: string
+  imdbRating?: number
+  popularity?: number
+  releaseDate?: string
   added?: string
   poster?: string
   seasons?: Array<{
