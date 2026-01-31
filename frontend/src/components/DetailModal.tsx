@@ -14,6 +14,7 @@ import type {
 import { useReleaseGrab } from '@/hooks'
 import { getBackendUrl } from '@/utils/backend'
 import { getRatingLink, formatSize, getReleaseKey } from '@/utils/formatting'
+import { getStreamingLogoForProvider } from '@/utils/streaming'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
 import { DownloadIcon } from './Icons'
@@ -138,7 +139,7 @@ export function DetailModal({
     }
   }, [onClose])
 
-  // Fetch availability for AI or discovery modes
+  // Fetch availability for AI, discovery, and library modes
   useEffect(() => {
     if (mode === 'ai') {
       setAvailability(plan?.availability || null)
@@ -148,7 +149,7 @@ export function DetailModal({
       return
     }
 
-    if (mode === 'discovery' && result) {
+    if ((mode === 'discovery' && result) || (mode === 'library' && libraryItem)) {
       let active = true
       const fetchAvailability = async () => {
         setAvailability(null)
@@ -156,7 +157,18 @@ export function DetailModal({
         setAvailabilityLoading(true)
         try {
           const backendUrl = getBackendUrl()
-          const params = new URLSearchParams({ query: result.title, type: result.type })
+          const query = mode === 'library' && libraryItem ? libraryItem.title : result?.title
+          const type = mode === 'library' && libraryItem
+            ? (libraryItem.mediaType === 'tv' ? 'tv' : 'movie')
+            : result?.type
+          if (!query || !type) {
+            if (active) {
+              setAvailability(null)
+              setAvailabilityLoading(false)
+            }
+            return
+          }
+          const params = new URLSearchParams({ query, type })
           const response = await fetch(`${backendUrl}/availability?${params}`)
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}))
@@ -173,7 +185,7 @@ export function DetailModal({
       fetchAvailability()
       return () => { active = false }
     }
-  }, [mode, plan?.availability, plan?.query, result])
+  }, [mode, plan?.availability, plan?.query, result, libraryItem])
 
   // Fetch episodes for library TV shows
   useEffect(() => {
@@ -755,7 +767,7 @@ export function DetailModal({
   let status: 'not_in_library' | 'in_library' | 'downloaded' = 'not_in_library'
 
   if (mode === 'ai') {
-    headerTitle = 'Plan & Availability'
+    headerTitle = 'AI Suggests…'
     headerSubtitle = plan?.query ? `"${plan.query}"` : ''
     poster = availability?.poster_url
     displayTitle = availability?.title || intent?.title || plan?.query || 'Unknown'
@@ -829,9 +841,9 @@ export function DetailModal({
   }
 
   // ============================================
-  // STREAMING OPTIONS (shared between AI and discovery)
+  // STREAMING OPTIONS (shared between AI, discovery, and library)
   // ============================================
-  const streamingSection = (mode === 'ai' || mode === 'discovery') ? (
+  const streamingSection = (mode === 'ai' || mode === 'discovery' || mode === 'library') ? (
     <div className="space-y-2">
       {availabilityLoading && <div className="text-xs text-gray-400">Loading streaming options...</div>}
       {availability?.flatrate && availability.flatrate.length > 0 && (
@@ -840,6 +852,7 @@ export function DetailModal({
           <div className="flex flex-wrap gap-2">
             {availability.flatrate.map((provider) => {
               const isSubscribed = availability.subscribed?.includes(provider.name)
+              const logoUrl = provider.logo_url || getStreamingLogoForProvider(provider.name)
               return (
                 <div
                   key={provider.name}
@@ -849,8 +862,8 @@ export function DetailModal({
                       : 'border-slate-700/60 bg-slate-800/60 text-slate-200'
                   }`}
                 >
-                  {provider.logo_url ? (
-                    <img src={provider.logo_url} alt={provider.name} className="h-5 w-5 object-contain" />
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={provider.name} className="h-5 w-5 object-contain" />
                   ) : (
                     <span className="text-gray-500">?</span>
                   )}
@@ -1150,33 +1163,65 @@ export function DetailModal({
     actionButtons = (
       <>
         <div className="mt-4">
-          <label className="text-xs text-gray-400">Search a different title</label>
-          <div className="mt-1 flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              value={manualQuery}
-              onChange={(e) => setManualQuery(e.target.value)}
-              placeholder="Type what you actually want"
-              className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
-            />
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              const trimmed = manualQuery.trim()
+              if (!trimmed || busy) return
+              onSearch?.(trimmed)
+            }}
+            className="mt-1 flex flex-col sm:flex-row gap-2"
+          >
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={manualQuery}
+                onChange={(e) => setManualQuery(e.target.value)}
+                placeholder="Search again…"
+                className="w-full bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2 pr-9 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
+              />
+              {manualQuery && (
+                <button
+                  type="button"
+                  onClick={() => setManualQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center text-slate-400 hover:text-slate-200"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
             <button
-              type="button"
-              onClick={() => onSearch?.(manualQuery)}
+              type="submit"
               disabled={busy || !manualQuery.trim()}
               className="bg-slate-700/60 hover:bg-slate-600/70 disabled:bg-slate-700/40 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-sm"
             >
               Search this
             </button>
-          </div>
+          </form>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" onClick={() => plan && onConfirm?.(plan)} disabled={busy} className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-4 rounded text-sm font-medium">
-            {busy ? 'Working...' : 'Search anyway'}
+        <div className="mt-5 flex w-full flex-nowrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => plan && onConfirm?.(plan)}
+            disabled={busy}
+            className="flex-1 min-w-0 whitespace-nowrap bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-3 sm:px-4 text-xs sm:text-sm rounded font-medium"
+          >
+            {busy ? 'Working...' : 'Search anyways'}
           </button>
-          <button type="button" onClick={() => plan && onSearch?.(plan.query)} disabled={busy} className="bg-slate-800/70 hover:bg-slate-700/70 text-white py-2 px-4 rounded text-sm">
+          <button
+            type="button"
+            onClick={() => plan && onSearch?.(plan.query)}
+            disabled={busy}
+            className="flex-1 min-w-0 whitespace-nowrap bg-slate-800/70 hover:bg-slate-700/70 text-white py-2 px-3 sm:px-4 text-xs sm:text-sm rounded"
+          >
             Search original query
           </button>
-          <button type="button" onClick={onClose} className="bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-4 rounded text-sm">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 min-w-0 whitespace-nowrap bg-slate-700/60 hover:bg-slate-600/70 text-white py-2 px-3 sm:px-4 text-xs sm:text-sm rounded"
+          >
             Cancel
           </button>
         </div>

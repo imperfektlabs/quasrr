@@ -778,25 +778,42 @@ function HomeContent() {
             <div className="glass-panel rounded-lg p-4 mb-4">
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value)
-                    // Clear AI translation when user starts typing a new search
-                    if (aiTranslation) {
-                      setAiTranslation(null)
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                    event.preventDefault()
-                    void handleSubmitSearch()
-                  }}
-                  placeholder="Search Movies and TV..."
-                  className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-md text-slate-200 placeholder-slate-500"
-                />
+                <div className="relative flex-1">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      // Clear AI translation when user starts typing a new search
+                      if (aiTranslation) {
+                        setAiTranslation(null)
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                      event.preventDefault()
+                      void handleSubmitSearch()
+                    }}
+                    placeholder="Search Movies and TV..."
+                    className="w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 pr-8 text-md text-slate-200 placeholder-slate-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('')
+                        if (aiTranslation) {
+                          setAiTranslation(null)
+                        }
+                      }}
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center text-slate-400 hover:text-slate-200"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={searching || aiIntentBusy || !searchQuery.trim()}
