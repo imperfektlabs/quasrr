@@ -11,7 +11,7 @@
     inset 0 -18px 32px rgba(3, 6, 18, 0.5);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border-radius: 8px !important;
+  border-radius: 6px !important;
 }
 
 .glass-card {
@@ -24,7 +24,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px) saturate(130%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
-  border-radius: 8px !important;
+  border-radius: 6px !important;
 }
 
 .glass-modal {
@@ -38,7 +38,7 @@
     inset 0 -22px 40px rgba(2, 4, 12, 0.55);
   backdrop-filter: blur(28px) saturate(155%);
   -webkit-backdrop-filter: blur(28px) saturate(155%);
-  border-radius: 10px !important;
+  border-radius: 8px !important;
 }
 
 .glass-chip {
@@ -49,7 +49,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border-radius: 6px !important;
+  border-radius: 4px !important;
 }
 
 .glass-header {
@@ -69,10 +69,10 @@
 
 @media (min-width: 768px) {
   .rail-bleed {
-    margin-left: -32px;
-    margin-right: -32px;
-    padding-left: 32px;
-    padding-right: 32px;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: 40px;
+    padding-right: 40px;
   }
 }
 
@@ -128,7 +128,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(80, 120, 190, 0.12) 40%, rgba(8, 12, 22, 0.75));
   border: 1px solid rgba(120, 170, 230, 0.22);
@@ -147,7 +147,7 @@
 .rail-card__poster {
   width: 100%;
   aspect-ratio: 2 / 3;
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
   background: rgba(12, 16, 26, 0.8);
 }
@@ -200,7 +200,7 @@
 .rail-card__chips .glass-chip {
   font-size: 10px;
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .rail-card__overview {
@@ -227,11 +227,15 @@
 .rail-card__actions button {
   background: rgba(77, 182, 255, 0.85);
   color: white;
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 6px 12px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.rail-card__panel {
+  border-radius: 6px;
 }
 
 .rail-card__eyebrow {

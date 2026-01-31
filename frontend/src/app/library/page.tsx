@@ -304,7 +304,7 @@ function LibraryContent() {
   }, [loading, searchParams, sonarrItems, radarrItems, mediaTypes])
 
   return (
-    <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
+    <main className="min-h-screen pt-24 px-4 pb-8 md:px-10">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -314,7 +314,7 @@ function LibraryContent() {
         config={config}
       />
 
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         <section className="space-y-3">
           <div className="sticky top-20 z-20">
             <div className="glass-panel glass-header p-3 space-y-3">

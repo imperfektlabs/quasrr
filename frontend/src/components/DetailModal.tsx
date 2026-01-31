@@ -38,6 +38,8 @@ type DetailModalProps = {
   autoSearch?: boolean
   autoDeleteOpen?: boolean
   autoExpandSeason?: number | null
+  embedded?: boolean
+  className?: string
   // Common props
   onClose: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
@@ -59,6 +61,8 @@ export function DetailModal({
   autoSearch = false,
   autoDeleteOpen = false,
   autoExpandSeason = null,
+  embedded = false,
+  className,
 }: DetailModalProps) {
   const [manualQuery, setManualQuery] = useState(plan?.query || '')
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -745,7 +749,7 @@ export function DetailModal({
   }
 
   // Early return checks
-  if (mode === 'ai' && !plan) return null
+  if (mode === 'ai' && !plan && !embedded) return null
   if (mode === 'discovery' && !result) return null
   if (mode === 'library' && !libraryItem) return null
 
@@ -1337,103 +1341,117 @@ export function DetailModal({
   // ============================================
   // SINGLE UNIFIED RETURN
   // ============================================
+  const panel = (
+    <div
+      className={[
+        'glass-panel rounded-lg p-4 md:p-6 w-full overflow-y-auto flex flex-col',
+        embedded ? 'rail-card__panel' : 'max-w-3xl max-h-[calc(100vh-2rem)] min-h-[calc(100vh-2rem)]',
+        className,
+      ].filter(Boolean).join(' ')}
+    >
+      {/* HEADER - identical for all modes */}
+      <div className="flex justify-between items-start gap-4">
+        <div>
+          <h2 className="text-xl font-bold">{headerTitle}</h2>
+          <p className="text-gray-400 text-sm">{headerSubtitle}</p>
+        </div>
+        {!embedded && (
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl px-2">X</button>
+        )}
+      </div>
+
+      {/* MAIN CONTENT - unified grid layout */}
+      <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
+        {/* Poster column */}
+        <div className="w-full">
+          {poster ? (
+            <img src={poster} alt={displayTitle} className="w-full rounded-lg object-cover" />
+          ) : (
+            <div className="w-full h-56 rounded-lg bg-slate-800/60 flex items-center justify-center text-gray-500 text-xs">
+              No poster
+            </div>
+          )}
+        </div>
+
+        {/* Content column */}
+        <div className="space-y-3">
+          {/* Title (for AI mode where header title is different) */}
+          {mode === 'ai' && (
+            <div className="text-slate-200 text-lg font-semibold">{displayTitle}</div>
+          )}
+
+          {/* Metadata line */}
+          {metadata && <div className="text-gray-400 text-xs">{metadata}</div>}
+
+          {/* Status badge + chips */}
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge status={status} />
+            {chips}
+          </div>
+
+          {/* Genres (discovery only) */}
+          {genres}
+
+          {/* Ratings (discovery only) */}
+          {ratings}
+
+          {/* Overview */}
+          {overview && <p className="text-gray-300 text-sm leading-relaxed line-clamp-4">{overview}</p>}
+
+          {/* AI-specific messages */}
+          {mode === 'ai' && releaseData?.message && <div className="text-xs text-amber-300">{releaseData.message}</div>}
+          {mode === 'ai' && intent?.notes && <p className="text-gray-300 text-xs line-clamp-2">{intent.notes}</p>}
+          {mode === 'ai' && plan?.recommendation === 'watch' && (
+            <div className="text-amber-300 text-xs">Recommendation: stream instead of downloading.</div>
+          )}
+          {mode === 'ai' && error && <div className="text-red-400 text-xs">AI: {error}</div>}
+
+          {/* Streaming options (AI and discovery) */}
+          {streamingSection}
+
+          {/* Season selector (discovery TV only) */}
+          {seasonSelector}
+        </div>
+      </div>
+
+      {/* EPISODE LIST - library TV only, full width below the grid */}
+      {episodeList}
+
+      {/* ACTION BUTTONS - mode-specific */}
+      {actionButtons}
+
+      {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
+        <div ref={libraryResultsRef} className="mt-4 space-y-2">
+          {libraryGrabFeedback && (
+            <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
+              {libraryGrabFeedback.text}
+            </div>
+          )}
+          {libraryReleaseLoading && !libraryActionMessage && (
+            <div className="text-xs text-slate-300">Searching...</div>
+          )}
+          {libraryReleaseError && (
+            <div className="text-xs text-amber-300">Search: {libraryReleaseError}</div>
+          )}
+          {libraryReleaseData && (
+            <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 w-full max-w-full min-w-0 overflow-x-hidden">
+              {renderInlineReleaseList(libraryReleaseData.releases || [], 'movie', 'movie')}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  if (embedded) {
+    return panel
+  }
+
   return (
     <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
       <div className="min-h-screen p-4">
-        <div
-          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl w-full max-h-[calc(100vh-2rem)] min-h-[calc(100vh-2rem)] overflow-y-auto flex flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
-
-          {/* HEADER - identical for all modes */}
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h2 className="text-xl font-bold">{headerTitle}</h2>
-              <p className="text-gray-400 text-sm">{headerSubtitle}</p>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl px-2">X</button>
-          </div>
-
-          {/* MAIN CONTENT - unified grid layout */}
-          <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
-            {/* Poster column */}
-            <div className="w-full">
-              {poster ? (
-                <img src={poster} alt={displayTitle} className="w-full rounded-lg object-cover" />
-              ) : (
-                <div className="w-full h-56 rounded-lg bg-slate-800/60 flex items-center justify-center text-gray-500 text-xs">
-                  No poster
-                </div>
-              )}
-            </div>
-
-            {/* Content column */}
-            <div className="space-y-3">
-              {/* Title (for AI mode where header title is different) */}
-              {mode === 'ai' && (
-                <div className="text-slate-200 text-lg font-semibold">{displayTitle}</div>
-              )}
-
-              {/* Metadata line */}
-              {metadata && <div className="text-gray-400 text-xs">{metadata}</div>}
-
-              {/* Status badge + chips */}
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge status={status} />
-                {chips}
-              </div>
-
-              {/* Genres (discovery only) */}
-              {genres}
-
-              {/* Ratings (discovery only) */}
-              {ratings}
-
-              {/* Overview */}
-              {overview && <p className="text-gray-300 text-sm leading-relaxed line-clamp-4">{overview}</p>}
-
-              {/* AI-specific messages */}
-              {mode === 'ai' && releaseData?.message && <div className="text-xs text-amber-300">{releaseData.message}</div>}
-              {mode === 'ai' && intent?.notes && <p className="text-gray-300 text-xs line-clamp-2">{intent.notes}</p>}
-              {mode === 'ai' && plan?.recommendation === 'watch' && (
-                <div className="text-amber-300 text-xs">Recommendation: stream instead of downloading.</div>
-              )}
-              {mode === 'ai' && error && <div className="text-red-400 text-xs">AI: {error}</div>}
-
-              {/* Streaming options (AI and discovery) */}
-              {streamingSection}
-
-              {/* Season selector (discovery TV only) */}
-              {seasonSelector}
-            </div>
-          </div>
-
-          {/* EPISODE LIST - library TV only, full width below the grid */}
-          {episodeList}
-
-          {/* ACTION BUTTONS - mode-specific */}
-          {actionButtons}
-
-          {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
-            <div ref={libraryResultsRef} className="mt-4 space-y-2">
-              {libraryGrabFeedback && (
-                <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
-                  {libraryGrabFeedback.text}
-                </div>
-              )}
-              {libraryReleaseLoading && !libraryActionMessage && (
-                <div className="text-xs text-slate-300">Searching...</div>
-              )}
-              {libraryReleaseError && (
-                <div className="text-xs text-amber-300">Search: {libraryReleaseError}</div>
-              )}
-              {libraryReleaseData && (
-                <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 w-full max-w-full min-w-0 overflow-x-hidden">
-                  {renderInlineReleaseList(libraryReleaseData.releases || [], 'movie', 'movie')}
-                </div>
-              )}
-            </div>
-          )}
+        <div onClick={(e) => e.stopPropagation()} className="mx-auto max-w-3xl w-full">
+          {panel}
         </div>
       </div>
     </div>

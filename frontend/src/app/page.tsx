@@ -103,7 +103,6 @@ function HomeContent() {
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
   const [activeSection, setActiveSection] = useState<'search' | 'downloads' | 'status' | 'settings'>('search')
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
-  const [showAiAvailability, setShowAiAvailability] = useState(false)
   const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
   const [releaseContext, setReleaseContext] = useState<DiscoveryResult | null>(null)
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
@@ -205,16 +204,12 @@ function HomeContent() {
     setAiTranslation(translation)
     console.log('[AI Intent Effect] Translation set:', translation)
 
-    // Show modal for confident AI results (movie or tv with known title)
-    // Skip modal only if media_type is 'unknown' (AI couldn't determine what user wants)
+    // Do not open the AI modal; render AI details inside the rail item instead.
     const confidence = intent.confidence ?? 1.0
     if (intent.media_type !== 'unknown' && confidence >= 0.5) {
-      console.log('[AI Intent Effect] Showing modal and searching for:', intent.title, 'confidence:', confidence)
-      setShowAiAvailability(true)
-      // Also update the background search to use the show title (not the episode-specific query)
+      console.log('[AI Intent Effect] Searching for:', intent.title, 'confidence:', confidence)
       submitSearch(intent.title)
 
-      // For TV shows with episode_date, pre-fetch release data to get episode info
       if (intent.media_type === 'tv' && intent.episode_date && intent.title) {
         ;(async () => {
           try {
@@ -229,7 +224,6 @@ function HomeContent() {
                   ...topResult,
                   type: intent.media_type as 'movie' | 'tv'
                 }
-                // Fetch releases to get episode info
                 await fetchReleases(resultWithType, intent.season || undefined, intent.episode || undefined, intent.episode_date || undefined)
               }
             }
@@ -239,7 +233,6 @@ function HomeContent() {
         })()
       }
     } else {
-      // Low confidence or unknown media type - just search with the AI title
       console.log('[AI Intent Effect] Low confidence or unknown, searching for:', intent.title)
       submitSearch(intent.title)
     }
@@ -424,7 +417,6 @@ function HomeContent() {
     if (!options?.keepAiModal) {
       clearAiIntent()
       setAiTranslation(null)
-      setShowAiAvailability(false)
     }
 
     // If ID query or AI disabled, do search immediately
@@ -440,8 +432,6 @@ function HomeContent() {
 
   // Handler for when user confirms AI suggestion (goes directly to releases)
   const handleAiConfirm = async (plan: AIIntentPlan) => {
-    setShowAiAvailability(false)
-
     const intent = plan.intent
     if (!intent.title) return
 
@@ -603,7 +593,7 @@ function HomeContent() {
   const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
 
   return (
-    <main className="min-h-screen pt-24 px-4 pb-4 md:px-8 md:pb-8">
+    <main className="min-h-screen pt-24 px-4 pb-4 md:px-10 md:pb-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -616,7 +606,7 @@ function HomeContent() {
         onHomeClick={handleHome}
       />
 
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full space-y-4">
         {activeSection === 'search' && (
           <section id="dashboard" className="mb-4 -mt-4">
             <div className="glass-panel rounded-lg p-4">
@@ -996,36 +986,25 @@ function HomeContent() {
                 <div className="rail-bleed">
                   <MediaRail>
                     {(aiIntentPlan || aiIntentBusy || aiIntentError || aiTranslation) && (
-                      <div className="rail-card rail-card--ai">
-                        <div className="rail-card__body">
-                          <span className="rail-card__eyebrow">AI summary</span>
-                          <h3 className="rail-card__title">
-                            {aiTranslation || aiIntentPlan?.intent?.title || 'Interpreting search'}
-                          </h3>
-                          <div className="rail-card__meta">
-                            {aiIntentPlan?.availability?.year || '—'}
-                            {aiIntentPlan?.intent?.media_type && aiIntentPlan.intent.media_type !== 'unknown'
-                              ? ` • ${aiIntentPlan.intent.media_type}`
-                              : ''}
-                          </div>
-                          <div className="rail-card__chips">
-                            {aiIntentPlan?.intent?.season && (
-                              <span className="glass-chip">S{String(aiIntentPlan.intent.season).padStart(2, '0')}</span>
-                            )}
-                            {aiIntentPlan?.intent?.episode && (
-                              <span className="glass-chip">E{String(aiIntentPlan.intent.episode).padStart(2, '0')}</span>
-                            )}
-                            {aiIntentPlan?.intent?.quality && (
-                              <span className="glass-chip">{aiIntentPlan.intent.quality}</span>
-                            )}
-                            {aiIntentBusy && <span className="glass-chip">Thinking…</span>}
-                            {aiIntentError && <span className="glass-chip">AI error</span>}
-                          </div>
-                          {aiIntentPlan?.intent?.notes && (
-                            <p className="rail-card__overview">{aiIntentPlan.intent.notes}</p>
-                          )}
-                        </div>
-                      </div>
+                      <DetailModal
+                        mode="ai"
+                        plan={aiIntentPlan ?? undefined}
+                        releaseData={releaseData}
+                        busy={aiIntentBusy || aiModalSearchBusy}
+                        error={aiIntentError}
+                        embedded
+                        className="rail-card rail-card--ai"
+                        onConfirm={handleAiConfirm}
+                        onSearch={async (query) => {
+                          setAiModalSearchBusy(true)
+                          try {
+                            await handleSubmitSearch(query, { keepAiModal: true })
+                          } finally {
+                            setAiModalSearchBusy(false)
+                          }
+                        }}
+                        onClose={() => {}}
+                      />
                     )}
                     {searchResults.results.map((result, index) => (
                       <MediaRailCard
@@ -1428,31 +1407,8 @@ function HomeContent() {
         />
       )}
 
-      {/* AI Availability Modal - for specific episode/movie requests */}
-      {showAiAvailability && aiIntentPlan && (
-        <DetailModal
-          mode="ai"
-          plan={aiIntentPlan}
-          releaseData={releaseData}
-          busy={aiIntentBusy || aiModalSearchBusy}
-          onConfirm={handleAiConfirm}
-          onSearch={async (query) => {
-            setAiModalSearchBusy(true)
-            try {
-              await handleSubmitSearch(query, { keepAiModal: true })
-            } finally {
-              setAiModalSearchBusy(false)
-            }
-          }}
-          onClose={() => {
-            setShowAiAvailability(false)
-            setAiModalSearchBusy(false)
-          }}
-        />
-      )}
-
       {/* Release view modal */}
-      {releaseData && !showAiAvailability && (
+      {releaseData && (
         <ReleaseView
           data={releaseData}
           result={releaseContext || undefined}
@@ -1476,11 +1432,9 @@ export default function Home() {
   return (
     <Suspense
       fallback={(
-        <main className="min-h-screen p-4 md:p-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="glass-panel rounded-lg p-8 text-center">
-              <div className="text-yellow-400">Loading search…</div>
-            </div>
+        <main className="min-h-screen p-4 md:p-10">
+          <div className="glass-panel rounded-lg p-8 text-center">
+            <div className="text-yellow-400">Loading search…</div>
           </div>
         </main>
       )}
