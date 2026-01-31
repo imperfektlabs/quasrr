@@ -7,16 +7,19 @@
  * Mapping of streaming service IDs to their logo paths
  */
 export const STREAMING_LOGOS: Record<string, string> = {
-  netflix: '/logos/streaming/netflix.avif',
-  crave: '/logos/streaming/crave.avif',
-  disney_plus: '/logos/streaming/disney_plus.avif',
-  amazon_prime: '/logos/streaming/amazon_prime.avif',
-  apple_tv: '/logos/streaming/apple_tv.avif',
-  paramount_plus: '/logos/streaming/paramount_plus.avif',
+  netflix: '/logos/streaming/netflix.svg',
+  crave: '/logos/streaming/crave.svg',
+  disney_plus: '/logos/streaming/disney_plus.svg',
+  amazon_prime: '/logos/streaming/amazon_prime.svg',
+  apple_tv: '/logos/streaming/apple_tv.svg',
+  paramount_plus: '/logos/streaming/paramount_plus.svg',
   cbc_gem: '/logos/streaming/cbc_gem.svg',
-  ctv: '/logos/streaming/ctv.png',
-  global_tv: '/logos/streaming/global_tv.png',
-  citytvplus: '/logos/streaming/citytvplus.png',
+  ctv: '/logos/streaming/ctv.svg',
+  global_tv: '/logos/streaming/global_tv.svg',
+  citytvplus: '/logos/streaming/citytvplus.svg',
+  google_play_movies: '/logos/streaming/google_play_store.svg',
+  apple_tv_store: '/logos/streaming/apple_store.svg',
+  youtube: '/logos/streaming/youtube.svg',
 }
 
 /**
@@ -29,6 +32,9 @@ export const STREAMING_LINKS: Record<string, string> = {
   amazon_prime: 'https://www.primevideo.com',
   apple_tv: 'https://tv.apple.com',
   paramount_plus: 'https://www.paramountplus.com',
+  google_play_movies: 'https://play.google.com/store/movies',
+  apple_tv_store: 'https://tv.apple.com/store',
+  youtube: 'https://www.youtube.com',
 }
 
 /**
