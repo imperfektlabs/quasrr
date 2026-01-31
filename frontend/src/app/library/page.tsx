@@ -40,8 +40,11 @@ function LibraryContent() {
   const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
   const [filterModes, setFilterModes] = useState<Set<'downloaded' | 'missing' | 'monitored' | 'unmonitored'>>(new Set())
   const [mediaTypes, setMediaTypes] = useState<Set<MediaType>>(() => {
-    const type = searchParams.get('type') as MediaType | null
-    return type ? new Set([type]) : new Set(['movies', 'tv'])
+    const type = searchParams.get('type')
+    if (type === 'movies' || type === 'tv') {
+      return new Set<MediaType>([type])
+    }
+    return new Set<MediaType>(['movies', 'tv'])
   })
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
   const [autoSearch, setAutoSearch] = useState(false)
@@ -100,8 +103,12 @@ function LibraryContent() {
   }, [searchParams])
 
   useEffect(() => {
-    const type = searchParams.get('type') as MediaType | null
-    setMediaTypes(type ? new Set([type]) : new Set(['movies', 'tv']))
+    const type = searchParams.get('type')
+    if (type === 'movies' || type === 'tv') {
+      setMediaTypes(new Set<MediaType>([type]))
+    } else {
+      setMediaTypes(new Set<MediaType>(['movies', 'tv']))
+    }
   }, [searchParams])
 
   // Close menu when clicking outside
