@@ -68,6 +68,7 @@ import {
   ReleaseView,
   DetailModal,
   MediaCard,
+  MediaRail,
   SabQueue,
   SabRecent,
   NavigationMenu,
@@ -992,7 +993,7 @@ function HomeContent() {
                   No results found
                 </div>
               ) : (
-                <div className="grid gap-3">
+                <MediaRail>
                   {searchResults.results.map((result, index) => (
                     <MediaCard
                       key={result.tmdb_id || result.tvdb_id || index}
@@ -1002,7 +1003,7 @@ function HomeContent() {
                       onTypeToggle={handleTypeToggle}
                     />
                   ))}
-                </div>
+                </MediaRail>
               )}
 
               {searchResults.total_pages > 1 && (

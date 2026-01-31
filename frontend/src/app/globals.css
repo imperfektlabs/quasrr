@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "./theme2.css";
+@import "./theme3.css";
 
 :root {
   color-scheme: dark;
