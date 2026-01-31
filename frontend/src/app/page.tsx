@@ -69,6 +69,7 @@ import {
   DetailModal,
   MediaCard,
   MediaRail,
+  MediaRailCard,
   SabQueue,
   SabRecent,
   NavigationMenu,
@@ -995,12 +996,11 @@ function HomeContent() {
               ) : (
                 <MediaRail>
                   {searchResults.results.map((result, index) => (
-                    <MediaCard
+                    <MediaRailCard
                       key={result.tmdb_id || result.tvdb_id || index}
-                      item={{ source: 'discovery', data: result }}
+                      result={result}
                       onClick={() => setSelectedResult(result)}
                       onShowReleases={handleShowReleases}
-                      onTypeToggle={handleTypeToggle}
                     />
                   ))}
                 </MediaRail>
