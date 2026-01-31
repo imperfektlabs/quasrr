@@ -60,17 +60,9 @@ export function MediaRail({ children, className }: MediaRailProps) {
 
     visibleIndices.current.clear()
 
-    const handleWheel = (event: WheelEvent) => {
-      if (!container) return
-      if (event.shiftKey) return
-      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
-      const maxScrollLeft = container.scrollWidth - container.clientWidth
-      if (maxScrollLeft <= 0) return
-      const nextScrollLeft = Math.min(maxScrollLeft, Math.max(0, container.scrollLeft + event.deltaY))
-      if (nextScrollLeft === container.scrollLeft) return
-      event.preventDefault()
-      container.scrollLeft = nextScrollLeft
-    }
+    // No mousewheel interception - let browser handle all scrolling natively
+    // Horizontal scrolling: SHIFT + wheel, trackpad gesture, or touch swipe
+    // Vertical page scroll always works
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -98,13 +90,11 @@ export function MediaRail({ children, className }: MediaRailProps) {
 
     const handleScroll = () => scheduleUpdate()
     container.addEventListener('scroll', handleScroll, { passive: true })
-    container.addEventListener('wheel', handleWheel, { passive: false })
     window.addEventListener('resize', scheduleUpdate)
 
     return () => {
       observer.disconnect()
       container.removeEventListener('scroll', handleScroll)
-      container.removeEventListener('wheel', handleWheel)
       window.removeEventListener('resize', scheduleUpdate)
       if (rafRef.current !== null) {
         window.cancelAnimationFrame(rafRef.current)

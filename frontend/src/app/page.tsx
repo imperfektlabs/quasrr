@@ -72,6 +72,7 @@ import {
   SabQueue,
   SabRecent,
   NavigationMenu,
+  AISuggestionCard,
 } from '@/components'
 
 function HomeContent() {
@@ -593,7 +594,7 @@ function HomeContent() {
   const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
 
   return (
-    <main className="min-h-screen pt-24 px-4 pb-4 md:px-10 md:pb-8">
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-10 md:pb-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -770,9 +771,9 @@ function HomeContent() {
 
         {/* Search Section */}
         {activeSection === 'search' && (
-        <section id="search" className="scroll-mt-24">
-          <div className="sticky top-20 z-20">
-            <div className="glass-panel glass-header p-4 mb-4">
+        <section id="search" className="scroll-mt-16">
+          <div className="sticky top-14 z-20">
+            <div className="glass-panel glass-header p-3 mb-4">
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -985,25 +986,25 @@ function HomeContent() {
               ) : (
                 <div className="rail-bleed">
                   <MediaRail>
-                    {(aiIntentPlan || aiIntentBusy || aiIntentError || aiTranslation) && (
-                      <DetailModal
-                        mode="ai"
-                        plan={aiIntentPlan ?? undefined}
-                        releaseData={releaseData}
-                        busy={aiIntentBusy || aiModalSearchBusy}
+                    {(aiIntentPlan || aiIntentBusy || aiIntentError) && (
+                      <AISuggestionCard
+                        plan={aiIntentPlan}
+                        busy={aiIntentBusy}
                         error={aiIntentError}
-                        embedded
-                        className="rail-card rail-card--ai"
-                        onConfirm={handleAiConfirm}
-                        onSearch={async (query) => {
-                          setAiModalSearchBusy(true)
-                          try {
-                            await handleSubmitSearch(query, { keepAiModal: true })
-                          } finally {
-                            setAiModalSearchBusy(false)
+                        onAccept={() => {
+                          if (aiIntentPlan) {
+                            handleAiConfirm(aiIntentPlan)
                           }
                         }}
-                        onClose={() => {}}
+                        onContinue={() => {
+                          if (aiIntentPlan?.query) {
+                            submitSearch(aiIntentPlan.query)
+                          }
+                          clearAiIntent()
+                        }}
+                        onDismiss={() => {
+                          clearAiIntent()
+                        }}
                       />
                     )}
                     {searchResults.results.map((result, index) => (
@@ -1048,7 +1049,7 @@ function HomeContent() {
 
         {/* Download Activity Section */}
         {activeSection === 'downloads' && config && (
-          <section id="downloads" className="scroll-mt-24 mb-4">
+          <section id="downloads" className="scroll-mt-16 mb-4">
             <>
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-lg font-semibold">Download Activity</h2>
@@ -1106,7 +1107,7 @@ function HomeContent() {
 
         {/* Status Section - Collapsible */}
         {activeSection === 'status' && (
-        <section id="status" className="scroll-mt-24">
+        <section id="status" className="scroll-mt-16">
         <details className="glass-panel rounded-lg" open>
           <summary className="p-4 cursor-pointer font-semibold">
             System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
@@ -1192,7 +1193,7 @@ function HomeContent() {
         )}
 
         {activeSection === 'settings' && config && (
-          <section id="settings" className="scroll-mt-24 mt-4 glass-panel rounded-lg p-4">
+          <section id="settings" className="scroll-mt-16 mt-4 glass-panel rounded-lg p-4">
             <h3 className="text-sm font-semibold text-gray-300 mb-2">Settings</h3>
             <p className="text-xs text-gray-400 mb-3">
               Non-secret settings only. Env vars still override these values.

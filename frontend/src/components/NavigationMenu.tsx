@@ -80,7 +80,7 @@ export function NavigationMenu({
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3 glass-panel border-b border-slate-700/40">
+    <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-2 glass-panel glass-header">
       <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
         <button
           type="button"

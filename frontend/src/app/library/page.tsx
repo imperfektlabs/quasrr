@@ -304,7 +304,7 @@ function LibraryContent() {
   }, [loading, searchParams, sonarrItems, radarrItems, mediaTypes])
 
   return (
-    <main className="min-h-screen pt-24 px-4 pb-8 md:px-10">
+    <main className="min-h-screen pt-16 px-4 pb-8 md:px-10">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -316,52 +316,15 @@ function LibraryContent() {
 
       <div className="w-full space-y-4">
         <section className="space-y-3">
-          <div className="sticky top-20 z-20">
-            <div className="glass-panel glass-header p-3 space-y-3">
-              <div className="space-y-2 text-xs text-slate-300">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-base font-semibold text-slate-100">
-                      {mediaTypes.size === 1 ? (mediaTypes.has('movies') ? 'Movies' : 'Series') : 'Library'}
-                    </span>
-                    <span className="text-xl font-semibold text-slate-100">{sortedItems.length}</span>
-                  </div>
-                  <span>Total size: {formatSize(totalSize)}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('downloaded')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('downloaded')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Downloaded: {totalDownloaded}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('missing')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('missing')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Missing: {totalMissing}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('monitored')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('monitored')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Monitored: {totalMonitored}
-                  </button>
+          <div className="sticky top-14 z-20">
+            <div className="glass-panel glass-header p-2 space-y-2">
+              <div className="flex items-center justify-between gap-2 text-xs text-slate-300">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-semibold text-slate-100">
+                    {mediaTypes.size === 1 ? (mediaTypes.has('movies') ? 'Movies' : 'Series') : 'Library'}
+                  </span>
+                  <span className="text-lg font-semibold text-slate-100">{sortedItems.length}</span>
+                  <span className="text-slate-400">({formatSize(totalSize)})</span>
                 </div>
               </div>
 
