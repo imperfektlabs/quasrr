@@ -767,11 +767,19 @@ export function DetailModal({
   let status: 'not_in_library' | 'in_library' | 'downloaded' = 'not_in_library'
 
   if (mode === 'ai') {
+    const availabilityYearLabel = intent?.media_type === 'tv'
+      ? formatSeriesYearSpan({
+        year: availability?.year ? Number.parseInt(availability.year, 10) : undefined,
+        firstAired: availability?.first_aired,
+        lastAired: availability?.last_aired,
+        ended: availability?.ended ?? undefined,
+      }) || availability?.year
+      : availability?.year
     headerTitle = 'AI Suggests…'
     headerSubtitle = plan?.query ? `"${plan.query}"` : ''
     poster = availability?.poster_url
     displayTitle = availability?.title || intent?.title || plan?.query || 'Unknown'
-    metadata = `${availability?.year || 'Unknown year'}${intent?.media_type && intent.media_type !== 'unknown' ? ` • ${intent.media_type}` : ''}`
+    metadata = `${availabilityYearLabel || 'Unknown year'}${intent?.media_type && intent.media_type !== 'unknown' ? ` • ${intent.media_type}` : ''}`
     overview = availability?.overview
 
     // AI-specific chips
@@ -783,11 +791,19 @@ export function DetailModal({
     if (intent?.episode_date) chips.push(<span key="date" className="glass-chip px-2 py-1 rounded text-xs">{intent.episode_date}</span>)
     if (intent?.quality) chips.push(<span key="quality" className="glass-chip px-2 py-1 rounded text-xs">{intent.quality}</span>)
   } else if (mode === 'discovery' && result) {
+    const discoveryYearLabel = result.type === 'tv'
+      ? formatSeriesYearSpan({
+        year: result.year,
+        firstAired: result.first_aired,
+        lastAired: result.last_aired,
+        ended: result.ended,
+      }) || (result.year ? `${result.year}` : '')
+      : (result.year ? `${result.year}` : '')
     headerTitle = result.title
-    headerSubtitle = `${result.type === 'movie' ? 'Movie' : 'TV Series'}${result.year ? ` • ${result.year}` : ''}`
+    headerSubtitle = `${result.type === 'movie' ? 'Movie' : 'TV Series'}${discoveryYearLabel ? ` • ${discoveryYearLabel}` : ''}`
     poster = result.poster
     displayTitle = result.title
-    metadata = `${result.year || ''}${result.type === 'movie' && result.runtime ? ` • ${result.runtime} min` : ''}${result.type === 'tv' && result.seasons ? ` • ${result.seasons} season${result.seasons !== 1 ? 's' : ''}` : ''}${result.network ? ` • ${result.network}` : ''}`
+    metadata = `${discoveryYearLabel}${result.type === 'movie' && result.runtime ? ` • ${result.runtime} min` : ''}${result.type === 'tv' && result.seasons ? ` • ${result.seasons} season${result.seasons !== 1 ? 's' : ''}` : ''}${result.network ? ` • ${result.network}` : ''}`
     overview = result.overview
     status = result.status
 
