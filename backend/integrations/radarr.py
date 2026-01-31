@@ -294,6 +294,14 @@ class RadarrClient:
                         "sizeOnDisk": movie.get("sizeOnDisk", 0),
                         "tmdbId": movie.get("tmdbId"),
                         "imdbId": movie.get("imdbId"),
+                        "imdbRating": (movie.get("ratings", {}) or {}).get("imdb", {}).get("value"),
+                        "popularity": movie.get("popularity"),
+                        "releaseDate": (
+                            movie.get("digitalRelease")
+                            or movie.get("inCinemas")
+                            or movie.get("physicalRelease")
+                            or movie.get("cinemaRelease")
+                        ),
                         "added": movie.get("added"),
                         "poster": extract_poster(movie.get("images", [])),
                     }
