@@ -21,6 +21,8 @@ TODOS.md
 *.svg
 *.avif
 *.png
+!frontend/public/logos/tools/*.svg
+!frontend/public/logos/streaming/*.svg
 
 # Prompts for agents
 AGENT_INITIALIZATION.md
