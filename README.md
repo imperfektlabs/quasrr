@@ -163,7 +163,7 @@ quasrr/
 │   │       ├── layout.tsx        # Root layout with metadata
 │   │       └── globals.css       # Global styles and theme
 │   ├── public/                   # Static assets
-│   │   └── logos/streaming/      # Streaming service logos (.avif)
+│   │   └── logos/streaming/      # Streaming service logos (.svg)
 │   ├── package.json              # npm dependencies
 │   ├── Dockerfile                # Frontend container image
 │   ├── next.config.js            # Next.js configuration
