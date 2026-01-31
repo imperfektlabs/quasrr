@@ -22,7 +22,7 @@ streaming_services:
     name: "Acorn TV"
     enabled: false
   - id: amazon_prime
-    name: "Amazon Prime Video"
+    name: "PrimeVideo"
     enabled: true
   - id: amazon_prime_video_with_ads
     name: "Amazon Prime Video with Ads"
@@ -31,7 +31,7 @@ streaming_services:
     name: "AMC+"
     enabled: false
   - id: apple_tv
-    name: "Apple TV"
+    name: "AppleTV+"
     enabled: false
   - id: britbox
     name: "BritBox"
@@ -334,7 +334,7 @@ streaming_services:
     name: "Amazon Video"
     enabled: false
   - id: apple_tv_store
-    name: "Apple TV Store"
+    name: "AppleTV"
     enabled: false
   - id: google_play_movies
     name: "Google Play Movies"
