@@ -782,7 +782,6 @@ export function DetailModal({
     }
     if (intent?.episode_date) chips.push(<span key="date" className="glass-chip px-2 py-1 rounded text-xs">{intent.episode_date}</span>)
     if (intent?.quality) chips.push(<span key="quality" className="glass-chip px-2 py-1 rounded text-xs">{intent.quality}</span>)
-    if (intent?.action) chips.push(<span key="action" className="glass-chip px-2 py-1 rounded text-xs">{intent.action}</span>)
   } else if (mode === 'discovery' && result) {
     headerTitle = result.title
     headerSubtitle = `${result.type === 'movie' ? 'Movie' : 'TV Series'}${result.year ? ` • ${result.year}` : ''}`
@@ -1196,7 +1195,7 @@ export function DetailModal({
               disabled={busy || !manualQuery.trim()}
               className="bg-slate-700/60 hover:bg-slate-600/70 disabled:bg-slate-700/40 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-sm"
             >
-              Search this
+              {busy ? '...' : 'Search this'}
             </button>
           </form>
         </div>
@@ -1207,7 +1206,7 @@ export function DetailModal({
             disabled={busy}
             className="flex-1 min-w-0 whitespace-nowrap bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed text-white py-2 px-3 sm:px-4 text-xs sm:text-sm rounded font-medium"
           >
-            {busy ? 'Working...' : 'Search anyways'}
+            {busy ? 'Working...' : 'Search this title'}
           </button>
           <button
             type="button"
