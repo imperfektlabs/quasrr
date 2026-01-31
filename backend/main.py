@@ -138,6 +138,9 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
     top = search_results[0]
     tmdb_id = top.get("id")
     year = (top.get("release_date") or top.get("first_air_date") or "")[:4]
+    first_air_date = top.get("first_air_date")
+    last_air_date = None
+    ended = None
     poster_path = top.get("poster_path")
     poster_url = f"https://image.tmdb.org/t/p/w342{poster_path}" if poster_path else None
     providers = {}
@@ -147,6 +150,14 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
             tmdb_id,
             config.user.country,
         )
+        if media_type == "tv":
+            details = await tmdb.get_tv_details(tmdb_id)
+            first_air_date = details.get("first_air_date") or first_air_date
+            last_air_date = details.get("last_air_date") or details.get("last_episode_to_air", {}).get("air_date")
+            if isinstance(details.get("in_production"), bool):
+                ended = not details.get("in_production")
+            elif details.get("status"):
+                ended = str(details.get("status")).lower() == "ended"
 
     flatrate = providers.get("flatrate", [])
     provider_items = []
@@ -184,6 +195,9 @@ async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
         "flatrate": provider_items,
         "subscribed": subscribed,
         "media_type": media_type,
+        "first_aired": first_air_date,
+        "last_aired": last_air_date,
+        "ended": ended,
     }
 
 

@@ -608,6 +608,9 @@ class SonarrClient:
                                 "episodeFileCount": season_stats.get("episodeFileCount", 0),
                             }
                         )
+                    ended_value = series.get("ended")
+                    if not isinstance(ended_value, bool):
+                        ended_value = (series.get("status") or "").lower() == "ended"
                     trimmed.append(
                         {
                             "id": series.get("id"),
@@ -624,6 +627,12 @@ class SonarrClient:
                             "sizeOnDisk": stats.get("sizeOnDisk", 0),
                             "tvdbId": series.get("tvdbId"),
                             "imdbId": series.get("imdbId"),
+                            "imdbRating": (series.get("ratings", {}) or {}).get("imdb", {}).get("value"),
+                            "popularity": series.get("popularity"),
+                            "releaseDate": series.get("firstAired"),
+                            "firstAired": series.get("firstAired"),
+                            "lastAired": series.get("previousAiring") or series.get("lastAired"),
+                            "ended": ended_value,
                             "added": series.get("added"),
                             "poster": extract_poster(series.get("images", [])),
                             "seasons": seasons,
@@ -730,6 +739,9 @@ class SonarrClient:
                 "imdb_id": series.get("imdbId"),
                 "title": series.get("title", "Unknown"),
                 "year": series.get("year"),
+                "first_aired": series.get("firstAired"),
+                "last_aired": series.get("previousAiring") or series.get("lastAired"),
+                "ended": series.get("ended"),
                 "overview": series.get("overview", ""),
                 "poster": poster,
                 "network": series.get("network"),
