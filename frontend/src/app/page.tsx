@@ -529,31 +529,36 @@ function HomeContent() {
     return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
   })()
 
-  const getToolIconUrl = (url: string) => `${url.replace(/\/$/, '')}/favicon.ico`
+  const toolIcons = {
+    sonarr: '/logos/tools/sonarr.svg',
+    radarr: '/logos/tools/radarr.svg',
+    sabnzbd: '/logos/tools/sabnzbd.svg',
+    plex: '/logos/tools/plex.svg',
+  }
 
   const toolLinks = {
     sonarr: {
       label: 'TV',
       url: config?.integrations?.sonarr_url || getLocalToolUrl(8989),
-      iconUrl: getToolIconUrl(config?.integrations?.sonarr_url || getLocalToolUrl(8989)),
+      iconUrl: toolIcons.sonarr,
       status: integrationsStatus?.sonarr?.status === 'ok',
     },
     radarr: {
       label: 'Movies',
       url: config?.integrations?.radarr_url || getLocalToolUrl(7878),
-      iconUrl: getToolIconUrl(config?.integrations?.radarr_url || getLocalToolUrl(7878)),
+      iconUrl: toolIcons.radarr,
       status: integrationsStatus?.radarr?.status === 'ok',
     },
     sabnzbd: {
       label: 'D/Ls',
       url: config?.integrations?.sabnzbd_url || getLocalToolUrl(8080),
-      iconUrl: getToolIconUrl(config?.integrations?.sabnzbd_url || getLocalToolUrl(8080)),
+      iconUrl: toolIcons.sabnzbd,
       status: integrationsStatus?.sabnzbd?.status === 'ok',
     },
     plex: {
       label: 'Plex',
       url: config?.integrations?.plex_url || getLocalToolUrl(32400, '/web'),
-      iconUrl: getToolIconUrl(config?.integrations?.plex_url || getLocalToolUrl(32400, '/web')),
+      iconUrl: toolIcons.plex,
       status: null,
     },
   }
