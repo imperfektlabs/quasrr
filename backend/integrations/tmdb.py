@@ -85,6 +85,21 @@ class TMDBClient:
             "buy": region_data.get("buy", []) or [],
         }
 
+    async def get_tv_details(self, tmdb_id: int) -> dict:
+        if not self.is_configured:
+            return {}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/tv/{tmdb_id}",
+                    params={"api_key": self.api_key},
+                )
+                response.raise_for_status()
+                return response.json() or {}
+        except Exception as exc:
+            logger.error(f"TMDB tv details error: {exc}")
+            return {}
+
     async def get_providers(self, media_type: str, country: Optional[str] = None) -> list[dict]:
         """Get provider list with logos for a media type."""
         if not self.is_configured:
