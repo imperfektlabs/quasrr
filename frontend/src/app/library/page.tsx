@@ -9,6 +9,7 @@ import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
 import { MediaCard } from '@/components/MediaCard'
 import { DetailModal } from '@/components/DetailModal'
+import { DriveStackIcon, EyeIcon, ProjectorIcon, TvIcon } from '@/components/Icons'
 
 type ConfigResponse = {
   streaming_services?: StreamingService[]
@@ -322,49 +323,73 @@ function LibraryContent() {
           <div className="sticky top-20 z-20">
             <div className="glass-panel rounded-lg p-3 space-y-3">
               <div className="space-y-2 text-xs text-slate-300">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-baseline gap-2">
                     <span className="text-base font-semibold text-slate-100">
                       {mediaTypes.size === 1 ? (mediaTypes.has('movies') ? 'Movies' : 'Series') : 'Library'}
                     </span>
                     <span className="text-xl font-semibold text-slate-100">{sortedItems.length}</span>
                   </div>
-                  <span>Total size: {formatSize(totalSize)}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('downloaded')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('downloaded')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Downloaded: {totalDownloaded}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('missing')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('missing')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Missing: {totalMissing}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('monitored')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('monitored')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Monitored: {totalMonitored}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                    <span
+                      className="glass-chip px-2 py-1 rounded inline-flex items-center gap-1"
+                      title="Total size"
+                    >
+                      <DriveStackIcon className="h-3.5 w-3.5" />
+                      <span>{formatSize(totalSize)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleFilterMode('downloaded')}
+                      className={`glass-chip px-2 py-1 rounded transition ${
+                        filterModes.has('downloaded')
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="Downloaded"
+                      aria-pressed={filterModes.has('downloaded')}
+                      aria-label={`Downloaded: ${totalDownloaded}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden="true">✓</span>
+                        <span>{totalDownloaded}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleFilterMode('missing')}
+                      className={`glass-chip px-2 py-1 rounded transition ${
+                        filterModes.has('missing')
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="Missing"
+                      aria-pressed={filterModes.has('missing')}
+                      aria-label={`Missing: ${totalMissing}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden="true">○</span>
+                        <span>{totalMissing}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleFilterMode('monitored')}
+                      className={`glass-chip px-2 py-1 rounded transition ${
+                        filterModes.has('monitored')
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="Monitored"
+                      aria-pressed={filterModes.has('monitored')}
+                      aria-label={`Monitored: ${totalMonitored}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <EyeIcon className="h-3.5 w-3.5" />
+                        <span>{totalMonitored}</span>
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -373,24 +398,30 @@ function LibraryContent() {
                   <button
                     type="button"
                     onClick={() => toggleMediaType('movies')}
-                    className={`px-2.5 py-1 rounded transition ${
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
                       mediaTypes.has('movies')
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
                     }`}
+                    title="Movies"
+                    aria-label="Movies"
                   >
-                    Movies
+                    <ProjectorIcon className="h-4 w-4" />
+                    <span className="sr-only">Movies</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => toggleMediaType('tv')}
-                    className={`px-2.5 py-1 rounded transition ${
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
                       mediaTypes.has('tv')
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
                     }`}
+                    title="TV Shows"
+                    aria-label="TV Shows"
                   >
-                    TV
+                    <TvIcon className="h-4 w-4" />
+                    <span className="sr-only">TV</span>
                   </button>
                 </div>
                 <div className="relative flex-1 min-w-0">
