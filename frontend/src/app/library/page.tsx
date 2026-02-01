@@ -8,7 +8,6 @@ import { formatSize } from '@/utils/formatting'
 import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
 import { MediaRail } from '@/components/MediaRail'
-import { MediaRailCard } from '@/components/MediaRailCard'
 import { DetailModal } from '@/components/DetailModal'
 
 type ConfigResponse = {
@@ -38,7 +37,6 @@ function LibraryContent() {
   const [sortField, setSortField] = useState<'added' | 'imdbRating' | 'popularity' | 'releaseDate' | 'size' | 'title'>('added')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [searchText, setSearchText] = useState('')
-  const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
   const [filterModes, setFilterModes] = useState<Set<'downloaded' | 'missing' | 'monitored' | 'unmonitored'>>(new Set())
   const [mediaTypes, setMediaTypes] = useState<Set<MediaType>>(() => {
     const type = searchParams.get('type')
@@ -47,9 +45,6 @@ function LibraryContent() {
     }
     return new Set<MediaType>(['movies', 'tv'])
   })
-  const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
-  const [autoSearch, setAutoSearch] = useState(false)
-  const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -265,43 +260,7 @@ function LibraryContent() {
     } else {
       setRadarrItems((prev) => prev.filter((entry) => entry.id !== item.id))
     }
-    setSelectedItem(null)
   }
-
-  useEffect(() => {
-    if (loading) return
-    const q = (searchParams.get('q') || '').toLowerCase()
-    const tvdb = Number(searchParams.get('tvdb') || '')
-    const tmdb = Number(searchParams.get('tmdb') || '')
-    const season = Number(searchParams.get('season') || '')
-    const wantedSeason = Number.isFinite(season) && season > 0 ? season : null
-
-    let match: LibraryItem | undefined
-    if (tvdb && Number.isFinite(tvdb)) {
-      const found = sonarrItems.find((item) => item.tvdbId === tvdb)
-      match = found ? { ...found, mediaType: 'tv' as const } : undefined
-    } else if (tmdb && Number.isFinite(tmdb)) {
-      const found = radarrItems.find((item) => item.tmdbId === tmdb)
-      match = found ? { ...found, mediaType: 'movies' as const } : undefined
-    } else if (q) {
-      const pool: RawLibraryItem[] = mediaTypes.size === 1
-        ? mediaTypes.has('tv')
-          ? sonarrItems
-          : radarrItems
-        : [...sonarrItems, ...radarrItems]
-      const found = pool.find((item) => item.title.toLowerCase().includes(q))
-      match = found ? toLibraryItem(found) : undefined
-    }
-
-    if (match) {
-        setSelectedItem(match)
-        if (match.mediaType === 'tv') {
-          setAutoExpandSeason(wantedSeason)
-        } else {
-          setAutoExpandSeason(null)
-        }
-      }
-  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypes])
 
   return (
     <main className="min-h-screen pt-16 px-4 pb-8 md:px-10">
@@ -427,14 +386,14 @@ function LibraryContent() {
             <div className="rail-bleed">
               <MediaRail>
                 {sortedItems.map((item) => (
-                  <MediaRailCard
+                  <DetailModal
                     key={`${item.mediaType}-${item.id}`}
-                    item={{ source: 'library', data: item }}
-                    onClick={() => {
-                      setSelectedItem(item)
-                      setAutoSearch(false)
-                      setAutoDeleteOpen(false)
-                    }}
+                    mode="library"
+                    libraryItem={item}
+                    embedded
+                    className="rail-panel"
+                    onClose={() => {}}
+                    onLibraryDelete={handleLibraryDelete}
                   />
                 ))}
               </MediaRail>
@@ -442,23 +401,6 @@ function LibraryContent() {
           )}
         </section>
       </div>
-
-      {selectedItem && (
-        <DetailModal
-          mode="library"
-          libraryItem={selectedItem}
-          autoSearch={autoSearch}
-          autoDeleteOpen={autoDeleteOpen}
-          autoExpandSeason={autoExpandSeason}
-          onClose={() => {
-            setSelectedItem(null)
-            setAutoSearch(false)
-            setAutoDeleteOpen(false)
-            setAutoExpandSeason(null)
-          }}
-          onLibraryDelete={handleLibraryDelete}
-        />
-      )}
     </main>
   )
 }

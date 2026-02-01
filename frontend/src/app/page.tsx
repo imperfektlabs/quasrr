@@ -72,7 +72,6 @@ import {
   SabQueue,
   SabRecent,
   NavigationMenu,
-  AISuggestionCard,
 } from '@/components'
 
 function HomeContent() {
@@ -986,32 +985,35 @@ function HomeContent() {
               ) : (
                 <div className="rail-bleed">
                   <MediaRail>
-                    {(aiIntentPlan || aiIntentBusy || aiIntentError) && (
-                      <AISuggestionCard
-                        plan={aiIntentPlan}
-                        busy={aiIntentBusy}
+                    {(aiIntentPlan || aiIntentBusy || aiIntentError || aiTranslation) && (
+                      <DetailModal
+                        mode="ai"
+                        plan={aiIntentPlan ?? undefined}
+                        releaseData={releaseData}
+                        busy={aiIntentBusy || aiModalSearchBusy}
                         error={aiIntentError}
-                        onAccept={() => {
-                          if (aiIntentPlan) {
-                            handleAiConfirm(aiIntentPlan)
+                        embedded
+                        className="rail-panel"
+                        onConfirm={handleAiConfirm}
+                        onSearch={async (query) => {
+                          setAiModalSearchBusy(true)
+                          try {
+                            await handleSubmitSearch(query, { keepAiModal: true })
+                          } finally {
+                            setAiModalSearchBusy(false)
                           }
                         }}
-                        onContinue={() => {
-                          if (aiIntentPlan?.query) {
-                            submitSearch(aiIntentPlan.query)
-                          }
-                          clearAiIntent()
-                        }}
-                        onDismiss={() => {
-                          clearAiIntent()
-                        }}
+                        onClose={() => {}}
                       />
                     )}
                     {searchResults.results.map((result, index) => (
-                      <MediaRailCard
+                      <DetailModal
                         key={result.tmdb_id || result.tvdb_id || index}
-                        item={{ source: 'discovery', data: result }}
-                        onClick={() => setSelectedResult(result)}
+                        mode="discovery"
+                        result={result}
+                        embedded
+                        className="rail-panel"
+                        onClose={() => {}}
                         onShowReleases={handleShowReleases}
                       />
                     ))}

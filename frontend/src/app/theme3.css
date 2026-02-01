@@ -83,55 +83,78 @@ header.glass-panel {
   }
 }
 
-/* Horizontal media rail - airy stage layout */
+/* Horizontal media rail - scrolls full detail panels */
 .media-rail {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   overflow-x: auto;
   overflow-y: visible;
-  padding: 24px 16px 32px;
-  margin: 16px 0;
+  padding: 16px 12px 24px;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
-  /* Subtle edge fade for infinite feel */
-  mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+  scroll-snap-type: x mandatory;
+  /* Subtle edge peek to hint more content */
+  mask-image: linear-gradient(to right, transparent, black 2%, black 98%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 2%, black 98%, transparent);
 }
 
-/* Modest card sizing - poster + title clearly visible, not giant */
+/* Rail items are full detail panels - take most of screen width */
 .media-rail__item {
-  flex: 0 0 clamp(140px, 42vw, 180px);
+  flex: 0 0 calc(100vw - 48px);
+  max-width: 500px;
   scroll-snap-align: center;
-  transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
-  opacity: 0.88;
+  transition: transform 180ms ease, opacity 180ms ease;
+  opacity: 0.92;
 }
 
 @media (min-width: 768px) {
   .media-rail__item {
-    flex-basis: 160px;
+    flex-basis: 420px;
+    max-width: 480px;
   }
   .media-rail {
-    gap: 24px;
-    padding: 32px 24px 40px;
+    gap: 20px;
+    padding: 20px 24px 32px;
   }
 }
 
 @media (min-width: 1200px) {
   .media-rail__item {
-    flex-basis: 150px;
+    flex-basis: 400px;
+    max-width: 450px;
   }
   .media-rail {
-    gap: 28px;
+    gap: 24px;
   }
 }
 
-/* AI card has SAME width as other cards - no special sizing */
-
 .media-rail__item[data-focused="true"] {
-  transform: translateY(-4px) scale(1.04);
+  transform: translateY(-2px) scale(1.01);
   opacity: 1;
   z-index: 10;
+}
+
+/* Rail panel - DetailModal embedded in rail */
+.rail-panel {
+  height: 100%;
+  min-height: calc(100vh - 180px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  border-radius: 8px !important;
+}
+
+@media (min-width: 768px) {
+  .rail-panel {
+    min-height: 500px;
+    max-height: calc(100vh - 160px);
+  }
+}
+
+/* Override DetailModal embedded styling for rail panels */
+.rail-panel.glass-panel {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(70, 110, 160, 0.14) 40%, rgba(8, 12, 22, 0.78)),
+    radial-gradient(140% 120% at 12% 8%, rgba(180, 220, 255, 0.1), transparent 50%);
 }
 
 .media-rail__item .glass-card {
@@ -154,114 +177,7 @@ header.glass-panel {
   cursor: pointer;
 }
 
-/* AI Suggestion Card - same width as other cards, lightweight */
-.rail-card--ai-suggestion {
-  justify-content: flex-start;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(100, 150, 220, 0.18) 35%, rgba(8, 12, 22, 0.8));
-  border: 1px solid rgba(120, 180, 255, 0.3);
-}
-
-.rail-card--ai-error {
-  border-color: rgba(255, 120, 100, 0.3);
-}
-
-.rail-card__ai-eyebrow {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: rgba(140, 180, 230, 0.7);
-  margin-bottom: 2px;
-}
-
-.rail-card__ai-status {
-  font-size: 11px;
-  color: rgba(200, 210, 230, 0.8);
-}
-
-.rail-card__ai-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #e5edf9;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.rail-card__ai-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  font-size: 9px;
-  color: rgba(180, 200, 230, 0.7);
-}
-
-.rail-card__ai-episode {
-  background: rgba(100, 150, 220, 0.25);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-.rail-card__ai-type {
-  background: rgba(80, 130, 200, 0.2);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-.rail-card__ai-prompt {
-  font-size: 10px;
-  color: rgba(200, 220, 245, 0.85);
-  margin-top: 4px;
-}
-
-.rail-card__ai-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.rail-card__ai-accept {
-  flex: 1;
-  background: rgba(77, 182, 255, 0.85);
-  color: white;
-  border-radius: 4px;
-  padding: 5px 8px;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.rail-card__ai-continue {
-  flex: 1;
-  background: rgba(80, 90, 110, 0.6);
-  color: rgba(220, 230, 245, 0.9);
-  border-radius: 4px;
-  padding: 5px 8px;
-  font-size: 10px;
-}
-
-.rail-card__ai-dismiss {
-  background: rgba(255, 100, 80, 0.3);
-  color: rgba(255, 200, 190, 0.9);
-  border-radius: 4px;
-  padding: 5px 8px;
-  font-size: 10px;
-  margin-top: 6px;
-}
-
-.rail-card__poster--small {
-  max-height: 80px;
-  overflow: hidden;
-}
-
-.rail-card__poster--small img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Legacy AI card style (for DetailModal embedded) */
+/* AI card style (for DetailModal embedded) */
 .rail-card--ai {
   justify-content: center;
   background:
@@ -382,127 +298,3 @@ header.glass-panel {
   opacity: 1;
 }
 
-/* =============================================
-   Rail-is-panels: Expanded card state (v1)
-   ============================================= */
-
-/* Expanded card takes more horizontal space */
-.media-rail__item:has(.rail-card--expanded) {
-  flex-basis: clamp(280px, 70vw, 360px) !important;
-  z-index: 20;
-}
-
-@media (min-width: 768px) {
-  .media-rail__item:has(.rail-card--expanded) {
-    flex-basis: 320px !important;
-  }
-}
-
-.rail-card--expanded {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(80, 120, 190, 0.16) 40%, rgba(8, 12, 22, 0.85));
-  border-color: rgba(100, 160, 240, 0.35);
-  box-shadow:
-    0 20px 50px rgba(2, 5, 14, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-}
-
-.rail-card--expanded .rail-card__poster {
-  aspect-ratio: 2 / 2.5;
-  max-height: 160px;
-}
-
-.rail-card--expanded .rail-card__title {
-  font-size: 13px;
-  -webkit-line-clamp: 3;
-}
-
-.rail-card__expanded-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.rail-card__overview--visible {
-  max-height: none !important;
-  opacity: 1 !important;
-  -webkit-line-clamp: 4;
-}
-
-.rail-card__genres {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.rail-card__genres .glass-chip {
-  font-size: 8px;
-  padding: 2px 4px;
-}
-
-.rail-card__expanded-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 9px;
-  color: rgba(180, 200, 230, 0.7);
-}
-
-.rail-card__path {
-  font-size: 8px;
-  color: rgba(160, 180, 210, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.rail-card__expanded-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  margin-top: 4px;
-}
-
-.rail-card__action-btn {
-  flex: 1;
-  background: rgba(80, 90, 110, 0.6);
-  color: rgba(220, 230, 245, 0.9);
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 10px;
-  font-weight: 500;
-  transition: background 150ms ease;
-}
-
-.rail-card__action-btn:hover {
-  background: rgba(90, 100, 120, 0.7);
-}
-
-.rail-card__action-btn--primary {
-  background: rgba(77, 182, 255, 0.85);
-  color: white;
-}
-
-.rail-card__action-btn--primary:hover {
-  background: rgba(77, 182, 255, 1);
-}
-
-.rail-card__collapse-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 100, 80, 0.25);
-  color: rgba(255, 200, 190, 0.9);
-  border-radius: 4px;
-  font-size: 14px;
-  line-height: 1;
-  transition: background 150ms ease;
-}
-
-.rail-card__collapse-btn:hover {
-  background: rgba(255, 100, 80, 0.4);
-}
