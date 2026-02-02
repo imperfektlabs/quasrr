@@ -292,7 +292,7 @@ function LibraryContent() {
   }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter])
 
   return (
-    <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
+    <main className="min-h-screen pt-20 px-4 pb-8 md:px-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -542,7 +542,7 @@ function LibraryContent() {
 
 export default function LibraryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen pt-24 px-4 pb-8 md:px-8 text-slate-300">Loading library...</div>}>
+    <Suspense fallback={<div className="min-h-screen pt-20 px-4 pb-8 md:px-8 text-slate-300">Loading library...</div>}>
       <LibraryContent />
     </Suspense>
   )
