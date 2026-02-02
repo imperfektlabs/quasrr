@@ -1,40 +1,18 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
 
 // Type imports
 import type {
-  HealthStatus,
-  ConfigStatus,
-  SearchType,
-  SearchSortField,
-  Rating,
-  StreamingService,
   DiscoveryResult,
-  SearchResponse,
+  SearchSortField,
   Release,
-  ReleaseResponse,
-  AISuggestion,
-  AIIntent,
-  AIAvailability,
   AIIntentPlan,
-  SabQueueItem,
-  SabQueueResponse,
-  SabRecentItem,
-  SabRecentGroup,
-  SabRecentResponse,
-  IntegrationsStatus,
   DashboardSummary,
-  SortField,
-  SortDirection,
-  EpisodeDownloadMap,
-  SeasonProgress,
 } from '@/types'
 
 // Utility imports
 import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
-import { getStreamingLogo } from '@/utils/streaming'
 import {
   normalizeIdQuery,
   getReleaseKey,
@@ -56,7 +34,6 @@ import {
   useReleaseData,
   useReleaseGrab,
   useAiSuggest,
-  useSabActions,
   useClickOutside,
 } from '@/hooks'
 
@@ -65,8 +42,6 @@ import {
   ReleaseView,
   DetailModal,
   MediaCard,
-  SabQueue,
-  SabRecent,
   NavigationMenu,
   SearchPanel,
   ProjectorIcon,
@@ -76,11 +51,8 @@ import {
 } from '@/components'
 
 function HomeContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
   // Backend API setup (health, config, integrations)
-  const { health, config, setConfig, integrationsStatus, error, loading } = useBackendApiSetup()
+  const { config, setConfig, integrationsStatus } = useBackendApiSetup()
 
   // Derived values from config
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
@@ -102,7 +74,6 @@ function HomeContent() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
-  const [activeSection, setActiveSection] = useState<'search' | 'downloads' | 'status' | 'settings'>('search')
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
   const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
@@ -110,7 +81,6 @@ function HomeContent() {
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
-  const [expandedHealth, setExpandedHealth] = useState<Record<string, boolean>>({})
 
   // Discovery search (query, filters, results, pagination)
   const {
@@ -148,15 +118,6 @@ function HomeContent() {
   } = useAiIntentSearch(aiEnabled)
 
   useEffect(() => {
-    const section = searchParams.get('section')
-    if (section === 'search' || section === 'downloads' || section === 'status' || section === 'settings') {
-      setActiveSection(section)
-    }
-  }, [searchParams])
-
-  useEffect(() => {
-    if (activeSection !== 'search') return
-
     const controller = new AbortController()
     const fetchSummary = async () => {
       setDashboardLoading(true)
@@ -181,7 +142,7 @@ function HomeContent() {
 
     void fetchSummary()
     return () => controller.abort()
-  }, [activeSection])
+  }, [])
 
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
@@ -250,32 +211,13 @@ function HomeContent() {
     setPage(1)
   }
 
-  // SABnzbd polling
-  const sabPollingEnabled = sabConfigured && (
-    activeSection === 'downloads'
-    || (activeSection === 'search' && dashboardConfig.show_sabnzbd)
-  )
+  // SABnzbd polling (dashboard only)
+  const sabPollingEnabled = sabConfigured && dashboardConfig.show_sabnzbd
 
   const {
     queue: sabQueue,
-    recent: sabRecent,
-    loading: sabLoading,
-    queueError: sabQueueError,
-    recentError: sabRecentError,
     refetch: fetchSabData,
   } = useSabPolling(sabPollingEnabled, 2000, config?.sabnzbd?.recent_group_limit ?? 10)
-
-  // SABnzbd actions
-  const {
-    busy: sabActionBusy,
-    error: sabActionError,
-    clearError: clearSabActionError,
-    pauseAll: pauseSabQueue,
-    resumeAll: resumeSabQueue,
-    pauseJob: pauseSabJob,
-    resumeJob: resumeSabJob,
-    deleteJob: deleteSabJob,
-  } = useSabActions(fetchSabData)
 
   // Release data
   const {
@@ -308,58 +250,10 @@ function HomeContent() {
 
   // Settings
   const {
-    country: settingsCountry,
-    setCountry: setSettingsCountry,
-    aiProvider: settingsAiProvider,
-    setAiProvider: setSettingsAiProvider,
-    showSonarr: settingsShowSonarr,
-    setShowSonarr: setSettingsShowSonarr,
-    showRadarr: settingsShowRadarr,
-    setShowRadarr: setSettingsShowRadarr,
-    showSabnzbd: settingsShowSabnzbd,
-    setShowSabnzbd: setSettingsShowSabnzbd,
-    showPlex: settingsShowPlex,
-    setShowPlex: setSettingsShowPlex,
-    sabRecentLimit: settingsSabRecentLimit,
-    setSabRecentLimit: setSettingsSabRecentLimit,
     discoverySearchPosition: settingsDiscoverySearchPosition,
     setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
-    librarySearchPosition: settingsLibrarySearchPosition,
-    setLibrarySearchPosition: setSettingsLibrarySearchPosition,
-    saving: settingsSaving,
-    error: settingsError,
-    saved: settingsSaved,
-    setSaved: setSettingsSaved,
-    streamingBusy: streamingUpdateBusy,
-    streamingError: streamingUpdateError,
-    toggleStreaming: handleStreamingToggle,
-    saveDashboard: saveDashboardSettings,
     saveSettings,
   } = useSettings(config, setConfig)
-
-  const aiProviderOptions = [
-    { id: 'openai', label: 'OpenAI' },
-    { id: 'gemini', label: 'Gemini' },
-    { id: 'openrouter', label: 'OpenRouter' },
-    { id: 'deepseek', label: 'DeepSeek' },
-    { id: 'anthropic', label: 'Anthropic' },
-    { id: 'local', label: 'Local' },
-  ]
-  const availableAiProviderSet = new Set(availableAiProviders)
-  const selectedProviderAvailable = settingsAiProvider
-    ? availableAiProviderSet.has(settingsAiProvider)
-    : false
-  const selectedProviderModel = (() => {
-    const ai = config?.ai
-    if (!ai) return null
-    if (settingsAiProvider === 'openai') return ai.openai_model || ai.model
-    if (settingsAiProvider === 'gemini') return ai.gemini_model || ai.model
-    if (settingsAiProvider === 'openrouter') return ai.openrouter_model || ai.model
-    if (settingsAiProvider === 'deepseek') return ai.deepseek_model || ai.model
-    if (settingsAiProvider === 'anthropic') return ai.anthropic_model || ai.model
-    if (settingsAiProvider === 'local') return ai.model
-    return ai.model
-  })()
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
   const discoverySearchStickyClass = discoverySearchAtBottom
@@ -375,7 +269,6 @@ function HomeContent() {
     clearAiIntent()
     clearAiSuggestion()
     clearGrabState()
-    setActiveSection('search')
     window.location.href = '/' // Force full reset via navigation
   }
 
@@ -516,14 +409,6 @@ function HomeContent() {
   }
 
 
-  const queueSummary = (() => {
-    if (!sabConfigured) return 'Not configured'
-    if (sabQueueError) return `Error: ${sabQueueError}`
-    if (!sabQueue) return 'Loading queue...'
-    const activeCount = sabQueue.jobs.length
-    return activeCount > 0 ? `${activeCount} active` : '0 active'
-  })()
-
   const sabQueueCount = (() => {
     if (!sabConfigured) return null
     if (!sabQueue) return null
@@ -537,13 +422,6 @@ function HomeContent() {
     return `${todayGb.toFixed(2)}/${monthGb.toFixed(1)}`
   }
 
-  const recentSummary = (() => {
-    if (!sabConfigured) return 'Not configured'
-    if (sabRecentError) return `Error: ${sabRecentError}`
-    if (!sabRecent) return 'Loading recent...'
-    const groupCount = sabRecent.groups.length
-    return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
-  })()
 
   const toolIcons = {
     sonarr: '/logos/tools/sonarr.svg',
@@ -607,12 +485,6 @@ function HomeContent() {
     </svg>
   )
 
-  const handlePauseAll = () => pauseSabQueue()
-  const handleResumeAll = () => resumeSabQueue()
-  const handlePauseJob = (jobId: string) => pauseSabJob(jobId)
-  const handleResumeJob = (jobId: string) => resumeSabJob(jobId)
-  const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
-
   return (
     <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
       <NavigationMenu
@@ -621,14 +493,12 @@ function HomeContent() {
         menuButtonRef={menuButtonRef}
         menuPanelRef={menuPanelRef}
         currentPage="home"
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
         config={config}
         onHomeClick={handleHome}
       />
 
       <div className="max-w-5xl mx-auto">
-        {activeSection === 'search' && dashboardEnabledCount > 0 && (
+        {dashboardEnabledCount > 0 && (
           <section id="dashboard" className="mb-4">
             <div className="glass-panel rounded-lg p-3">
               <div className="flex items-center justify-between mb-3">
@@ -790,7 +660,6 @@ function HomeContent() {
         )}
 
         {/* Search Section */}
-        {activeSection === 'search' && (
         <section id="search" className={`scroll-mt-24 ${discoverySearchAtBottom ? 'pb-28' : ''}`}>
           {(() => {
             const searchPanel = (
@@ -1053,456 +922,7 @@ function HomeContent() {
             )
           })()}
         </section>
-        )}
 
-        {/* Download Activity Section */}
-        {activeSection === 'downloads' && config && (
-          <section id="downloads" className="scroll-mt-24 mb-4">
-            <>
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-semibold">Download Activity</h2>
-                <button
-                  onClick={() => fetchSabData(false)}
-                  disabled={!sabConfigured || sabLoading}
-                  className="px-3 py-1.5 rounded bg-slate-800/60 disabled:opacity-50 text-xs"
-                >
-                  {sabLoading ? 'Refreshing...' : 'Refresh'}
-                </button>
-              </div>
-              {!sabConfigured ? (
-                <div className="glass-panel rounded-lg p-4 text-gray-400">
-                  SABnzbd not configured
-                </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="glass-panel rounded-lg overflow-hidden">
-                    <div className="w-full text-left p-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-md font-semibold">Queue</div>
-                        <div className="text-xs text-gray-400 truncate">{queueSummary}</div>
-                      </div>
-                    </div>
-                    <div className="px-3 pb-3 overflow-hidden">
-                      <SabQueue
-                        data={sabQueue}
-                        error={sabQueueError}
-                        onRefresh={fetchSabData}
-                        onPauseAll={handlePauseAll}
-                        onResumeAll={handleResumeAll}
-                        onPauseJob={handlePauseJob}
-                        onResumeJob={handleResumeJob}
-                        onDeleteJob={handleDeleteJob}
-                        actionBusy={sabActionBusy}
-                      />
-                    </div>
-                  </div>
-                  <div className="glass-panel rounded-lg overflow-hidden">
-                    <div className="w-full text-left p-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-md font-semibold">Recent</div>
-                        <div className="text-xs text-gray-400 truncate">{recentSummary}</div>
-                      </div>
-                    </div>
-                    <div className="px-3 pb-3 overflow-hidden">
-                      <SabRecent data={sabRecent} error={sabRecentError} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          </section>
-        )}
-
-        {/* Status Section - Collapsible */}
-        {activeSection === 'status' && (
-        <section id="status" className="scroll-mt-24">
-        <details className="glass-panel rounded-lg" open>
-          <summary className="p-4 cursor-pointer font-semibold">
-            System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
-          </summary>
-
-          <div className="p-4 pt-0 space-y-4">
-            {loading && <div className="text-yellow-400">Checking backend...</div>}
-
-            {!loading && error && (
-              <div className="text-red-400">Error: {error}</div>
-            )}
-
-            {config && (
-              <>
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Configuration</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div><span className="text-gray-500">Country:</span> {config.user.country}</div>
-                    <div><span className="text-gray-500">AI:</span> {config.ai.provider}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Integrations</h3>
-                  <div className="space-y-2 text-sm">
-                    {[
-                      {
-                        key: 'sonarr',
-                        label: 'Sonarr',
-                        configured: Boolean(config.integrations.sonarr_url),
-                        status: integrationsStatus?.sonarr,
-                      },
-                      {
-                        key: 'radarr',
-                        label: 'Radarr',
-                        configured: Boolean(config.integrations.radarr_url),
-                        status: integrationsStatus?.radarr,
-                      },
-                      {
-                        key: 'sabnzbd',
-                        label: 'SABnzbd',
-                        configured: Boolean(config.integrations.sabnzbd_url),
-                        status: integrationsStatus?.sabnzbd,
-                      },
-                      {
-                        key: 'plex',
-                        label: 'Plex',
-                        configured: Boolean(config.integrations.plex_url),
-                        status: integrationsStatus?.plex,
-                      },
-                    ].map((item) => {
-                      const status = item.status?.status
-                      const isConfigured = item.configured
-                      const isOk = status === 'ok'
-                      const statusLabel = !isConfigured
-                        ? 'Not set'
-                        : (isOk ? 'Connected' : (status ? 'Error' : 'Checking...'))
-                      const statusClass = !isConfigured
-                        ? 'text-gray-600'
-                        : (isOk ? 'text-green-400' : 'text-red-400')
-                      const healthIssues = item.status?.health || []
-                      const warnings = item.status?.warnings || []
-                      const alerts = healthIssues.length > 0 ? healthIssues : warnings
-                      const alertsTitle = healthIssues.length > 0
-                        ? 'Health issues'
-                        : (item.key === 'plex' ? 'Alerts' : 'Warnings')
-                      const alertsTone = healthIssues.length > 0 ? 'text-amber-300' : 'text-amber-300'
-                      const alertsKey = `alerts-${item.key}`
-                      const alertsExpanded = Boolean(expandedHealth[alertsKey])
-                      const visibleAlerts = alertsExpanded ? alerts : alerts.slice(0, 2)
-                      const meta = !isConfigured
-                        ? 'Not configured'
-                        : (isOk
-                          ? `Version ${item.status?.version || 'unknown'}`
-                          : (item.status?.message || 'Unable to reach service'))
-                      return (
-                        <div
-                          key={item.key}
-                          className="rounded-md border border-slate-800/60 bg-slate-900/40 px-3 py-2"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>{item.label}</span>
-                            <span className={statusClass}>{statusLabel}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">{meta}</div>
-                          {alerts.length > 0 && (
-                            <div className="mt-2 grid gap-1 text-xs">
-                              <div className={`${alertsTone} font-semibold`}>
-                                {alertsTitle} ({alerts.length})
-                              </div>
-                              {visibleAlerts.map((issue, index) => {
-                                const level = (issue.level || '').toLowerCase()
-                                const levelClass = level.includes('error') ? 'text-red-300' : 'text-amber-300'
-                                return (
-                                  <div
-                                    key={`${item.key}-alert-${index}`}
-                                    className={`truncate ${levelClass}`}
-                                    title={issue.message || ''}
-                                  >
-                                    {issue.message || 'Unknown issue'}
-                                  </div>
-                                )
-                              })}
-                              {alerts.length > 2 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setExpandedHealth((prev) => ({
-                                      ...prev,
-                                      [alertsKey]: !alertsExpanded,
-                                    }))
-                                  }}
-                                  className="text-amber-200/80 hover:text-amber-200 underline decoration-dotted text-left"
-                                >
-                                  {alertsExpanded
-                                    ? 'Show fewer'
-                                    : `+${alerts.length - 2} more`}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                    <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2">
-                      <div className="flex items-center justify-between">
-                        <span>TMDB</span>
-                        <span className={config.integrations.tmdb_api_key ? 'text-green-400' : 'text-gray-600'}>
-                          {config.integrations.tmdb_api_key ? 'Connected' : 'Not set'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {config.integrations.tmdb_api_key ? 'API key configured' : 'API key missing'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Streaming Services</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {config.streaming_services.filter((service) => service.enabled).length === 0 && (
-                      <span className="text-xs text-gray-500">None enabled</span>
-                    )}
-                    {config.streaming_services.filter((service) => service.enabled).map((service) => (
-                      <span
-                        key={service.id}
-                        className="glass-chip px-2 py-1 rounded inline-flex items-center gap-2 text-xs"
-                      >
-                        {getStreamingLogo(service.id) ? (
-                          <img
-                            src={getStreamingLogo(service.id)}
-                            alt={service.name}
-                            className="h-4 w-4 object-contain"
-                          />
-                        ) : (
-                          <span className="text-gray-500 text-xs">?</span>
-                        )}
-                        <span>{service.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </details>
-        </section>
-        )}
-
-        {activeSection === 'settings' && config && (
-          <section id="settings" className="scroll-mt-24 mt-4 glass-panel rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-300 mb-2">Settings</h3>
-            <p className="text-xs text-gray-400 mb-3">
-              Non-secret settings only. Env vars still override these values.
-            </p>
-            {settingsError && (
-              <div className="text-xs text-red-400 mb-2">Error: {settingsError}</div>
-            )}
-            {settingsSaved && (
-              <div className="text-xs text-cyan-300 mb-2">Settings saved.</div>
-            )}
-            {settingsSaving && (
-              <div className="text-xs text-amber-300 mb-2">Saving settings...</div>
-            )}
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
-              <label className="grid gap-1">
-                <span className="text-xs text-gray-400">Country</span>
-                <input
-                  type="text"
-                  value={settingsCountry}
-                  onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
-                  onBlur={() => {
-                    void saveSettings()
-                  }}
-                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                />
-              </label>
-              <div className="grid gap-1">
-                <span className="text-xs text-gray-400">AI Provider</span>
-                <div className="grid gap-2">
-                  {aiProviderOptions.map((provider) => {
-                    const isAvailable = availableAiProviderSet.has(provider.id)
-                    const isChecked = settingsAiProvider === provider.id
-                    return (
-                      <label
-                        key={provider.id}
-                        className={`flex items-center gap-2 ${isAvailable ? '' : 'text-gray-500'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={!isAvailable}
-                          onChange={(event) => {
-                            if (!event.target.checked) {
-                              return
-                            }
-                            setSettingsAiProvider(provider.id)
-                            void saveSettings({ ai_provider: provider.id })
-                          }}
-                        />
-                        <span>{provider.label}</span>
-                      </label>
-                    )
-                  })}
-                  {availableAiProviderSet.size === 0 && (
-                    <span className="text-xs text-gray-500">No AI providers configured in .env</span>
-                  )}
-                </div>
-              </div>
-            </div>
-            {selectedProviderModel && (
-              <div className="mt-2 text-xs text-gray-400">
-                AI model: <span className="text-gray-200">{selectedProviderModel}</span>
-              </div>
-            )}
-            {!selectedProviderAvailable && settingsAiProvider && (
-              <div className="mt-1 text-xs text-red-400">
-                Selected provider is not configured in .env.
-              </div>
-            )}
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
-              <p className="text-xs text-gray-500 mb-2">
-                If no cards are selected, the dashboard is hidden from the front page.
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowSonarr}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowSonarr(next)
-                      void saveDashboardSettings({ show_sonarr: next })
-                    }}
-                  />
-                  <span>Sonarr</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowRadarr}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowRadarr(next)
-                      void saveDashboardSettings({ show_radarr: next })
-                    }}
-                  />
-                  <span>Radarr</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowSabnzbd}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowSabnzbd(next)
-                      void saveDashboardSettings({ show_sabnzbd: next })
-                    }}
-                  />
-                  <span>SABnzbd</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowPlex}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowPlex(next)
-                      void saveDashboardSettings({ show_plex: next })
-                    }}
-                  />
-                  <span>Plex</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Layout</h4>
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
-                <label className="grid gap-1">
-                  <span className="text-xs text-gray-400">Discovery search panel</span>
-                  <select
-                    value={settingsDiscoverySearchPosition}
-                    onChange={(event) => {
-                      const next = event.target.value as 'top' | 'bottom'
-                      setSettingsDiscoverySearchPosition(next)
-                      void saveSettings({ discovery_search_position: next })
-                    }}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  >
-                    <option value="top">Top</option>
-                    <option value="bottom">Bottom</option>
-                  </select>
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-xs text-gray-400">Library search panel</span>
-                  <select
-                    value={settingsLibrarySearchPosition}
-                    onChange={(event) => {
-                      const next = event.target.value as 'top' | 'bottom'
-                      setSettingsLibrarySearchPosition(next)
-                      void saveSettings({ library_search_position: next })
-                    }}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  >
-                    <option value="top">Top</option>
-                    <option value="bottom">Bottom</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Downloads</h4>
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
-                <label className="grid gap-1">
-                  <span className="text-xs text-gray-400">Recent download groups</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={settingsSabRecentLimit}
-                    onChange={(event) => {
-                      const value = Number(event.target.value)
-                      if (Number.isNaN(value)) return
-                      setSettingsSabRecentLimit(value)
-                    }}
-                    onBlur={() => {
-                      const value = Math.max(1, Math.min(20, settingsSabRecentLimit || 10))
-                      setSettingsSabRecentLimit(value)
-                      void saveSettings({ sab_recent_group_limit: value })
-                    }}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Streaming Services</h4>
-              {streamingUpdateError && (
-                <div className="text-xs text-red-400 mb-2">Error: {streamingUpdateError}</div>
-              )}
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {config.streaming_services.map((service) => (
-                  <label key={service.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={service.enabled}
-                      disabled={streamingUpdateBusy}
-                      onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
-                    />
-                    {getStreamingLogo(service.id) ? (
-                      <img src={getStreamingLogo(service.id)} alt={service.name} className="h-5 w-5 object-contain" />
-                    ) : (
-                      <span className="text-gray-500 text-xs">?</span>
-                    )}
-                    <span>{service.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
       </div>
 
       {/* Loading overlay for releases */}
