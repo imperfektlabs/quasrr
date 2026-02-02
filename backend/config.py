@@ -97,6 +97,11 @@ class DashboardConfig(BaseModel):
     show_plex: bool = False
 
 
+class LayoutConfig(BaseModel):
+    discovery_search_position: str = "top"
+    library_search_position: str = "top"
+
+
 class SabnzbdConfig(BaseModel):
     recent_group_limit: int = Field(default=10, ge=1, le=20)
 
@@ -134,6 +139,7 @@ class Config(BaseModel):
     ai: AIConfig = Field(default_factory=AIConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
     dashboard: DashboardConfig = Field(default_factory=DashboardConfig)
+    layout: LayoutConfig = Field(default_factory=LayoutConfig)
     sabnzbd: SabnzbdConfig = Field(default_factory=SabnzbdConfig)
     integrations: IntegrationConfig = Field(default_factory=IntegrationConfig)
 
@@ -381,6 +387,7 @@ def update_basic_settings(
     country: Optional[str] = None,
     ai_provider: Optional[str] = None,
     dashboard: Optional[dict] = None,
+    layout: Optional[dict] = None,
     sabnzbd: Optional[dict] = None
 ) -> Config:
     """Persist non-secret settings to settings.yaml."""
@@ -394,6 +401,9 @@ def update_basic_settings(
 
     if dashboard:
         settings.setdefault("dashboard", {}).update(dashboard)
+
+    if layout:
+        settings.setdefault("layout", {}).update(layout)
 
     if sabnzbd:
         settings.setdefault("sabnzbd", {}).update(sabnzbd)

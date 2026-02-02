@@ -45,6 +45,10 @@ export type ConfigStatus = {
     show_sabnzbd: boolean
     show_plex: boolean
   }
+  layout?: {
+    discovery_search_position: 'top' | 'bottom'
+    library_search_position: 'top' | 'bottom'
+  }
   sabnzbd: {
     recent_group_limit: number
   }
