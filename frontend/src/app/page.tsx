@@ -68,6 +68,7 @@ import {
   SabQueue,
   SabRecent,
   NavigationMenu,
+  SearchPanel,
   ProjectorIcon,
   TvIcon,
   ArrowUpLineIcon,
@@ -360,7 +361,9 @@ function HomeContent() {
   })()
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
-  const discoverySearchStickyClass = discoverySearchAtBottom ? 'sticky bottom-4' : 'sticky top-16'
+  const discoverySearchStickyClass = discoverySearchAtBottom
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 md:px-8'
+    : 'sticky top-16'
 
 
   const handleHome = () => {
@@ -785,12 +788,29 @@ function HomeContent() {
 
         {/* Search Section */}
         {activeSection === 'search' && (
-        <section id="search" className="scroll-mt-24">
+        <section id="search" className={`scroll-mt-24 ${discoverySearchAtBottom ? 'pb-28' : ''}`}>
           {(() => {
             const searchPanel = (
-              <div className={`${discoverySearchStickyClass} z-20`}>
-                <div className="glass-panel rounded-lg p-3 mb-4 relative">
-                <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
+              <SearchPanel
+                stickyClass={discoverySearchStickyClass}
+                headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
+                headerCount={searchResults ? searchResults.total_count : undefined}
+                toggle={{
+                  onClick: () => {
+                    const next = discoverySearchAtBottom ? 'top' : 'bottom'
+                    setSettingsDiscoverySearchPosition(next)
+                    void saveSettings({ discovery_search_position: next })
+                  },
+                  title: discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom',
+                  ariaLabel: discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom',
+                  icon: discoverySearchAtBottom ? (
+                    <ArrowUpLineIcon className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownLineIcon className="h-4 w-4" />
+                  ),
+                }}
+              >
+              <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
                 <div className="flex flex-wrap gap-2 text-xs">
                   <button
@@ -950,25 +970,7 @@ function HomeContent() {
                 </div>
               </details>
                 </form>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = discoverySearchAtBottom ? 'top' : 'bottom'
-                    setSettingsDiscoverySearchPosition(next)
-                    void saveSettings({ discovery_search_position: next })
-                  }}
-                  className="absolute bottom-2 right-2 text-slate-400 hover:text-cyan-200 transition-colors"
-                  title={discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom'}
-                  aria-label={discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom'}
-                >
-                  {discoverySearchAtBottom ? (
-                    <ArrowUpLineIcon className="h-4 w-4" />
-                  ) : (
-                    <ArrowDownLineIcon className="h-4 w-4" />
-                  )}
-                </button>
-                </div>
-              </div>
+              </SearchPanel>
             )
 
             const searchContent = (
@@ -1012,14 +1014,6 @@ function HomeContent() {
 
           {searchResults && (
             <div className="mb-4">
-              <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-                <h2 className="text-lg font-semibold">
-                  Results for "{searchResults.query}"
-                </h2>
-                <span className="text-gray-400 text-sm">
-                  {searchResults.total_count} total
-                </span>
-              </div>
 
               {searchResults.results.length === 0 ? (
                 <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
