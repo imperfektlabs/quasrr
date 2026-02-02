@@ -245,7 +245,7 @@ function HomeContent() {
   }, [aiIntentPlan])
 
   const handleTypeToggle = (type: 'movie' | 'tv') => {
-    setFilterType(filterType === type ? 'all' : type)
+    setFilterType(type)
     setPage(1)
   }
 
