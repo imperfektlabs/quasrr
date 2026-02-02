@@ -123,7 +123,7 @@ function HomeContent() {
     setSortField,
     sortDirection,
     setSortDirection,
-    page,
+    page: _page,
     setPage,
     searchResults,
     searching,
@@ -797,7 +797,6 @@ function HomeContent() {
               <SearchPanel
                 stickyClass={discoverySearchStickyClass}
                 headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
-                headerCount={searchResults ? searchResults.total_count : undefined}
                 toggle={{
                   onClick: () => {
                     const next = discoverySearchAtBottom ? 'top' : 'bottom'
@@ -1036,29 +1035,6 @@ function HomeContent() {
                 </div>
               )}
 
-              {searchResults.total_pages > 1 && (
-                <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
-                  <button
-                    type="button"
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                  >
-                    Prev
-                  </button>
-                  <span className="text-sm text-gray-400">
-                    Page {searchResults.page} of {searchResults.total_pages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPage(Math.min(searchResults.total_pages, page + 1))}
-                    disabled={page >= searchResults.total_pages}
-                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
             </div>
           )}
               </>
