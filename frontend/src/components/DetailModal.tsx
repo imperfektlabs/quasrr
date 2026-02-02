@@ -114,7 +114,6 @@ export function DetailModal({
 
   const {
     busyIds: libraryGrabBusyIds,
-    feedback: libraryGrabFeedback,
     setFeedback: setLibraryGrabFeedback,
     grab: grabLibraryRelease,
     clear: clearLibraryGrab,
@@ -1151,11 +1150,6 @@ export function DetailModal({
                         </div>
                         {isReleaseOpen && (
                           <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 space-y-2 w-full max-w-full min-w-0 overflow-x-hidden">
-                            {libraryGrabFeedback && (
-                              <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
-                                {libraryGrabFeedback.text}
-                              </div>
-                            )}
                             {isReleaseLoading && (
                               <div className="text-xs text-slate-400">Searching...</div>
                             )}
@@ -1418,11 +1412,6 @@ export function DetailModal({
 
           {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
             <div ref={libraryResultsRef} className="mt-4 space-y-2">
-              {libraryGrabFeedback && (
-                <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
-                  {libraryGrabFeedback.text}
-                </div>
-              )}
               {libraryReleaseLoading && !libraryActionMessage && (
                 <div className="text-xs text-slate-300">Searching...</div>
               )}
