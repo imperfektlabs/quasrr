@@ -57,7 +57,16 @@ export type ConfigStatus = {
 export type SearchType = 'movie' | 'tv'
 export type SearchFilterType = 'all' | SearchType
 export type SearchStatusFilter = 'all' | 'not_in_library' | 'in_library' | 'downloaded'
-export type SearchSortField = 'relevance' | 'year' | 'title' | 'rating' | 'popularity'
+export type SearchSortField =
+  | 'added'
+  | 'imdbRating'
+  | 'popularity'
+  | 'releaseDate'
+  | 'size'
+  | 'title'
+  | 'relevance'
+  | 'year'
+  | 'rating'
 export type SearchSortDirection = 'asc' | 'desc'
 
 export type Rating = {
