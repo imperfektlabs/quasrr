@@ -629,19 +629,19 @@ function HomeContent() {
           <section id="dashboard" className="mb-4">
             <div className="glass-panel rounded-lg p-3">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
+                <h2 className="text-base font-semibold text-gray-300">At a glance</h2>
                 <a
                   href="/library"
-                  className="text-xs text-slate-300 hover:text-cyan-200 transition-colors px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
+                  className="text-sm text-slate-300 hover:text-cyan-200 transition-colors px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
                 >
                   Library
                 </a>
               </div>
               {dashboardLoading && (
-                <div className="text-xs text-gray-500 mb-2">Updating…</div>
+                <div className="text-sm text-gray-500 mb-2">Updating…</div>
               )}
               {dashboardError && (
-                <div className="text-xs text-amber-300 mb-3">{dashboardError}</div>
+                <div className="text-sm text-amber-300 mb-3">{dashboardError}</div>
               )}
               <div
                 className="grid gap-3"
@@ -654,7 +654,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-emerald-500/15 border-emerald-400/40 hover:bg-emerald-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-emerald-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-emerald-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.sonarr.iconUrl}
                         alt="Sonarr icon"
@@ -663,7 +663,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sonarr.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-emerald-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-emerald-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Series count / episode count">
@@ -688,7 +688,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-sky-500/15 border-sky-400/40 hover:bg-sky-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-sky-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-sky-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.radarr.iconUrl}
                         alt="Radarr icon"
@@ -697,7 +697,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.radarr.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-sky-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-sky-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Downloaded movies / total movies">
@@ -722,7 +722,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-amber-500/15 border-amber-400/40 hover:bg-amber-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-amber-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-amber-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.sabnzbd.iconUrl}
                         alt="SABnzbd icon"
@@ -731,7 +731,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sabnzbd.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-amber-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-amber-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Queue items">
@@ -756,7 +756,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-yellow-500/15 border-yellow-400/40 hover:bg-yellow-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-yellow-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-yellow-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.plex.iconUrl}
                         alt="Plex icon"
@@ -765,7 +765,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.plex.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-yellow-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-yellow-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Recently added items">
