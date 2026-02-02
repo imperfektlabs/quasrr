@@ -353,17 +353,46 @@ async def get_integrations_status():
     radarr = get_radarr_client()
     sonarr = get_sonarr_client()
     sab = get_sabnzbd_client()
+    plex = get_plex_client()
 
-    radarr_status, sonarr_status, sab_status = await asyncio.gather(
+    radarr_status, sonarr_status, sab_status, plex_status = await asyncio.gather(
         radarr.test_connection(),
         sonarr.test_connection(),
-        sab.test_connection()
+        sab.test_connection(),
+        plex.test_connection()
+    )
+
+    async def enrich_status(client, status: dict) -> dict:
+        if not status or status.get("status") != "ok":
+            return status
+        health = await client.get_health_issues()
+        status["health"] = health
+        return status
+
+    async def enrich_sab(status: dict) -> dict:
+        if not status or status.get("status") != "ok":
+            return status
+        status["warnings"] = await sab.get_warnings(10)
+        return status
+
+    async def enrich_plex(status: dict) -> dict:
+        if not status or status.get("status") != "ok":
+            return status
+        status["warnings"] = await plex.get_alerts(10)
+        return status
+
+    radarr_status, sonarr_status, sab_status, plex_status = await asyncio.gather(
+        enrich_status(radarr, radarr_status),
+        enrich_status(sonarr, sonarr_status),
+        enrich_sab(sab_status),
+        enrich_plex(plex_status),
     )
 
     return {
         "radarr": radarr_status,
         "sonarr": sonarr_status,
         "sabnzbd": sab_status,
+        "plex": plex_status,
     }
 
 

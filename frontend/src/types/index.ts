@@ -349,16 +349,30 @@ export type SonarrEpisode = {
 // Integration Types
 // ============================================
 
+export type IntegrationHealthIssue = {
+  level?: string
+  message?: string
+  source?: string
+}
+
+export type IntegrationWarning = {
+  level?: string
+  message?: string
+}
+
 export type IntegrationStatus = {
   status: string
   message?: string
   version?: string
+  health?: IntegrationHealthIssue[]
+  warnings?: IntegrationWarning[]
 }
 
 export type IntegrationsStatus = {
   radarr: IntegrationStatus
   sonarr: IntegrationStatus
   sabnzbd: IntegrationStatus
+  plex: IntegrationStatus
 }
 
 // ============================================
