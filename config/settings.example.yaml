@@ -463,3 +463,8 @@ dashboard:
   show_radarr: true
   show_sabnzbd: true
   show_plex: false
+
+# --- Layout ---
+layout:
+  discovery_search_position: top
+  library_search_position: top

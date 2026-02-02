@@ -84,6 +84,11 @@ dashboard:
   show_sabnzbd: true
   show_plex: false
 
+# --- Layout ---
+layout:
+  discovery_search_position: top
+  library_search_position: top
+
 # --- SABnzbd ---
 sabnzbd:
   recent_group_limit: 10

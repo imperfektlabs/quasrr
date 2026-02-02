@@ -107,3 +107,37 @@ export const TvIcon = ({ className }: IconProps) => (
     <circle cx="18" cy="15" r="1" />
   </svg>
 )
+
+export const ArrowUpLineIcon = ({ className }: IconProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M12 17V7" />
+    <path d="M8.5 10.5 12 7l3.5 3.5" />
+    <path d="M6 19h12" />
+  </svg>
+)
+
+export const ArrowDownLineIcon = ({ className }: IconProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M12 7v10" />
+    <path d="M8.5 13.5 12 17l3.5-3.5" />
+    <path d="M6 19h12" />
+  </svg>
+)

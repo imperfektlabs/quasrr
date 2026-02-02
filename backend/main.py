@@ -92,6 +92,11 @@ class DashboardSettingsUpdate(BaseModel):
     show_plex: Optional[bool] = None
 
 
+class LayoutSettingsUpdate(BaseModel):
+    discovery_search_position: Optional[Literal["top", "bottom"]] = None
+    library_search_position: Optional[Literal["top", "bottom"]] = None
+
+
 class SabnzbdSettingsUpdate(BaseModel):
     recent_group_limit: Optional[int] = Field(default=None, ge=1, le=20)
 
@@ -100,6 +105,7 @@ class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
     ai_provider: Optional[str] = None
     dashboard: Optional[DashboardSettingsUpdate] = None
+    layout: Optional[LayoutSettingsUpdate] = None
     sabnzbd: Optional[SabnzbdSettingsUpdate] = None
 
 
@@ -301,11 +307,13 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
 async def update_basic_settings_config(payload: BasicSettingsUpdate):
     """Update non-secret settings in settings.yaml."""
     dashboard_settings = payload.dashboard.model_dump(exclude_unset=True) if payload.dashboard else None
+    layout_settings = payload.layout.model_dump(exclude_unset=True) if payload.layout else None
     sabnzbd_settings = payload.sabnzbd.model_dump(exclude_unset=True) if payload.sabnzbd else None
     config = update_basic_settings(
         payload.country,
         ai_provider=payload.ai_provider,
         dashboard=dashboard_settings,
+        layout=layout_settings,
         sabnzbd=sabnzbd_settings,
     )
     logger.info("Basic settings updated")
