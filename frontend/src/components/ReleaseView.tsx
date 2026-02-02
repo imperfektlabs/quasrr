@@ -104,7 +104,6 @@ export function ReleaseView({
   onGrabRelease,
   onGrabAll,
   grabBusyIds,
-  grabFeedback,
   aiEnabled,
   aiSuggestion,
   aiSuggestBusy,
@@ -118,7 +117,6 @@ export function ReleaseView({
   onGrabRelease: (release: Release) => void
   onGrabAll: (releases: Release[]) => void
   grabBusyIds: Set<string>
-  grabFeedback: { type: 'error' | 'success'; text: string } | null
   aiEnabled: boolean
   aiSuggestion: AISuggestion | null
   aiSuggestBusy: boolean
@@ -1136,13 +1134,6 @@ export function ReleaseView({
                     ? ` | Season ${requestedSeason}`
                     : data.season && ` | Season ${data.season}`}
               </p>
-              {grabFeedback && (
-                <p className={`mt-2 text-xs ${
-                  grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
-                }`}>
-                  {grabFeedback.text}
-                </p>
-              )}
               {releaseAiEnabled && aiSuggestError && (
                 <p className="mt-2 text-xs text-red-400">AI: {aiSuggestError}</p>
               )}
@@ -1363,13 +1354,6 @@ export function ReleaseView({
   if (isEmbedded) {
     return (
       <div className="mt-6 w-full">
-        {grabFeedback && (
-          <p className={`mb-3 text-xs ${
-            grabFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'
-          }`}>
-            {grabFeedback.text}
-          </p>
-        )}
         {releaseList}
         {grabAllOverlay}
       </div>

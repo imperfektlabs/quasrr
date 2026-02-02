@@ -232,7 +232,6 @@ function HomeContent() {
   // Release grab
   const {
     busyIds: grabBusyIds,
-    feedback: grabFeedback,
     setFeedback: setGrabFeedback,
     grab: grabRelease,
     grabAll: grabAllReleases,
@@ -993,7 +992,6 @@ function HomeContent() {
           onGrabRelease={handleGrabRelease}
           onGrabAll={handleGrabAll}
           grabBusyIds={grabBusyIds}
-          grabFeedback={grabFeedback}
           aiEnabled={aiEnabled}
           aiSuggestion={aiSuggestion}
           aiSuggestBusy={aiSuggestBusy}
