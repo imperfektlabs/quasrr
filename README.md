@@ -1,8 +1,8 @@
 # Quasrr
 
-**Unified media search and download management for the casual viewer.**
+**Unified media search, streaming awareness, and intentional downloads for casual viewers.**
 
-Quasrr is a self-hosted, mobile-first web application that combines media discovery, streaming availability awareness, and manual download workflows into a single, clean interface. It's designed for users who want intentional, size-conscious downloads without the complexity of automated PVR systems.
+Quasrr is a self-hosted, mobile-first web app that brings discovery, streaming availability, and manual download workflows into one clean interface. It favors intentional, size-conscious downloads over automation and complexity.
 
 ---
 
@@ -28,7 +28,7 @@ Quasrr is built around these core principles:
 
 - **Manual-only workflow** - No automatic downloads or background monitoring. Every download requires explicit user approval.
 - **Streaming-first** - Check if content is available on your subscriptions before offering downloads.
-- **Size-conscious quality** - Practical file sizes (800MB-1.2GB for TV episodes) over maximum quality.
+- **Size-conscious quality** - Practical file sizes over maximum quality.
 - **AI-assisted, not automated** - AI suggests releases based on your preferences, but never downloads automatically.
 - **Mobile-optimized** - Touch-friendly interface designed for phones and tablets.
 - **Low-volume usage** - Built for casual, intentional viewing, not archival or library perfectionism.
@@ -39,56 +39,61 @@ Quasrr is built around these core principles:
 
 ### Current (v0.1.0)
 
-✅ **Unified Search**
-- Natural language search with AI intent parsing
-- Automatic movie vs TV detection
-- Search by ID (TMDB, TVDB, IMDB)
-- Pagination and filtering (status, type, sort by relevance/year/rating/popularity)
+✅ **Unified Discovery + Library**
+- Single discovery page and a unified Library for movies + TV
+- Multi-select filters (downloaded/missing/monitored) and sortable results
+- Inline search panel with optional top/bottom positioning
+- Media cards with status badges, rating links, and per-title actions
+
+✅ **AI-Assisted Search**
+- Natural language parsing with intent modal
+- Episode date support (for daily shows)
+- Search by ID (TMDB/TVDB/IMDB)
+- Background AI search with clean fallback behavior
 
 ✅ **Streaming Availability**
-- Country-aware streaming detection (Canada-focused)
-- Deep links to native streaming apps
-- Configurable subscription list with visual logos
-- Per-title availability checking via TMDB
+- Country-aware provider detection (TMDB)
+- Local SVG logos and subscription highlighting
+- Per-title availability in AI, discovery, and library modals
 
 ✅ **Manual Download Workflow**
 - Release search via Sonarr/Radarr indexers
-- Group-based release organization (by release group, season, quality)
-- Per-episode download tracking for TV shows
-- Season progress indicators
-- Quality filtering based on user preferences
-- AI-powered release suggestions
+- Grouped TV releases (per-episode) and per-season search
+- Grab single releases or multi-select groups
+- Per-episode download tracking and season progress
 
-✅ **Download Management**
-- Unified SABnzbd queue visibility
+✅ **Download Management (SABnzbd)**
+- Queue + recent history with grouping
 - Pause/resume/delete individual jobs
 - Pause/resume entire queue
-- Recent download history (grouped by title)
-- Auto-polling on Downloads tab
+- Recent download history with deep links into Library
 
-✅ **System Status**
+✅ **Library Actions**
+- Per-episode delete (Sonarr episode file delete)
+- Inline release expansion by episode
+- Deep links to Library with season auto-expand
+
+✅ **System + Settings**
 - Integration health monitoring (Sonarr, Radarr, SABnzbd)
-- Settings management (streaming services, country, AI model)
-- Configuration reload endpoint
+- Settings UI for streaming services, country, AI provider/model
+- Dashboard card toggles and layout options
+- SAB recent group limit setting
 
 ✅ **UI/UX**
-- Nebula-inspired theme (cyan/fuchsia/violet palette)
-- Mobile-first responsive design
-- Glass-morphism effects
-- Icon-based status indicators
-- Animated gradient background
-- Tool shortcuts with health-based greyscale
+- Nebula-inspired theme with glass panels
+- Mobile-first layout and touch-friendly actions
+- Dashboard cards with tool shortcuts and status styling
 
 ---
 
 ## Architecture
 
-Quasrr uses a modern containerized architecture with separate frontend and backend services:
+Quasrr uses a containerized frontend + backend architecture:
 
 ```
 ┌─────────────────┐
 │   Frontend      │  Next.js 14 (React 18 + Tailwind CSS)
-│   Port: 3000    │  Single-page app with client-side routing
+│   Port: 3000    │  App Router + client-side interactions
 └────────┬────────┘
          │ HTTP
          ▼
@@ -107,10 +112,10 @@ Quasrr uses a modern containerized architecture with separate frontend and backe
 
 ### Data Flow
 
-1. **Search Phase**: User enters query → AI parses intent → Backend searches Sonarr/Radarr → TMDB checks streaming availability
-2. **Release Phase**: User selects title → Backend triggers indexer search → Results grouped and sorted by size
-3. **Download Phase**: User selects release → Backend sends to Sonarr/Radarr → Sonarr/Radarr sends to SABnzbd
-4. **Monitoring Phase**: Frontend polls SABnzbd queue → Displays progress and status
+1. **Discovery**: User searches -> AI parses intent -> Backend searches Sonarr/Radarr + TMDB availability
+2. **Releases**: User selects title -> Backend triggers indexer search -> Results grouped by episode/quality
+3. **Download**: User grabs a release -> Sonarr/Radarr triggers SABnzbd
+4. **Monitoring**: Frontend polls SABnzbd queue/history -> Deep links into Library
 
 ---
 
@@ -126,15 +131,13 @@ Quasrr uses a modern containerized architecture with separate frontend and backe
 
 ### Frontend
 - **Next.js 14** - React framework with App Router
-- **React 18** - UI library with hooks and suspense
+- **React 18** - UI library with hooks
 - **TypeScript** - Type-safe JavaScript
 - **Tailwind CSS** - Utility-first CSS framework
-- **PWA Support** - Installable on mobile devices
 
 ### Infrastructure
 - **Docker** - Containerization
 - **Docker Compose** - Multi-container orchestration
-- **Multi-stage builds** - Optimized image sizes
 - **Health checks** - Container reliability
 
 ---
@@ -144,68 +147,61 @@ Quasrr uses a modern containerized architecture with separate frontend and backe
 ```
 quasrr/
 ├── backend/                      # FastAPI backend service
-│   ├── main.py                   # API routes and application entry (944 lines)
-│   ├── config.py                 # Configuration management (276 lines)
+│   ├── main.py                   # API routes and application entry
+│   ├── config.py                 # Configuration management
 │   ├── requirements.txt          # Python dependencies
 │   ├── Dockerfile                # Backend container image
 │   └── integrations/             # External service clients
-│       ├── __init__.py
 │       ├── ai.py                 # OpenAI/Anthropic/Ollama integration
+│       ├── plex.py               # Plex summary metrics
 │       ├── radarr.py             # Movie management API
-│       ├── sonarr.py             # TV show management API
 │       ├── sabnzbd.py            # Download client API
+│       ├── sonarr.py             # TV show management API
 │       └── tmdb.py               # Streaming availability API
 │
 ├── frontend/                     # Next.js frontend application
 │   ├── src/
-│   │   └── app/
-│   │       ├── page.tsx          # Main SPA component (4076 lines) ⚠️
-│   │       ├── layout.tsx        # Root layout with metadata
-│   │       └── globals.css       # Global styles and theme
-│   ├── public/                   # Static assets
-│   │   └── logos/streaming/      # Streaming service logos (.svg)
-│   ├── package.json              # npm dependencies
-│   ├── Dockerfile                # Frontend container image
-│   ├── next.config.js            # Next.js configuration
-│   ├── tailwind.config.ts        # Tailwind CSS theme
-│   └── tsconfig.json             # TypeScript configuration
+│   │   ├── app/
+│   │   │   ├── page.tsx          # Discovery + dashboard UI
+│   │   │   ├── library/page.tsx  # Unified Library UI
+│   │   │   ├── layout.tsx        # Root layout with metadata
+│   │   │   └── globals.css       # Global styles and theme
+│   │   ├── components/           # Reusable UI components
+│   │   │   ├── DetailModal.tsx
+│   │   │   ├── MediaCard.tsx
+│   │   │   ├── NavigationMenu.tsx
+│   │   │   ├── ReleaseView.tsx
+│   │   │   └── SearchPanel.tsx
+│   │   ├── hooks/                # API, release, and UI hooks
+│   │   ├── types/                # Shared TypeScript types
+│   │   └── utils/                # Formatting and streaming helpers
+│   ├── public/
+│   │   ├── logos/ratings/         # Rating service logos
+│   │   ├── logos/streaming/       # Streaming service logos (SVG)
+│   │   └── logos/tools/           # Tool logos (SVG)
+│   ├── package.json
+│   ├── Dockerfile
+│   ├── next.config.js
+│   ├── tailwind.config.ts
+│   └── tsconfig.json
 │
 ├── config/                       # Application configuration
 │   ├── defaults.yaml             # Default settings (shipped with app)
 │   ├── settings.yaml             # User preferences (gitignored)
-│   └── settings.example.yaml    # Example user settings
+│   └── settings.example.yaml     # Example user settings
 │
 ├── data/                         # SQLite database (gitignored)
-│   └── quasrr.db
-│
 ├── logs/                         # Application logs (gitignored)
-│
 ├── reference/                    # Documentation and session logs
-│   ├── PROJECT_BRIEF.md          # Project goals and philosophy
-│   ├── TODOS.md                  # Feature tracking
-│   ├── AGENTS.md                 # AI agent instructions
-│   └── SESSION_LOG*.md           # Development session history
+│   ├── PROJECT_BRIEF.md
+│   ├── TODOS.md
+│   └── sessions/
 │
 ├── .env                          # Environment variables (gitignored)
 ├── compose.yml                   # Docker Compose orchestration
-├── .gitignore                    # Git exclusions
-└── README.md                     # This file
+├── .gitignore
+└── README.md
 ```
-
-### ⚠️ Refactoring Note
-
-The `frontend/src/app/page.tsx` file is currently **4076 lines** and contains:
-- 30+ TypeScript type definitions
-- Multiple utility functions and constants
-- All UI components (search, results, releases, downloads, settings)
-- State management logic
-- API integration code
-
-**Planned refactoring** will extract this into modular components:
-- `types/` - Type definitions
-- `utils/` - Helper functions and constants
-- `hooks/` - Custom React hooks for API and state management
-- `components/` - Reusable UI components organized by feature
 
 ---
 
@@ -269,12 +265,29 @@ user:
 
 # AI configuration
 ai:
+  provider: openai
   model: gpt-5-nano
+
+# Dashboard cards
+dashboard:
+  show_sonarr: true
+  show_radarr: true
+  show_sabnzbd: true
+  show_plex: false
+
+# Layout settings
+layout:
+  discovery_search_position: top
+  library_search_position: top
+
+# SABnzbd settings
+sabnzbd:
+  recent_group_limit: 10
 ```
 
 ### Default Settings (config/defaults.yaml)
 
-Contains sensible defaults for quality preferences, feature flags, and streaming service definitions. See [config/defaults.yaml](config/defaults.yaml) for full details.
+Contains sensible defaults for quality preferences, feature flags, and streaming service definitions. See `config/defaults.yaml` for full details.
 
 ---
 
@@ -284,11 +297,11 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 - Docker 20.10+
 - Docker Compose 2.0+
-- Sonarr instance (for TV shows)
-- Radarr instance (for movies)
-- SABnzbd instance (for downloads)
-- TMDB API key (free, for streaming availability)
-- OpenAI/Anthropic API key (for AI features)
+- Sonarr instance (TV)
+- Radarr instance (Movies)
+- SABnzbd instance (Downloads)
+- TMDB API key
+- AI provider API key (OpenAI, Anthropic, or Ollama)
 
 ### Quick Start
 
@@ -322,8 +335,6 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 ### NAS Deployment (via SSH)
 
-For deployment to a NAS (as used in development):
-
 ```bash
 # From the docs/scripts/ directory
 ./nas.sh quasrr up-build    # Build and start containers
@@ -332,11 +343,8 @@ For deployment to a NAS (as used in development):
 
 ### Health Checks
 
-Both services include health check endpoints:
 - Backend: `http://localhost:8000/health`
 - Frontend: `http://localhost:3000/`
-
-Docker Compose will automatically restart unhealthy containers.
 
 ---
 
@@ -360,11 +368,11 @@ Docker Compose will automatically restart unhealthy containers.
 ### TMDB (The Movie Database)
 - **Endpoint**: `/3/`
 - **Used for**: Streaming availability, provider logos, metadata enrichment
-- **Key operations**: `search/movie`, `search/tv`, `watch/providers`
+- **Key operations**: `search/movie`, `search/tv`, `watch/providers`, `tv/{id}`
 
 ### AI Provider (OpenAI/Anthropic/Ollama)
 - **Used for**: Natural language query parsing, release suggestions
-- **Models**: Configurable (default: `gpt-5-nano`)
+- **Models**: Configurable (defaults vary by provider)
 - **Operations**: Intent parsing, release ranking
 
 ---
@@ -374,16 +382,15 @@ Docker Compose will automatically restart unhealthy containers.
 ### Current State
 
 - **Version**: 0.1.0
-- **Status**: Functional MVP with all core features implemented
-- **Theme**: Nebula-inspired (cyan/fuchsia/violet palette)
-- **Recent work**: Per-episode tracking, season progress, group-based releases, rebranding to Quasrr
+- **Status**: Functional MVP with core flows in place
+- **Theme**: Nebula-inspired glass UI
+- **Recent work**: Unified Library, AI modal polish, per-episode releases, streaming logos, dashboard/layout settings
 
 ### Known Technical Debt
 
-1. **Frontend monolith**: `page.tsx` is 4076 lines and needs component extraction
-2. **No authentication**: Currently relies on network isolation (Tailscale)
-3. **No automated tests**: Manual testing only
-4. **No state management library**: Using useState/useEffect (may need Context API or Zustand)
+1. **No authentication**: Relies on network isolation (Tailscale or LAN)
+2. **No automated tests**: Manual testing only
+3. **No state management library**: Uses React state and hooks
 
 ### Development Workflow
 
@@ -393,9 +400,7 @@ Docker Compose will automatically restart unhealthy containers.
 4. Smoke test via `docs/scripts/smoke.sh quasrr --path /`
 5. Manual browser verification
 
-### API Endpoints
-
-Key backend endpoints:
+### API Endpoints (Selected)
 
 - `GET /health` - Health check
 - `GET /config` - Get configuration (secrets redacted)
@@ -409,8 +414,7 @@ Key backend endpoints:
 - `POST /ai/release/suggest` - Get AI release suggestion
 - `GET /availability` - Get streaming availability
 - `GET /integrations/status` - Check integration health
-
-Full API documentation: http://localhost:8000/docs (when running)
+- `POST /config/settings` - Update non-secret settings
 
 ---
 
@@ -449,25 +453,26 @@ AI suggestions use these preferences to rank releases.
 
 ## Roadmap
 
-### Completed ✅
+### Completed
 
 - [x] Natural language search with AI intent parsing
 - [x] Streaming availability detection (TMDB)
 - [x] Release search and filtering
 - [x] Per-episode download tracking
 - [x] Season progress indicators
-- [x] Group-based release organization
+- [x] Grouped release organization
 - [x] SABnzbd queue management
 - [x] Mobile-optimized UI with nebula theme
 - [x] Search by ID (TMDB/TVDB/IMDB)
-- [x] Icon-based status indicators
+- [x] Unified Library for movies and TV
+- [x] Per-episode release expansion
+- [x] Dashboard cards with tool shortcuts
 
-### Planned 📋
+### Planned
 
 **Near-term:**
-- [ ] Component refactoring (extract types, utils, hooks, components from monolithic page.tsx)
-- [ ] Background animation improvements
 - [ ] Performance optimization (memoization, lazy loading)
+- [ ] Release matching improvements for daily shows (date-first fallback)
 
 **Long-term:**
 - [ ] Authentication (possibly piggyback on Sonarr/Radarr auth)
@@ -477,11 +482,10 @@ AI suggestions use these preferences to rank releases.
 - [ ] Multi-language support
 - [ ] Dark/light theme toggle
 - [ ] PWA offline support
-- [ ] Automatic monitoring/downloads 
-- [ ] Library management 
+- [ ] Automatic monitoring/downloads
+- [ ] Library management enhancements
 
-
-### Non-Goals ❌
+### Non-Goals
 - Media playback (use Plex/Jellyfin)
 - Cloud deployment (self-hosted only)
 - Complex authentication (network-level security preferred)
@@ -499,6 +503,6 @@ MIT License - See LICENSE file for details
 Built with love for casual media consumers who want control without complexity.
 
 **Maintainer**: Derek
-**Project Start**: January 2025
+**Project Start**: January 2026
 **Current Version**: 0.1.0
-**Codename**: Quasrr (formerly Shiny-Palm-Tree)
+**Codename**: Quasrr

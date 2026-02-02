@@ -191,12 +191,7 @@ export function DetailModal({
   useEffect(() => {
     if (mode !== 'library' || !libraryItem || libraryItem.mediaType !== 'tv') return
     let active = true
-    const seasonNumbers = (libraryItem.seasons || [])
-      .map((season) => season.seasonNumber ?? 0)
-      .filter((season) => season > 0)
-    if (seasonNumbers.length > 0) {
-      setExpandedSeasons(new Set([Math.max(...seasonNumbers)]))
-    }
+    setExpandedSeasons(new Set())
     const fetchEpisodes = async () => {
       setEpisodesLoading(true)
       try {
@@ -1007,7 +1002,9 @@ export function DetailModal({
                   className="flex-1 flex items-center justify-between text-left"
                 >
                   <span>Season {season.seasonNumber ?? '—'}</span>
-                  <span className="text-slate-300">{season.episodeFileCount || 0}/{season.episodeCount || 0} eps</span>
+                  <span className="text-slate-300">
+                    {season.episodeFileCount || 0}/{season.totalEpisodeCount ?? season.episodeCount ?? 0} eps
+                  </span>
                 </button>
                 <div className="grid grid-cols-[auto_auto_auto_auto] items-center justify-end gap-2 text-slate-500">
                   <span className="w-[72px]" />

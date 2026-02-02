@@ -636,6 +636,10 @@ class SonarrClient:
                                 "seasonNumber": season.get("seasonNumber"),
                                 "episodeCount": season_stats.get("episodeCount", 0),
                                 "episodeFileCount": season_stats.get("episodeFileCount", 0),
+                                "totalEpisodeCount": season_stats.get(
+                                    "totalEpisodeCount",
+                                    season_stats.get("episodeCount", 0),
+                                ),
                             }
                         )
                     ended_value = series.get("ended")
