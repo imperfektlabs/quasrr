@@ -173,6 +173,31 @@ class SabnzbdClient:
             logger.error(f"SABnzbd connection error: {exc.code}")
             return {"status": "error", "message": exc.message}
 
+    async def get_warnings(self, limit: int = 10) -> list[dict]:
+        if not self.is_configured:
+            return []
+
+        try:
+            data = await self._api_request({"mode": "warnings"})
+            warnings = data.get("warnings") or data.get("warning") or []
+            results = []
+            for item in warnings:
+                if isinstance(item, dict):
+                    message = item.get("message") or item.get("text")
+                    if not message:
+                        continue
+                    results.append({
+                        "level": item.get("type") or item.get("level") or "warning",
+                        "message": message,
+                        "timestamp": item.get("time") or item.get("timestamp"),
+                    })
+                elif isinstance(item, str):
+                    results.append({"level": "warning", "message": item})
+            return results[:limit]
+        except SabnzbdError as exc:
+            logger.error(f"SABnzbd warnings error: {exc.code}")
+            return []
+
     async def get_queue(self) -> dict:
         """Get the current download queue."""
         logger.info("Fetching SABnzbd queue")

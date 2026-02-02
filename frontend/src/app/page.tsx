@@ -110,6 +110,7 @@ function HomeContent() {
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [expandedHealth, setExpandedHealth] = useState<Record<string, boolean>>({})
 
   // Discovery search (query, filters, results, pagination)
   const {
@@ -574,7 +575,7 @@ function HomeContent() {
       label: 'Plex',
       url: config?.integrations?.plex_url || getLocalToolUrl(32400, '/web'),
       iconUrl: toolIcons.plex,
-      status: null,
+      status: integrationsStatus?.plex?.status === 'ok',
     },
   }
 
@@ -626,7 +627,7 @@ function HomeContent() {
         onHomeClick={handleHome}
       />
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {activeSection === 'search' && dashboardEnabledCount > 0 && (
           <section id="dashboard" className="mb-4">
             <div className="glass-panel rounded-lg p-3">
@@ -1163,30 +1164,116 @@ function HomeContent() {
 
                 <div>
                   <h3 className="text-sm font-semibold text-gray-400 mb-2">Integrations</h3>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Sonarr</span>
-                      <span className={config.integrations.sonarr_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.sonarr_url ? 'Connected' : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Radarr</span>
-                      <span className={config.integrations.radarr_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.radarr_url ? 'Connected' : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>SABnzbd</span>
-                      <span className={config.integrations.sabnzbd_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.sabnzbd_url ? 'Connected' : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>TMDB</span>
-                      <span className={config.integrations.tmdb_api_key ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.tmdb_api_key ? 'Connected' : 'Not set'}
-                      </span>
+                  <div className="space-y-2 text-sm">
+                    {[
+                      {
+                        key: 'sonarr',
+                        label: 'Sonarr',
+                        configured: Boolean(config.integrations.sonarr_url),
+                        status: integrationsStatus?.sonarr,
+                      },
+                      {
+                        key: 'radarr',
+                        label: 'Radarr',
+                        configured: Boolean(config.integrations.radarr_url),
+                        status: integrationsStatus?.radarr,
+                      },
+                      {
+                        key: 'sabnzbd',
+                        label: 'SABnzbd',
+                        configured: Boolean(config.integrations.sabnzbd_url),
+                        status: integrationsStatus?.sabnzbd,
+                      },
+                      {
+                        key: 'plex',
+                        label: 'Plex',
+                        configured: Boolean(config.integrations.plex_url),
+                        status: integrationsStatus?.plex,
+                      },
+                    ].map((item) => {
+                      const status = item.status?.status
+                      const isConfigured = item.configured
+                      const isOk = status === 'ok'
+                      const statusLabel = !isConfigured
+                        ? 'Not set'
+                        : (isOk ? 'Connected' : (status ? 'Error' : 'Checking...'))
+                      const statusClass = !isConfigured
+                        ? 'text-gray-600'
+                        : (isOk ? 'text-green-400' : 'text-red-400')
+                      const healthIssues = item.status?.health || []
+                      const warnings = item.status?.warnings || []
+                      const alerts = healthIssues.length > 0 ? healthIssues : warnings
+                      const alertsTitle = healthIssues.length > 0
+                        ? 'Health issues'
+                        : (item.key === 'plex' ? 'Alerts' : 'Warnings')
+                      const alertsTone = healthIssues.length > 0 ? 'text-amber-300' : 'text-amber-300'
+                      const alertsKey = `alerts-${item.key}`
+                      const alertsExpanded = Boolean(expandedHealth[alertsKey])
+                      const visibleAlerts = alertsExpanded ? alerts : alerts.slice(0, 2)
+                      const meta = !isConfigured
+                        ? 'Not configured'
+                        : (isOk
+                          ? `Version ${item.status?.version || 'unknown'}`
+                          : (item.status?.message || 'Unable to reach service'))
+                      return (
+                        <div
+                          key={item.key}
+                          className="rounded-md border border-slate-800/60 bg-slate-900/40 px-3 py-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{item.label}</span>
+                            <span className={statusClass}>{statusLabel}</span>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">{meta}</div>
+                          {alerts.length > 0 && (
+                            <div className="mt-2 grid gap-1 text-xs">
+                              <div className={`${alertsTone} font-semibold`}>
+                                {alertsTitle} ({alerts.length})
+                              </div>
+                              {visibleAlerts.map((issue, index) => {
+                                const level = (issue.level || '').toLowerCase()
+                                const levelClass = level.includes('error') ? 'text-red-300' : 'text-amber-300'
+                                return (
+                                  <div
+                                    key={`${item.key}-alert-${index}`}
+                                    className={`truncate ${levelClass}`}
+                                    title={issue.message || ''}
+                                  >
+                                    {issue.message || 'Unknown issue'}
+                                  </div>
+                                )
+                              })}
+                              {alerts.length > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setExpandedHealth((prev) => ({
+                                      ...prev,
+                                      [alertsKey]: !alertsExpanded,
+                                    }))
+                                  }}
+                                  className="text-amber-200/80 hover:text-amber-200 underline decoration-dotted text-left"
+                                >
+                                  {alertsExpanded
+                                    ? 'Show fewer'
+                                    : `+${alerts.length - 2} more`}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <span>TMDB</span>
+                        <span className={config.integrations.tmdb_api_key ? 'text-green-400' : 'text-gray-600'}>
+                          {config.integrations.tmdb_api_key ? 'Connected' : 'Not set'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {config.integrations.tmdb_api_key ? 'API key configured' : 'API key missing'}
+                      </div>
                     </div>
                   </div>
                 </div>
