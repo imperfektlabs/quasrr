@@ -21,6 +21,7 @@ type ConfigResponse = {
 }
 
 type MediaType = 'movies' | 'tv'
+type MediaTypeFilter = 'all' | MediaType
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 type RawLibraryItem = SonarrLibraryItem | RadarrLibraryItem
 
@@ -40,12 +41,12 @@ function LibraryContent() {
   const [searchText, setSearchText] = useState('')
   const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
   const [filterModes, setFilterModes] = useState<Set<'downloaded' | 'missing' | 'monitored' | 'unmonitored'>>(new Set())
-  const [mediaTypes, setMediaTypes] = useState<Set<MediaType>>(() => {
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaTypeFilter>(() => {
     const type = searchParams.get('type')
     if (type === 'movies' || type === 'tv') {
-      return new Set<MediaType>([type])
+      return type
     }
-    return new Set<MediaType>(['movies', 'tv'])
+    return 'all'
   })
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
   const [autoSearch, setAutoSearch] = useState(false)
@@ -106,9 +107,9 @@ function LibraryContent() {
   useEffect(() => {
     const type = searchParams.get('type')
     if (type === 'movies' || type === 'tv') {
-      setMediaTypes(new Set<MediaType>([type]))
+      setMediaTypeFilter(type)
     } else {
-      setMediaTypes(new Set<MediaType>(['movies', 'tv']))
+      setMediaTypeFilter('all')
     }
   }, [searchParams])
 
@@ -134,7 +135,7 @@ function LibraryContent() {
       if (normalizedQuery && !item.title.toLowerCase().includes(normalizedQuery)) {
         return false
       }
-      if (!mediaTypes.has(item.mediaType)) {
+      if (mediaTypeFilter !== 'all' && item.mediaType !== mediaTypeFilter) {
         return false
       }
 
@@ -188,7 +189,7 @@ function LibraryContent() {
       return (left - right) * (sortDir === 'asc' ? 1 : -1)
     })
     return next
-  }, [combinedItems, sortField, sortDir, searchText, filterModes, mediaTypes])
+  }, [combinedItems, sortField, sortDir, searchText, filterModes, mediaTypeFilter])
 
   const totalSize = useMemo(
     () => sortedItems.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
@@ -218,37 +219,20 @@ function LibraryContent() {
     [sortedItems]
   )
 
-  const updateMediaTypes = (updater: (prev: Set<MediaType>) => Set<MediaType>) => {
-    setMediaTypes((prev) => {
-      const next = updater(prev)
-      const params = new URLSearchParams(searchParams.toString())
-      if (next.size === 1) {
-        const [only] = Array.from(next.values())
-        params.set('type', only)
-      } else {
-        params.delete('type')
-      }
-      const newUrl = params.toString() ? `?${params.toString()}` : '/library'
-      router.push(newUrl)
-      return next
-    })
-  }
-
-  const toggleMediaType = (type: MediaType) => {
-    updateMediaTypes((prev) => {
-      const next = new Set(prev)
-      if (next.has(type)) {
-        if (next.size === 1) return next
-        next.delete(type)
-      } else {
-        next.add(type)
-      }
-      return next
-    })
+  const updateMediaTypeFilter = (next: MediaTypeFilter) => {
+    setMediaTypeFilter(next)
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'all') {
+      params.delete('type')
+    } else {
+      params.set('type', next)
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : '/library'
+    router.push(newUrl)
   }
 
   const handleTypeToggle = (type: 'movie' | 'tv') => {
-    toggleMediaType(type === 'movie' ? 'movies' : 'tv')
+    updateMediaTypeFilter(type === 'movie' ? 'movies' : 'tv')
   }
 
   const toggleFilterMode = (mode: 'downloaded' | 'missing' | 'monitored' | 'unmonitored') => {
@@ -288,11 +272,11 @@ function LibraryContent() {
       const found = radarrItems.find((item) => item.tmdbId === tmdb)
       match = found ? { ...found, mediaType: 'movies' as const } : undefined
     } else if (q) {
-      const pool: RawLibraryItem[] = mediaTypes.size === 1
-        ? mediaTypes.has('tv')
-          ? sonarrItems
-          : radarrItems
-        : [...sonarrItems, ...radarrItems]
+      const pool: RawLibraryItem[] = mediaTypeFilter === 'tv'
+        ? sonarrItems
+        : mediaTypeFilter === 'movies'
+          ? radarrItems
+          : [...sonarrItems, ...radarrItems]
       const found = pool.find((item) => item.title.toLowerCase().includes(q))
       match = found ? toLibraryItem(found) : undefined
     }
@@ -305,7 +289,7 @@ function LibraryContent() {
           setAutoExpandSeason(null)
         }
       }
-  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypes])
+  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter])
 
   return (
     <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
@@ -326,7 +310,7 @@ function LibraryContent() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-baseline gap-2">
                     <span className="text-base font-semibold text-slate-100">
-                      {mediaTypes.size === 1 ? (mediaTypes.has('movies') ? 'Movies' : 'Series') : 'Library'}
+                      {mediaTypeFilter === 'all' ? 'Library' : (mediaTypeFilter === 'movies' ? 'Movies' : 'Series')}
                     </span>
                     <span className="text-xl font-semibold text-slate-100">{sortedItems.length}</span>
                   </div>
@@ -397,9 +381,22 @@ function LibraryContent() {
                 <div className="flex flex-wrap gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => toggleMediaType('movies')}
+                    onClick={() => updateMediaTypeFilter('all')}
                     className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
-                      mediaTypes.has('movies')
+                      mediaTypeFilter === 'all'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                    title="All"
+                    aria-label="All"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateMediaTypeFilter('movies')}
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                      mediaTypeFilter === 'movies'
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
                     }`}
@@ -411,9 +408,9 @@ function LibraryContent() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => toggleMediaType('tv')}
+                    onClick={() => updateMediaTypeFilter('tv')}
                     className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
-                      mediaTypes.has('tv')
+                      mediaTypeFilter === 'tv'
                         ? 'bg-cyan-500/80 text-white'
                         : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
                     }`}
