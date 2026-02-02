@@ -70,6 +70,8 @@ import {
   NavigationMenu,
   ProjectorIcon,
   TvIcon,
+  ArrowUpLineIcon,
+  ArrowDownLineIcon,
 } from '@/components'
 
 function HomeContent() {
@@ -318,6 +320,10 @@ function HomeContent() {
     setShowPlex: setSettingsShowPlex,
     sabRecentLimit: settingsSabRecentLimit,
     setSabRecentLimit: setSettingsSabRecentLimit,
+    discoverySearchPosition: settingsDiscoverySearchPosition,
+    setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
+    librarySearchPosition: settingsLibrarySearchPosition,
+    setLibrarySearchPosition: setSettingsLibrarySearchPosition,
     saving: settingsSaving,
     error: settingsError,
     saved: settingsSaved,
@@ -352,6 +358,9 @@ function HomeContent() {
     if (settingsAiProvider === 'local') return ai.model
     return ai.model
   })()
+
+  const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
+  const discoverySearchStickyClass = discoverySearchAtBottom ? 'sticky bottom-4' : 'sticky top-16'
 
 
   const handleHome = () => {
@@ -777,9 +786,11 @@ function HomeContent() {
         {/* Search Section */}
         {activeSection === 'search' && (
         <section id="search" className="scroll-mt-24">
-          <div className="sticky top-16 z-20">
-            <div className="glass-panel rounded-lg p-3 mb-4">
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
+          {(() => {
+            const searchPanel = (
+              <div className={`${discoverySearchStickyClass} z-20`}>
+                <div className="glass-panel rounded-lg p-3 mb-4 relative">
+                <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
                 <div className="flex flex-wrap gap-2 text-xs">
                   <button
@@ -938,9 +949,30 @@ function HomeContent() {
                   )}
                 </div>
               </details>
-            </form>
-            </div>
-          </div>
+                </form>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = discoverySearchAtBottom ? 'top' : 'bottom'
+                    setSettingsDiscoverySearchPosition(next)
+                    void saveSettings({ discovery_search_position: next })
+                  }}
+                  className="absolute bottom-2 right-2 text-slate-400 hover:text-cyan-200 transition-colors"
+                  title={discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom'}
+                  aria-label={discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom'}
+                >
+                  {discoverySearchAtBottom ? (
+                    <ArrowUpLineIcon className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownLineIcon className="h-4 w-4" />
+                  )}
+                </button>
+                </div>
+              </div>
+            )
+
+            const searchContent = (
+              <>
           {!searchResults && !searching && !searchError && (
             <div className="glass-panel rounded-lg p-5 md:p-6 mb-4 relative overflow-hidden">
               <div className="absolute inset-0">
@@ -1032,6 +1064,21 @@ function HomeContent() {
               )}
             </div>
           )}
+              </>
+            )
+
+            return discoverySearchAtBottom ? (
+              <>
+                {searchContent}
+                {searchPanel}
+              </>
+            ) : (
+              <>
+                {searchPanel}
+                {searchContent}
+              </>
+            )
+          })()}
         </section>
         )}
 
@@ -1302,6 +1349,42 @@ function HomeContent() {
                     }}
                   />
                   <span>Plex</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-gray-400 mb-2">Layout</h4>
+              <div className="grid md:grid-cols-2 gap-3 text-sm">
+                <label className="grid gap-1">
+                  <span className="text-xs text-gray-400">Discovery search panel</span>
+                  <select
+                    value={settingsDiscoverySearchPosition}
+                    onChange={(event) => {
+                      const next = event.target.value as 'top' | 'bottom'
+                      setSettingsDiscoverySearchPosition(next)
+                      void saveSettings({ discovery_search_position: next })
+                    }}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  >
+                    <option value="top">Top</option>
+                    <option value="bottom">Bottom</option>
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-gray-400">Library search panel</span>
+                  <select
+                    value={settingsLibrarySearchPosition}
+                    onChange={(event) => {
+                      const next = event.target.value as 'top' | 'bottom'
+                      setSettingsLibrarySearchPosition(next)
+                      void saveSettings({ library_search_position: next })
+                    }}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  >
+                    <option value="top">Top</option>
+                    <option value="bottom">Bottom</option>
+                  </select>
                 </label>
               </div>
             </div>
