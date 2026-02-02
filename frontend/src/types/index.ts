@@ -331,6 +331,7 @@ export type SonarrLibraryItem = {
     seasonNumber?: number
     episodeCount?: number
     episodeFileCount?: number
+    totalEpisodeCount?: number
   }>
 }
 
