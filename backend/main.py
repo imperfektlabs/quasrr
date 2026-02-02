@@ -713,7 +713,17 @@ async def search(
     ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(25, ge=1, le=50, description="Results per page"),
-    sort_by: Literal["relevance", "year", "title", "rating", "popularity"] = Query(
+    sort_by: Literal[
+        "relevance",
+        "year",
+        "title",
+        "rating",
+        "popularity",
+        "added",
+        "imdbRating",
+        "releaseDate",
+        "size",
+    ] = Query(
         "relevance", description="Sort field"
     ),
     sort_dir: Literal["asc", "desc"] = Query(
@@ -734,6 +744,14 @@ async def search(
         f"page={page}, page_size={page_size}, sort_by={sort_by}, sort_dir={sort_dir}"
     )
 
+    effective_sort_by = sort_by
+    if sort_by in {"added", "size"}:
+        effective_sort_by = "relevance"
+    elif sort_by == "imdbRating":
+        effective_sort_by = "rating"
+    elif sort_by == "releaseDate":
+        effective_sort_by = "year"
+
     def rating_value(item: dict) -> float:
         ratings = item.get("ratings", [])
         if not ratings:
@@ -746,11 +764,11 @@ async def search(
         return value if isinstance(value, (int, float)) else 0.0
 
     def sort_key(item: dict):
-        if sort_by == "title":
+        if effective_sort_by == "title":
             return (item.get("title") or "").lower()
-        if sort_by == "rating":
+        if effective_sort_by == "rating":
             return rating_value(item)
-        if sort_by == "popularity":
+        if effective_sort_by == "popularity":
             return (popularity_value(item), item.get("year") or 0)
         return item.get("year") or 0
 
@@ -781,7 +799,7 @@ async def search(
             item["type"] = "tv"
             item["_rank"] = index
 
-        if sort_by == "relevance":
+        if effective_sort_by == "relevance":
             max_len = max(len(movie_results), len(tv_results))
             for index in range(max_len):
                 if index < len(movie_results):
@@ -816,7 +834,7 @@ async def search(
     if status:
         results = [r for r in results if r.get("status") == status]
 
-    if sort_by != "relevance":
+    if effective_sort_by != "relevance":
         reverse = sort_dir == "desc"
         results.sort(key=sort_key, reverse=reverse)
 
