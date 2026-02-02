@@ -24,9 +24,7 @@ export type NavigationMenuProps = {
   menuPanelRef: React.RefObject<HTMLDivElement>
 
   // Page context
-  currentPage: 'home' | 'sonarr' | 'radarr' | 'library'
-  activeSection?: 'search' | 'downloads' | 'status' | 'settings'
-  onSectionChange?: (section: 'search' | 'downloads' | 'status' | 'settings') => void
+  currentPage: 'home' | 'library' | 'downloads' | 'status' | 'settings'
 
   // Data for menu items (accepts ConfigStatus from main page or simplified config from library pages)
   config?: (ConfigStatus | {
@@ -48,8 +46,6 @@ export function NavigationMenu({
   menuButtonRef,
   menuPanelRef,
   currentPage,
-  activeSection,
-  onSectionChange,
   config,
   onHomeClick,
 }: NavigationMenuProps) {
@@ -60,22 +56,13 @@ export function NavigationMenu({
   const handleHomeClick = () => {
     if (onHomeClick) {
       onHomeClick()
-    } else if (currentPage === 'home') {
-      // On home page, stay on page
-      window.location.href = '/'
     } else {
-      // On other pages, navigate to home
       router.push('/')
     }
     setMenuOpen(false)
   }
-
-  const handleSectionClick = (section: 'search' | 'downloads' | 'status' | 'settings') => {
-    if (currentPage === 'home' && onSectionChange) {
-      onSectionChange(section)
-    } else {
-      router.push(`/?section=${section}`)
-    }
+  const handleNavigate = (path: '/' | '/downloads' | '/status' | '/settings') => {
+    router.push(path)
     setMenuOpen(false)
   }
 
@@ -131,9 +118,9 @@ export function NavigationMenu({
           {/* Main Navigation Sections */}
           <button
             type="button"
-            onClick={() => handleSectionClick('search')}
+            onClick={() => handleNavigate('/')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'search' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'home' ? 'bg-slate-700/60' : 'bg-slate-800/50'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -145,9 +132,9 @@ export function NavigationMenu({
 
           <button
             type="button"
-            onClick={() => handleSectionClick('downloads')}
+            onClick={() => handleNavigate('/downloads')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'downloads' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'downloads' ? 'bg-slate-700/60' : 'bg-slate-800/50'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -160,9 +147,9 @@ export function NavigationMenu({
 
           <button
             type="button"
-            onClick={() => handleSectionClick('status')}
+            onClick={() => handleNavigate('/status')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'status' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'status' ? 'bg-slate-700/60' : 'bg-slate-800/50'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -173,9 +160,9 @@ export function NavigationMenu({
 
           <button
             type="button"
-            onClick={() => handleSectionClick('settings')}
+            onClick={() => handleNavigate('/settings')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'settings' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'settings' ? 'bg-slate-700/60' : 'bg-slate-800/50'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -193,7 +180,7 @@ export function NavigationMenu({
               href="/library"
               onClick={() => setMenuOpen(false)}
               className={`mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-                currentPage === 'library' || currentPage === 'sonarr' || currentPage === 'radarr'
+                currentPage === 'library'
                   ? 'bg-slate-700/60'
                   : 'bg-slate-800/50 hover:bg-slate-700/60'
               }`}
