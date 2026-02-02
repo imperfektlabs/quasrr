@@ -236,7 +236,7 @@ export function MediaCard({
       className="glass-card rounded-lg overflow-hidden flex w-full text-left transition hover:border-slate-400/40"
     >
       {/* Poster */}
-      <div className="w-24 md:w-32 flex-shrink-0">
+      <div className="w-[7.5rem] md:w-[10rem] flex-shrink-0">
         <div className="aspect-[2/3] w-full bg-slate-800/60">
           {item.source === 'discovery' ? (
             <button
