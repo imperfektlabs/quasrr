@@ -88,7 +88,6 @@ export function useDiscoverySearch(): DiscoverySearchResult {
   // URL Sync: Parse URL params and update state
   useEffect(() => {
     const query = searchParams.get('q') || ''
-    const pageParam = searchParams.get('page')
     const typeParam = searchParams.get('type') as SearchFilterType | null
     const statusParam = searchParams.get('status') as SearchStatusFilter | null
     const sortByParam = searchParams.get('sort_by') as SearchSortField | null
@@ -99,12 +98,6 @@ export function useDiscoverySearch(): DiscoverySearchResult {
       setActiveQuery(query)
     }
 
-    if (pageParam) {
-      const parsedPage = parseInt(pageParam, 10)
-      if (!isNaN(parsedPage) && parsedPage > 0) {
-        setPage(parsedPage)
-      }
-    }
 
     if (typeParam) setFilterType(typeParam)
     if (statusParam) setFilterStatus(statusParam)
@@ -125,9 +118,9 @@ export function useDiscoverySearch(): DiscoverySearchResult {
   // Run search when query or filters change
   useEffect(() => {
     if (activeQuery) {
-      runSearch(activeQuery, page)
+      runSearch(activeQuery)
     }
-  }, [activeQuery, page, filterType, filterStatus, sortField, sortDirection])
+  }, [activeQuery, filterType, filterStatus, sortField, sortDirection])
 
   // Update URL when state changes
   useEffect(() => {
@@ -135,7 +128,6 @@ export function useDiscoverySearch(): DiscoverySearchResult {
 
     const params = new URLSearchParams()
     params.set('q', activeQuery)
-    if (page > 1) params.set('page', page.toString())
     if (filterType !== 'all') params.set('type', filterType)
     if (filterStatus !== 'all') params.set('status', filterStatus)
     const sortParam = getSortParam(sortField)
@@ -149,9 +141,9 @@ export function useDiscoverySearch(): DiscoverySearchResult {
     urlSyncRef.current = next
 
     router.replace(next, { scroll: false })
-  }, [activeQuery, page, filterType, filterStatus, sortField, sortDirection, router])
+  }, [activeQuery, filterType, filterStatus, sortField, sortDirection, router])
 
-  const runSearch = async (query: string, nextPage: number) => {
+  const runSearch = async (query: string) => {
     setSearching(true)
     setSearchError(null)
 
@@ -159,7 +151,6 @@ export function useDiscoverySearch(): DiscoverySearchResult {
       const backendUrl = getBackendUrl()
       const params = new URLSearchParams({
         query,
-        page: nextPage.toString(),
         page_size: PAGE_SIZE.toString(),
       })
 
