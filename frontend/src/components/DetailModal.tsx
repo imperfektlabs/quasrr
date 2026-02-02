@@ -855,6 +855,11 @@ export function DetailModal({
     }
 
     // Library chips
+    chips.push(
+      <span key="media_type" className="glass-chip px-2 py-1 rounded text-xs">
+        {libraryItem.mediaType === 'movies' ? 'Movie' : 'TV'}
+      </span>
+    )
     if (libraryItem.mediaType === 'tv') {
       chips.push(<span key="eps" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.episodeFileCount || 0}/{libraryItem.episodeCount || 0} eps</span>)
     }
