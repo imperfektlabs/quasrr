@@ -292,7 +292,7 @@ function LibraryContent() {
   }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter])
 
   return (
-    <main className="min-h-screen pt-20 px-4 pb-8 md:px-8">
+    <main className="min-h-screen pt-16 px-4 pb-8 md:px-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -304,7 +304,7 @@ function LibraryContent() {
 
       <div className="max-w-5xl mx-auto space-y-4">
         <section className="space-y-3">
-          <div className="sticky top-20 z-20">
+          <div className="sticky top-16 z-20">
             <div className="glass-panel rounded-lg p-3 space-y-3">
               <div className="space-y-2 text-xs text-slate-300">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -403,7 +403,7 @@ function LibraryContent() {
                     title="Movies"
                     aria-label="Movies"
                   >
-                    <ProjectorIcon className="h-4 w-4" />
+                    <ProjectorIcon className="h-5 w-5" />
                     <span className="sr-only">Movies</span>
                   </button>
                   <button
@@ -417,7 +417,7 @@ function LibraryContent() {
                     title="TV Shows"
                     aria-label="TV Shows"
                   >
-                    <TvIcon className="h-4 w-4" />
+                    <TvIcon className="h-5 w-5" />
                     <span className="sr-only">TV</span>
                   </button>
                 </div>
@@ -542,7 +542,7 @@ function LibraryContent() {
 
 export default function LibraryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen pt-20 px-4 pb-8 md:px-8 text-slate-300">Loading library...</div>}>
+    <Suspense fallback={<div className="min-h-screen pt-16 px-4 pb-8 md:px-8 text-slate-300">Loading library...</div>}>
       <LibraryContent />
     </Suspense>
   )
