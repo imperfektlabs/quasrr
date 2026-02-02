@@ -80,40 +80,41 @@ export function NavigationMenu({
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3 glass-panel border-b border-slate-700/40">
-      <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((prev) => !prev)}
-          onMouseEnter={() => setMenuOpen(true)}
-          className="px-2 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center"
-          aria-label="Toggle menu"
-          aria-expanded={menuOpen}
-          ref={menuButtonRef}
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 6h16" />
-            <path d="M4 12h16" />
-            <path d="M4 18h16" />
-          </svg>
-        </button>
+    <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 pt-1">
+      <div className="max-w-5xl mx-auto">
+        <div className="glass-panel rounded-2xl border border-slate-700/40 shadow-[0_18px_45px_rgba(3,6,20,0.5)] px-3 md:px-4 py-2 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            onMouseEnter={() => setMenuOpen(true)}
+            className="px-2 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center"
+            aria-label="Toggle menu"
+            aria-expanded={menuOpen}
+            ref={menuButtonRef}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h16" />
+            </svg>
+          </button>
 
-        <button
-          type="button"
-          onClick={handleHomeClick}
-          className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
-          title="Go home"
-        >
-          Quasrr
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={handleHomeClick}
+            className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
+            title="Go home"
+          >
+            Quasrr
+          </button>
+        </div>
 
-      {menuOpen && (
-        <div
-          ref={menuPanelRef}
-          onMouseLeave={() => setMenuOpen(false)}
-          className="mt-3 grid gap-2 text-sm text-slate-200"
-        >
+        {menuOpen && (
+          <div
+            ref={menuPanelRef}
+            onMouseLeave={() => setMenuOpen(false)}
+            className="mt-2 glass-panel rounded-2xl border border-slate-700/40 shadow-[0_18px_45px_rgba(3,6,20,0.5)] p-3 grid gap-2 text-sm text-slate-200"
+          >
           {/* Home Button */}
           <button
             type="button"
@@ -238,8 +239,9 @@ export function NavigationMenu({
               })
             )}
           </div>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </header>
   )
 }
