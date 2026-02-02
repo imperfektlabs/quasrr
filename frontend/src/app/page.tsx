@@ -8,10 +8,7 @@ import type {
   HealthStatus,
   ConfigStatus,
   SearchType,
-  SearchFilterType,
-  SearchStatusFilter,
   SearchSortField,
-  SearchSortDirection,
   Rating,
   StreamingService,
   DiscoveryResult,
@@ -71,6 +68,8 @@ import {
   SabQueue,
   SabRecent,
   NavigationMenu,
+  ProjectorIcon,
+  TvIcon,
 } from '@/components'
 
 function HomeContent() {
@@ -116,8 +115,6 @@ function HomeContent() {
     activeQuery,
     filterType,
     setFilterType,
-    filterStatus,
-    setFilterStatus,
     sortField,
     setSortField,
     sortDirection,
@@ -602,7 +599,7 @@ function HomeContent() {
   const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
 
   return (
-    <main className="min-h-screen pt-20 px-4 pb-4 md:px-8 md:pb-8">
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -618,7 +615,7 @@ function HomeContent() {
       <div className="max-w-4xl mx-auto">
         {activeSection === 'search' && (
           <section id="dashboard" className="mb-4">
-            <div className="glass-panel rounded-lg p-3 md:p-4">
+            <div className="glass-panel rounded-lg p-3">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
                 <a
@@ -780,10 +777,62 @@ function HomeContent() {
         {/* Search Section */}
         {activeSection === 'search' && (
         <section id="search" className="scroll-mt-24">
-          <div className="sticky top-20 z-20">
-            <div className="glass-panel rounded-lg p-4 mb-4">
+          <div className="sticky top-16 z-20">
+            <div className="glass-panel rounded-lg p-3 mb-4">
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('all')
+                      setPage(1)
+                    }}
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                      filterType === 'all'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                    title="All"
+                    aria-label="All"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('movie')
+                      setPage(1)
+                    }}
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                      filterType === 'movie'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                    title="Movies"
+                    aria-label="Movies"
+                  >
+                    <ProjectorIcon className="h-5 w-5" />
+                    <span className="sr-only">Movies</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('tv')
+                      setPage(1)
+                    }}
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                      filterType === 'tv'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                    title="TV Shows"
+                    aria-label="TV Shows"
+                  >
+                    <TvIcon className="h-5 w-5" />
+                    <span className="sr-only">TV Shows</span>
+                  </button>
+                </div>
                 <div className="relative flex-1">
                   <input
                     ref={searchInputRef}
@@ -802,7 +851,7 @@ function HomeContent() {
                       void handleSubmitSearch()
                     }}
                     placeholder="Search Movies and TV..."
-                    className="w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 pr-8 text-md text-slate-200 placeholder-slate-500"
+                    className="w-full bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 pr-8 text-md text-slate-200 placeholder-slate-500"
                   />
                   {searchQuery && (
                     <button
@@ -823,91 +872,45 @@ function HomeContent() {
                 <button
                   type="submit"
                   disabled={searching || aiIntentBusy || !searchQuery.trim()}
-                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-semibold transition-colors"
+                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1.5 rounded text-xs font-semibold transition-colors inline-flex items-center justify-center"
+                  aria-label="Search"
                 >
-                  {submittingSearch || searching || aiIntentBusy ? '...' : 'Search'}
+                  {submittingSearch || searching || aiIntentBusy ? '...' : '⌕'}
                 </button>
               </div>
 
-              <div className="flex items-center justify-between mt-1">
-                {/* AI Translation Display */}
-                {aiTranslation ? (
-                  <div className="text-xs text-slate-300">
-                    {aiTranslation}
-                  </div>
-                ) : (
-                  <div></div>
-                )}
+              {aiTranslation ? (
+                <div className="text-xs text-slate-300">{aiTranslation}</div>
+              ) : null}
 
-                <details>
-                  <summary className="text-xs text-slate-300 cursor-pointer select-none">
-                    Filters
-                  </summary>
-                <div className="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                  <div>
-                    <label className="text-xs text-gray-400">Type</label>
-                    <select
-                      value={filterType}
-                      onChange={(event) => {
-                        setFilterType(event.target.value as SearchFilterType)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="all">All</option>
-                      <option value="movie">Movies</option>
-                      <option value="tv">TV Shows</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400">Status</label>
-                    <select
-                      value={filterStatus}
-                      onChange={(event) => {
-                        setFilterStatus(event.target.value as SearchStatusFilter)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="all">All</option>
-                      <option value="not_in_library">Not in library</option>
-                      <option value="in_library">In library</option>
-                      <option value="downloaded">Downloaded</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400">Sort</label>
-                    <select
-                      value={sortField}
-                      onChange={(event) => {
-                        setSortField(event.target.value as SearchSortField)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="relevance">Relevance</option>
-                      <option value="popularity">Popularity</option>
-                      <option value="year">Year</option>
-                      <option value="title">Title</option>
-                      <option value="rating">Rating</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400">Direction</label>
-                    <select
-                      value={sortDirection}
-                      onChange={(event) => {
-                        setSortDirection(event.target.value as SearchSortDirection)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="desc">Descending</option>
-                      <option value="asc">Ascending</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+              <details>
+                <summary className="text-xs text-slate-300 cursor-pointer select-none">
+                  Filters/Sorting
+                </summary>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  <label className="text-slate-400">Sort</label>
+                  <select
+                    value={sortField}
+                    onChange={(event) => {
+                      setSortField(event.target.value as SearchSortField)
+                      setPage(1)
+                    }}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="added">Added</option>
+                    <option value="imdbRating">IMDb Rating</option>
+                    <option value="popularity">Popularity</option>
+                    <option value="releaseDate">Release Date</option>
+                    <option value="size">Size on Disk</option>
+                    <option value="title">Title</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                    className="px-2 py-1 rounded bg-slate-800/60"
+                  >
+                    {sortDirection === 'asc' ? 'Asc' : 'Desc'}
+                  </button>
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -934,8 +937,7 @@ function HomeContent() {
                     <span className="text-gray-500">AI search disabled</span>
                   )}
                 </div>
-                </details>
-              </div>
+              </details>
             </form>
             </div>
           </div>
