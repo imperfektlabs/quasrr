@@ -602,7 +602,7 @@ function HomeContent() {
   const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
 
   return (
-    <main className="min-h-screen pt-24 px-4 pb-4 md:px-8 md:pb-8">
+    <main className="min-h-screen pt-20 px-4 pb-4 md:px-8 md:pb-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -617,8 +617,8 @@ function HomeContent() {
 
       <div className="max-w-4xl mx-auto">
         {activeSection === 'search' && (
-          <section id="dashboard" className="mb-4 -mt-4">
-            <div className="glass-panel rounded-lg p-4">
+          <section id="dashboard" className="mb-4">
+            <div className="glass-panel rounded-lg p-3 md:p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
                 <a
