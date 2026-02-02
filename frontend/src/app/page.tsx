@@ -578,12 +578,14 @@ function HomeContent() {
     },
   }
 
-  const dashboardCardCount = [
+  const dashboardEnabledCount = [
     dashboardConfig.show_sonarr,
     dashboardConfig.show_radarr,
     dashboardConfig.show_sabnzbd,
     dashboardConfig.show_plex,
-  ].filter(Boolean).length || 1
+  ].filter(Boolean).length
+
+  const dashboardCardCount = Math.max(dashboardEnabledCount, 1)
 
   const CountIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -625,7 +627,7 @@ function HomeContent() {
       />
 
       <div className="max-w-4xl mx-auto">
-        {activeSection === 'search' && (
+        {activeSection === 'search' && dashboardEnabledCount > 0 && (
           <section id="dashboard" className="mb-4">
             <div className="glass-panel rounded-lg p-3">
               <div className="flex items-center justify-between mb-3">
@@ -1295,6 +1297,9 @@ function HomeContent() {
 
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
+              <p className="text-xs text-gray-500 mb-2">
+                If no cards are selected, the dashboard is hidden from the front page.
+              </p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <label className="flex items-center gap-2">
                   <input
