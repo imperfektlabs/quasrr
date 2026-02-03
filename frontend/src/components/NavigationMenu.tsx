@@ -100,13 +100,13 @@ export function NavigationMenu({
           <div
             ref={menuPanelRef}
             onMouseLeave={() => setMenuOpen(false)}
-            className="mt-2 glass-panel rounded-md border border-slate-700/40 shadow-[0_18px_45px_rgba(3,6,20,0.5)] p-3 grid gap-2 text-sm text-slate-200"
+            className="mt-2 w-full md:w-[360px] glass-panel rounded-md border border-slate-700/40 shadow-[0_18px_45px_rgba(3,6,20,0.5)] p-3 grid gap-1 text-sm text-slate-200"
           >
           {/* Home Button */}
           <button
             type="button"
             onClick={handleHomeClick}
-            className="px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50"
+            className="px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60 transition-colors"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 12l9-9 9 9" />
@@ -120,7 +120,7 @@ export function NavigationMenu({
             type="button"
             onClick={() => handleNavigate('/')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'home' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -134,7 +134,7 @@ export function NavigationMenu({
             type="button"
             onClick={() => handleNavigate('/downloads')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'downloads' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'downloads' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -149,7 +149,7 @@ export function NavigationMenu({
             type="button"
             onClick={() => handleNavigate('/status')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'status' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'status' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -162,36 +162,31 @@ export function NavigationMenu({
             type="button"
             onClick={() => handleNavigate('/settings')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'settings' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'settings' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 6h16" />
-              <path d="M4 12h16" />
-              <path d="M4 18h16" />
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1 0 2.8 2 2 0 0 1-2.8 0l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c0 .7.4 1.3 1.5 1.5H21a2 2 0 0 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z" />
             </svg>
             <span>Settings</span>
           </button>
 
-          {/* Library Section */}
-          <div className="border-t border-slate-700/40 pt-2 mt-2">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">Library</div>
-            <Link
-              href="/library"
-              onClick={() => setMenuOpen(false)}
-              className={`mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-                currentPage === 'library'
-                  ? 'bg-slate-700/60'
-                  : 'bg-slate-800/50 hover:bg-slate-700/60'
-              }`}
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
-              <span>Library</span>
-            </Link>
-          </div>
+          <Link
+            href="/library"
+            onClick={() => setMenuOpen(false)}
+            className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
+              currentPage === 'library'
+                ? 'bg-slate-700/60'
+                : 'bg-slate-800/50 hover:bg-slate-700/60'
+            }`}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span>Library</span>
+          </Link>
 
           {/* Streaming Services Section */}
           <div className="border-t border-slate-700/40 pt-2 mt-2">
