@@ -5,6 +5,7 @@ import type { DiscoveryResult, SonarrLibraryItem, RadarrLibraryItem } from '@/ty
 import { formatSeriesYearSpan, formatSize, getRatingLink } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
+import { ProjectorIcon, TvIcon, SearchIcon } from './Icons'
 
 // Discriminated union for all media item types
 type MediaItem =
@@ -38,7 +39,7 @@ export function MediaCard({
 
   // Determine media type and status
   let mediaType: 'movie' | 'tv'
-  let status: 'not_in_library' | 'in_library' | 'downloaded'
+  let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
   let statusBadge: React.ReactNode
   let metadata: React.ReactNode
   let actionButton: React.ReactNode
@@ -67,10 +68,16 @@ export function MediaCard({
             event.stopPropagation()
             onTypeToggle?.(result.type)
           }}
-          className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70"
+          className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70 inline-flex items-center justify-center"
           title={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
+          aria-label={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
         >
-          {result.type === 'movie' ? 'Movie' : 'TV'}
+          {result.type === 'movie' ? (
+            <ProjectorIcon className="h-3.5 w-3.5" />
+          ) : (
+            <TvIcon className="h-3.5 w-3.5" />
+          )}
+          <span className="sr-only">{result.type === 'movie' ? 'Movie' : 'TV'}</span>
         </button>
         {result.type === 'tv' && result.seasons && result.seasons > 0 && (
           <select
@@ -137,11 +144,19 @@ export function MediaCard({
     const libItem = item.data
     mediaType = libItem.mediaType === 'movies' ? 'movie' : 'tv'
 
-    const isDownloaded = libItem.mediaType === 'movies'
-      ? libItem.hasFile
-      : (libItem.episodeCount || 0) > 0 && libItem.episodeFileCount === libItem.episodeCount
-
-    status = isDownloaded ? 'downloaded' : 'not_in_library'
+    if (libItem.mediaType === 'movies') {
+      status = libItem.hasFile ? 'downloaded' : 'in_library'
+    } else {
+      const totalEpisodes = libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0
+      const downloadedEpisodes = libItem.episodeFileCount ?? 0
+      if (totalEpisodes > 0 && downloadedEpisodes >= totalEpisodes) {
+        status = 'downloaded'
+      } else if (downloadedEpisodes > 0) {
+        status = 'partial'
+      } else {
+        status = 'in_library'
+      }
+    }
 
     const libraryYearLabel = libItem.mediaType === 'tv'
       ? formatSeriesYearSpan({
@@ -166,14 +181,20 @@ export function MediaCard({
             event.stopPropagation()
             onTypeToggle?.(libItem.mediaType === 'movies' ? 'movie' : 'tv')
           }}
-          className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70"
+          className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70 inline-flex items-center justify-center"
           title={`Filter to ${libItem.mediaType === 'movies' ? 'movies' : 'TV shows'}`}
+          aria-label={`Filter to ${libItem.mediaType === 'movies' ? 'movies' : 'TV shows'}`}
         >
-          {libItem.mediaType === 'movies' ? 'Movie' : 'TV'}
+          {libItem.mediaType === 'movies' ? (
+            <ProjectorIcon className="h-3.5 w-3.5" />
+          ) : (
+            <TvIcon className="h-3.5 w-3.5" />
+          )}
+          <span className="sr-only">{libItem.mediaType === 'movies' ? 'Movie' : 'TV'}</span>
         </button>
         {libItem.mediaType === 'tv' && (
           <span className="glass-chip text-xs px-2 py-1 rounded">
-            {libItem.episodeFileCount || 0}/{libItem.episodeCount || 0} eps
+            {libItem.episodeFileCount || 0}/{libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0} eps
           </span>
         )}
         <span className="glass-chip text-xs px-2 py-1 rounded">{formatSize(libItem.sizeOnDisk)}</span>
@@ -189,7 +210,7 @@ export function MediaCard({
               title="Search All"
               aria-label="Search All"
             >
-              ⌕
+              <SearchIcon className="h-3.5 w-3.5" />
             </button>
           )}
           <button
@@ -223,7 +244,7 @@ export function MediaCard({
       className="glass-card rounded-lg overflow-hidden flex w-full text-left transition hover:border-slate-400/40"
     >
       {/* Poster */}
-      <div className="w-24 md:w-32 flex-shrink-0">
+      <div className="w-[7.5rem] md:w-[10rem] flex-shrink-0">
         <div className="aspect-[2/3] w-full bg-slate-800/60">
           {item.source === 'discovery' ? (
             <button

@@ -1,43 +1,18 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
 // Type imports
 import type {
-  HealthStatus,
-  ConfigStatus,
-  SearchType,
-  SearchFilterType,
-  SearchStatusFilter,
-  SearchSortField,
-  SearchSortDirection,
-  Rating,
-  StreamingService,
   DiscoveryResult,
-  SearchResponse,
+  SearchSortField,
   Release,
-  ReleaseResponse,
-  AISuggestion,
-  AIIntent,
-  AIAvailability,
   AIIntentPlan,
-  SabQueueItem,
-  SabQueueResponse,
-  SabRecentItem,
-  SabRecentGroup,
-  SabRecentResponse,
-  IntegrationsStatus,
   DashboardSummary,
-  SortField,
-  SortDirection,
-  EpisodeDownloadMap,
-  SeasonProgress,
 } from '@/types'
 
 // Utility imports
 import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
-import { getStreamingLogo } from '@/utils/streaming'
 import {
   normalizeIdQuery,
   getReleaseKey,
@@ -59,7 +34,6 @@ import {
   useReleaseData,
   useReleaseGrab,
   useAiSuggest,
-  useSabActions,
   useClickOutside,
 } from '@/hooks'
 
@@ -68,17 +42,18 @@ import {
   ReleaseView,
   DetailModal,
   MediaCard,
-  SabQueue,
-  SabRecent,
   NavigationMenu,
+  SearchPanel,
+  ProjectorIcon,
+  TvIcon,
+  ArrowUpLineIcon,
+  ArrowDownLineIcon,
+  SearchIcon,
 } from '@/components'
 
 function HomeContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
   // Backend API setup (health, config, integrations)
-  const { health, config, setConfig, integrationsStatus, error, loading } = useBackendApiSetup()
+  const { config, setConfig, integrationsStatus } = useBackendApiSetup()
 
   // Derived values from config
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
@@ -100,7 +75,6 @@ function HomeContent() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
-  const [activeSection, setActiveSection] = useState<'search' | 'downloads' | 'status' | 'settings'>('search')
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
   const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
@@ -116,13 +90,11 @@ function HomeContent() {
     activeQuery,
     filterType,
     setFilterType,
-    filterStatus,
-    setFilterStatus,
     sortField,
     setSortField,
     sortDirection,
     setSortDirection,
-    page,
+    page: _page,
     setPage,
     searchResults,
     searching,
@@ -146,16 +118,27 @@ function HomeContent() {
     clear: clearAiIntent,
   } = useAiIntentSearch(aiEnabled)
 
-  useEffect(() => {
-    const section = searchParams.get('section')
-    if (section === 'search' || section === 'downloads' || section === 'status' || section === 'settings') {
-      setActiveSection(section)
+  const aiModalResult = useMemo(() => {
+    if (!aiIntentPlan || !searchResults?.results?.length) return null
+    const intent = aiIntentPlan.intent
+    const availability = aiIntentPlan.availability
+    const results = searchResults.results
+
+    if (intent.media_type === 'movie' && availability?.tmdb_id) {
+      const match = results.find((item) => item.tmdb_id === availability.tmdb_id)
+      if (match) return match
     }
-  }, [searchParams])
+
+    const intentTitle = (availability?.title || intent.title || '').trim().toLowerCase()
+    if (intentTitle) {
+      const match = results.find((item) => (item.title || '').trim().toLowerCase() === intentTitle)
+      if (match) return match
+    }
+
+    return results[0] || null
+  }, [aiIntentPlan, searchResults])
 
   useEffect(() => {
-    if (activeSection !== 'search') return
-
     const controller = new AbortController()
     const fetchSummary = async () => {
       setDashboardLoading(true)
@@ -180,7 +163,7 @@ function HomeContent() {
 
     void fetchSummary()
     return () => controller.abort()
-  }, [activeSection])
+  }, [])
 
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
@@ -245,36 +228,17 @@ function HomeContent() {
   }, [aiIntentPlan])
 
   const handleTypeToggle = (type: 'movie' | 'tv') => {
-    setFilterType(filterType === type ? 'all' : type)
+    setFilterType(type)
     setPage(1)
   }
 
-  // SABnzbd polling
-  const sabPollingEnabled = sabConfigured && (
-    activeSection === 'downloads'
-    || (activeSection === 'search' && dashboardConfig.show_sabnzbd)
-  )
+  // SABnzbd polling (dashboard only)
+  const sabPollingEnabled = sabConfigured && dashboardConfig.show_sabnzbd
 
   const {
     queue: sabQueue,
-    recent: sabRecent,
-    loading: sabLoading,
-    queueError: sabQueueError,
-    recentError: sabRecentError,
     refetch: fetchSabData,
   } = useSabPolling(sabPollingEnabled, 2000, config?.sabnzbd?.recent_group_limit ?? 10)
-
-  // SABnzbd actions
-  const {
-    busy: sabActionBusy,
-    error: sabActionError,
-    clearError: clearSabActionError,
-    pauseAll: pauseSabQueue,
-    resumeAll: resumeSabQueue,
-    pauseJob: pauseSabJob,
-    resumeJob: resumeSabJob,
-    deleteJob: deleteSabJob,
-  } = useSabActions(fetchSabData)
 
   // Release data
   const {
@@ -289,7 +253,6 @@ function HomeContent() {
   // Release grab
   const {
     busyIds: grabBusyIds,
-    feedback: grabFeedback,
     setFeedback: setGrabFeedback,
     grab: grabRelease,
     grabAll: grabAllReleases,
@@ -307,54 +270,15 @@ function HomeContent() {
 
   // Settings
   const {
-    country: settingsCountry,
-    setCountry: setSettingsCountry,
-    aiProvider: settingsAiProvider,
-    setAiProvider: setSettingsAiProvider,
-    showSonarr: settingsShowSonarr,
-    setShowSonarr: setSettingsShowSonarr,
-    showRadarr: settingsShowRadarr,
-    setShowRadarr: setSettingsShowRadarr,
-    showSabnzbd: settingsShowSabnzbd,
-    setShowSabnzbd: setSettingsShowSabnzbd,
-    showPlex: settingsShowPlex,
-    setShowPlex: setSettingsShowPlex,
-    sabRecentLimit: settingsSabRecentLimit,
-    setSabRecentLimit: setSettingsSabRecentLimit,
-    saving: settingsSaving,
-    error: settingsError,
-    saved: settingsSaved,
-    setSaved: setSettingsSaved,
-    streamingBusy: streamingUpdateBusy,
-    streamingError: streamingUpdateError,
-    toggleStreaming: handleStreamingToggle,
-    saveDashboard: saveDashboardSettings,
+    discoverySearchPosition: settingsDiscoverySearchPosition,
+    setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
     saveSettings,
   } = useSettings(config, setConfig)
 
-  const aiProviderOptions = [
-    { id: 'openai', label: 'OpenAI' },
-    { id: 'gemini', label: 'Gemini' },
-    { id: 'openrouter', label: 'OpenRouter' },
-    { id: 'deepseek', label: 'DeepSeek' },
-    { id: 'anthropic', label: 'Anthropic' },
-    { id: 'local', label: 'Local' },
-  ]
-  const availableAiProviderSet = new Set(availableAiProviders)
-  const selectedProviderAvailable = settingsAiProvider
-    ? availableAiProviderSet.has(settingsAiProvider)
-    : false
-  const selectedProviderModel = (() => {
-    const ai = config?.ai
-    if (!ai) return null
-    if (settingsAiProvider === 'openai') return ai.openai_model || ai.model
-    if (settingsAiProvider === 'gemini') return ai.gemini_model || ai.model
-    if (settingsAiProvider === 'openrouter') return ai.openrouter_model || ai.model
-    if (settingsAiProvider === 'deepseek') return ai.deepseek_model || ai.model
-    if (settingsAiProvider === 'anthropic') return ai.anthropic_model || ai.model
-    if (settingsAiProvider === 'local') return ai.model
-    return ai.model
-  })()
+  const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
+  const discoverySearchStickyClass = discoverySearchAtBottom
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 md:px-8'
+    : 'sticky top-16'
 
 
   const handleHome = () => {
@@ -365,7 +289,6 @@ function HomeContent() {
     clearAiIntent()
     clearAiSuggestion()
     clearGrabState()
-    setActiveSection('search')
     window.location.href = '/' // Force full reset via navigation
   }
 
@@ -506,14 +429,6 @@ function HomeContent() {
   }
 
 
-  const queueSummary = (() => {
-    if (!sabConfigured) return 'Not configured'
-    if (sabQueueError) return `Error: ${sabQueueError}`
-    if (!sabQueue) return 'Loading queue...'
-    const activeCount = sabQueue.jobs.length
-    return activeCount > 0 ? `${activeCount} active` : '0 active'
-  })()
-
   const sabQueueCount = (() => {
     if (!sabConfigured) return null
     if (!sabQueue) return null
@@ -527,13 +442,6 @@ function HomeContent() {
     return `${todayGb.toFixed(2)}/${monthGb.toFixed(1)}`
   }
 
-  const recentSummary = (() => {
-    if (!sabConfigured) return 'Not configured'
-    if (sabRecentError) return `Error: ${sabRecentError}`
-    if (!sabRecent) return 'Loading recent...'
-    const groupCount = sabRecent.groups.length
-    return groupCount > 0 ? `${groupCount} group${groupCount === 1 ? '' : 's'}` : 'No recent downloads'
-  })()
 
   const toolIcons = {
     sonarr: '/logos/tools/sonarr.svg',
@@ -565,16 +473,18 @@ function HomeContent() {
       label: 'Plex',
       url: config?.integrations?.plex_url || getLocalToolUrl(32400, '/web'),
       iconUrl: toolIcons.plex,
-      status: null,
+      status: integrationsStatus?.plex?.status === 'ok',
     },
   }
 
-  const dashboardCardCount = [
+  const dashboardEnabledCount = [
     dashboardConfig.show_sonarr,
     dashboardConfig.show_radarr,
     dashboardConfig.show_sabnzbd,
     dashboardConfig.show_plex,
-  ].filter(Boolean).length || 1
+  ].filter(Boolean).length
+
+  const dashboardCardCount = Math.max(dashboardEnabledCount, 1)
 
   const CountIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -595,44 +505,36 @@ function HomeContent() {
     </svg>
   )
 
-  const handlePauseAll = () => pauseSabQueue()
-  const handleResumeAll = () => resumeSabQueue()
-  const handlePauseJob = (jobId: string) => pauseSabJob(jobId)
-  const handleResumeJob = (jobId: string) => resumeSabJob(jobId)
-  const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
-
   return (
-    <main className="min-h-screen pt-24 px-4 pb-4 md:px-8 md:pb-8">
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
         menuButtonRef={menuButtonRef}
         menuPanelRef={menuPanelRef}
         currentPage="home"
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
         config={config}
         onHomeClick={handleHome}
       />
 
-      <div className="max-w-4xl mx-auto">
-        {activeSection === 'search' && (
-          <section id="dashboard" className="mb-4 -mt-4">
-            <div className="glass-panel rounded-lg p-4">
+      <div className="max-w-5xl mx-auto">
+        {dashboardEnabledCount > 0 && (
+          <section id="dashboard" className="mb-4">
+            <div className="glass-panel rounded-lg p-3">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-300">At a glance</h2>
+                <h2 className="text-base font-semibold text-gray-300">At a glance</h2>
                 <a
                   href="/library"
-                  className="text-xs text-slate-300 hover:text-cyan-200 transition-colors px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
+                  className="text-sm text-slate-300 hover:text-cyan-200 transition-colors px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-700/60"
                 >
                   Library
                 </a>
               </div>
               {dashboardLoading && (
-                <div className="text-xs text-gray-500 mb-2">Updating…</div>
+                <div className="text-sm text-gray-500 mb-2">Updating…</div>
               )}
               {dashboardError && (
-                <div className="text-xs text-amber-300 mb-3">{dashboardError}</div>
+                <div className="text-sm text-amber-300 mb-3">{dashboardError}</div>
               )}
               <div
                 className="grid gap-3"
@@ -645,7 +547,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-emerald-500/15 border-emerald-400/40 hover:bg-emerald-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-emerald-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-emerald-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.sonarr.iconUrl}
                         alt="Sonarr icon"
@@ -654,7 +556,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sonarr.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-emerald-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-emerald-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Series count / episode count">
@@ -679,7 +581,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-sky-500/15 border-sky-400/40 hover:bg-sky-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-sky-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-sky-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.radarr.iconUrl}
                         alt="Radarr icon"
@@ -688,7 +590,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.radarr.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-sky-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-sky-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Downloaded movies / total movies">
@@ -713,7 +615,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-amber-500/15 border-amber-400/40 hover:bg-amber-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-amber-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-amber-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.sabnzbd.iconUrl}
                         alt="SABnzbd icon"
@@ -722,7 +624,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.sabnzbd.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-amber-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-amber-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Queue items">
@@ -747,7 +649,7 @@ function HomeContent() {
                     rel="noreferrer"
                     className="rounded-lg p-2 border bg-yellow-500/15 border-yellow-400/40 hover:bg-yellow-500/20 transition-colors"
                   >
-                    <div className="text-xs font-semibold text-yellow-100 inline-flex items-center gap-2">
+                    <div className="text-sm font-semibold text-yellow-100 inline-flex items-center gap-2">
                       <img
                         src={toolLinks.plex.iconUrl}
                         alt="Plex icon"
@@ -756,7 +658,7 @@ function HomeContent() {
                       />
                       <span>{toolLinks.plex.label}</span>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[11px] leading-tight text-yellow-100/80 tabular-nums min-w-0">
+                    <div className="mt-2 grid gap-1 text-xs leading-tight text-yellow-100/80 tabular-nums min-w-0">
                       <div className="grid grid-cols-[12px_1fr] items-center gap-2 min-w-0">
                         <CountIcon className="h-3 w-3" />
                         <span className="min-w-0 truncate whitespace-nowrap" title="Recently added items">
@@ -778,12 +680,81 @@ function HomeContent() {
         )}
 
         {/* Search Section */}
-        {activeSection === 'search' && (
-        <section id="search" className="scroll-mt-24">
-          <div className="sticky top-20 z-20">
-            <div className="glass-panel rounded-lg p-4 mb-4">
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
+        <section id="search" className={`scroll-mt-24 ${discoverySearchAtBottom ? 'pb-28' : ''}`}>
+          {(() => {
+            const searchPanel = (
+              <SearchPanel
+                stickyClass={discoverySearchStickyClass}
+                headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
+                toggle={{
+                  onClick: () => {
+                    const next = discoverySearchAtBottom ? 'top' : 'bottom'
+                    setSettingsDiscoverySearchPosition(next)
+                    void saveSettings({ discovery_search_position: next })
+                  },
+                  title: discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom',
+                  ariaLabel: discoverySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom',
+                  icon: discoverySearchAtBottom ? (
+                    <ArrowUpLineIcon className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownLineIcon className="h-4 w-4" />
+                  ),
+                }}
+              >
+              <form onSubmit={(e) => { e.preventDefault(); handleSubmitSearch(); }} className="space-y-3">
               <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('all')
+                      setPage(1)
+                    }}
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                      filterType === 'all'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                    title="All"
+                    aria-label="All"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('movie')
+                      setPage(1)
+                    }}
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                      filterType === 'movie'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                    title="Movies"
+                    aria-label="Movies"
+                  >
+                    <ProjectorIcon className="h-5 w-5" />
+                    <span className="sr-only">Movies</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('tv')
+                      setPage(1)
+                    }}
+                    className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                      filterType === 'tv'
+                        ? 'bg-cyan-500/80 text-white'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                    }`}
+                    title="TV Shows"
+                    aria-label="TV Shows"
+                  >
+                    <TvIcon className="h-5 w-5" />
+                    <span className="sr-only">TV Shows</span>
+                  </button>
+                </div>
                 <div className="relative flex-1">
                   <input
                     ref={searchInputRef}
@@ -802,7 +773,7 @@ function HomeContent() {
                       void handleSubmitSearch()
                     }}
                     placeholder="Search Movies and TV..."
-                    className="w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 pr-8 text-md text-slate-200 placeholder-slate-500"
+                    className="w-full bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 pr-8 text-md text-slate-200 placeholder-slate-500"
                   />
                   {searchQuery && (
                     <button
@@ -823,91 +794,45 @@ function HomeContent() {
                 <button
                   type="submit"
                   disabled={searching || aiIntentBusy || !searchQuery.trim()}
-                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-semibold transition-colors"
+                  className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1.5 rounded text-xs font-semibold transition-colors inline-flex items-center justify-center"
+                  aria-label="Search"
                 >
-                  {submittingSearch || searching || aiIntentBusy ? '...' : 'Search'}
+                  {submittingSearch || searching || aiIntentBusy ? '...' : <SearchIcon className="h-4 w-4" />}
                 </button>
               </div>
 
-              <div className="flex items-center justify-between mt-1">
-                {/* AI Translation Display */}
-                {aiTranslation ? (
-                  <div className="text-xs text-slate-300">
-                    {aiTranslation}
-                  </div>
-                ) : (
-                  <div></div>
-                )}
+              {aiTranslation ? (
+                <div className="text-xs text-slate-300">{aiTranslation}</div>
+              ) : null}
 
-                <details>
-                  <summary className="text-xs text-slate-300 cursor-pointer select-none">
-                    Filters
-                  </summary>
-                <div className="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                  <div>
-                    <label className="text-xs text-gray-400">Type</label>
-                    <select
-                      value={filterType}
-                      onChange={(event) => {
-                        setFilterType(event.target.value as SearchFilterType)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="all">All</option>
-                      <option value="movie">Movies</option>
-                      <option value="tv">TV Shows</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400">Status</label>
-                    <select
-                      value={filterStatus}
-                      onChange={(event) => {
-                        setFilterStatus(event.target.value as SearchStatusFilter)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="all">All</option>
-                      <option value="not_in_library">Not in library</option>
-                      <option value="in_library">In library</option>
-                      <option value="downloaded">Downloaded</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400">Sort</label>
-                    <select
-                      value={sortField}
-                      onChange={(event) => {
-                        setSortField(event.target.value as SearchSortField)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="relevance">Relevance</option>
-                      <option value="popularity">Popularity</option>
-                      <option value="year">Year</option>
-                      <option value="title">Title</option>
-                      <option value="rating">Rating</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400">Direction</label>
-                    <select
-                      value={sortDirection}
-                      onChange={(event) => {
-                        setSortDirection(event.target.value as SearchSortDirection)
-                        setPage(1)
-                      }}
-                      className="mt-1 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                    >
-                      <option value="desc">Descending</option>
-                      <option value="asc">Ascending</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+              <details>
+                <summary className="text-xs text-slate-300 cursor-pointer select-none">
+                  Filters/Sorting
+                </summary>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  <label className="text-slate-400">Sort</label>
+                  <select
+                    value={sortField}
+                    onChange={(event) => {
+                      setSortField(event.target.value as SearchSortField)
+                      setPage(1)
+                    }}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="added">Added</option>
+                    <option value="imdbRating">IMDb Rating</option>
+                    <option value="popularity">Popularity</option>
+                    <option value="releaseDate">Release Date</option>
+                    <option value="size">Size on Disk</option>
+                    <option value="title">Title</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                    className="px-2 py-1 rounded bg-slate-800/60"
+                  >
+                    {sortDirection === 'asc' ? 'Asc' : 'Desc'}
+                  </button>
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -934,11 +859,13 @@ function HomeContent() {
                     <span className="text-gray-500">AI search disabled</span>
                   )}
                 </div>
-                </details>
-              </div>
-            </form>
-            </div>
-          </div>
+              </details>
+                </form>
+              </SearchPanel>
+            )
+
+            const searchContent = (
+              <>
           {!searchResults && !searching && !searchError && (
             <div className="glass-panel rounded-lg p-5 md:p-6 mb-4 relative overflow-hidden">
               <div className="absolute inset-0">
@@ -978,14 +905,6 @@ function HomeContent() {
 
           {searchResults && (
             <div className="mb-4">
-              <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-                <h2 className="text-lg font-semibold">
-                  Results for "{searchResults.query}"
-                </h2>
-                <span className="text-gray-400 text-sm">
-                  {searchResults.total_count} total
-                </span>
-              </div>
 
               {searchResults.results.length === 0 ? (
                 <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
@@ -1005,357 +924,25 @@ function HomeContent() {
                 </div>
               )}
 
-              {searchResults.total_pages > 1 && (
-                <div className="flex justify-between items-center mt-4 glass-panel rounded-lg p-3">
-                  <button
-                    type="button"
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                  >
-                    Prev
-                  </button>
-                  <span className="text-sm text-gray-400">
-                    Page {searchResults.page} of {searchResults.total_pages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPage(Math.min(searchResults.total_pages, page + 1))}
-                    disabled={page >= searchResults.total_pages}
-                    className="px-3 py-2 rounded bg-slate-800/60 disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
             </div>
           )}
-        </section>
-        )}
-
-        {/* Download Activity Section */}
-        {activeSection === 'downloads' && config && (
-          <section id="downloads" className="scroll-mt-24 mb-4">
-            <>
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-semibold">Download Activity</h2>
-                <button
-                  onClick={() => fetchSabData(false)}
-                  disabled={!sabConfigured || sabLoading}
-                  className="px-3 py-1.5 rounded bg-slate-800/60 disabled:opacity-50 text-xs"
-                >
-                  {sabLoading ? 'Refreshing...' : 'Refresh'}
-                </button>
-              </div>
-              {!sabConfigured ? (
-                <div className="glass-panel rounded-lg p-4 text-gray-400">
-                  SABnzbd not configured
-                </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="glass-panel rounded-lg overflow-hidden">
-                    <div className="w-full text-left p-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-md font-semibold">Queue</div>
-                        <div className="text-xs text-gray-400 truncate">{queueSummary}</div>
-                      </div>
-                    </div>
-                    <div className="px-3 pb-3 overflow-hidden">
-                      <SabQueue
-                        data={sabQueue}
-                        error={sabQueueError}
-                        onRefresh={fetchSabData}
-                        onPauseAll={handlePauseAll}
-                        onResumeAll={handleResumeAll}
-                        onPauseJob={handlePauseJob}
-                        onResumeJob={handleResumeJob}
-                        onDeleteJob={handleDeleteJob}
-                        actionBusy={sabActionBusy}
-                      />
-                    </div>
-                  </div>
-                  <div className="glass-panel rounded-lg overflow-hidden">
-                    <div className="w-full text-left p-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-md font-semibold">Recent</div>
-                        <div className="text-xs text-gray-400 truncate">{recentSummary}</div>
-                      </div>
-                    </div>
-                    <div className="px-3 pb-3 overflow-hidden">
-                      <SabRecent data={sabRecent} error={sabRecentError} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          </section>
-        )}
-
-        {/* Status Section - Collapsible */}
-        {activeSection === 'status' && (
-        <section id="status" className="scroll-mt-24">
-        <details className="glass-panel rounded-lg" open>
-          <summary className="p-4 cursor-pointer font-semibold">
-            System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
-          </summary>
-
-          <div className="p-4 pt-0 space-y-4">
-            {loading && <div className="text-yellow-400">Checking backend...</div>}
-
-            {!loading && error && (
-              <div className="text-red-400">Error: {error}</div>
-            )}
-
-            {config && (
-              <>
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Configuration</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div><span className="text-gray-500">Country:</span> {config.user.country}</div>
-                    <div><span className="text-gray-500">AI:</span> {config.ai.provider}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Integrations</h3>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Sonarr</span>
-                      <span className={config.integrations.sonarr_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.sonarr_url ? 'Connected' : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Radarr</span>
-                      <span className={config.integrations.radarr_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.radarr_url ? 'Connected' : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>SABnzbd</span>
-                      <span className={config.integrations.sabnzbd_url ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.sabnzbd_url ? 'Connected' : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>TMDB</span>
-                      <span className={config.integrations.tmdb_api_key ? 'text-green-400' : 'text-gray-600'}>
-                        {config.integrations.tmdb_api_key ? 'Connected' : 'Not set'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Streaming Services</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {config.streaming_services.filter((service) => service.enabled).length === 0 && (
-                      <span className="text-xs text-gray-500">None enabled</span>
-                    )}
-                    {config.streaming_services.filter((service) => service.enabled).map((service) => (
-                      <span
-                        key={service.id}
-                        className="glass-chip px-2 py-1 rounded inline-flex items-center gap-2 text-xs"
-                      >
-                        {getStreamingLogo(service.id) ? (
-                          <img
-                            src={getStreamingLogo(service.id)}
-                            alt={service.name}
-                            className="h-4 w-4 object-contain"
-                          />
-                        ) : (
-                          <span className="text-gray-500 text-xs">?</span>
-                        )}
-                        <span>{service.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
               </>
-            )}
-          </div>
-        </details>
+            )
+
+            return discoverySearchAtBottom ? (
+              <>
+                {searchContent}
+                {searchPanel}
+              </>
+            ) : (
+              <>
+                {searchPanel}
+                {searchContent}
+              </>
+            )
+          })()}
         </section>
-        )}
 
-        {activeSection === 'settings' && config && (
-          <section id="settings" className="scroll-mt-24 mt-4 glass-panel rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-300 mb-2">Settings</h3>
-            <p className="text-xs text-gray-400 mb-3">
-              Non-secret settings only. Env vars still override these values.
-            </p>
-            {settingsError && (
-              <div className="text-xs text-red-400 mb-2">Error: {settingsError}</div>
-            )}
-            {settingsSaved && (
-              <div className="text-xs text-cyan-300 mb-2">Settings saved.</div>
-            )}
-            {settingsSaving && (
-              <div className="text-xs text-amber-300 mb-2">Saving settings...</div>
-            )}
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
-              <label className="grid gap-1">
-                <span className="text-xs text-gray-400">Country</span>
-                <input
-                  type="text"
-                  value={settingsCountry}
-                  onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
-                  onBlur={() => {
-                    void saveSettings()
-                  }}
-                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                />
-              </label>
-              <div className="grid gap-1">
-                <span className="text-xs text-gray-400">AI Provider</span>
-                <div className="grid gap-2">
-                  {aiProviderOptions.map((provider) => {
-                    const isAvailable = availableAiProviderSet.has(provider.id)
-                    const isChecked = settingsAiProvider === provider.id
-                    return (
-                      <label
-                        key={provider.id}
-                        className={`flex items-center gap-2 ${isAvailable ? '' : 'text-gray-500'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={!isAvailable}
-                          onChange={(event) => {
-                            if (!event.target.checked) {
-                              return
-                            }
-                            setSettingsAiProvider(provider.id)
-                            void saveSettings({ ai_provider: provider.id })
-                          }}
-                        />
-                        <span>{provider.label}</span>
-                      </label>
-                    )
-                  })}
-                  {availableAiProviderSet.size === 0 && (
-                    <span className="text-xs text-gray-500">No AI providers configured in .env</span>
-                  )}
-                </div>
-              </div>
-            </div>
-            {selectedProviderModel && (
-              <div className="mt-2 text-xs text-gray-400">
-                AI model: <span className="text-gray-200">{selectedProviderModel}</span>
-              </div>
-            )}
-            {!selectedProviderAvailable && settingsAiProvider && (
-              <div className="mt-1 text-xs text-red-400">
-                Selected provider is not configured in .env.
-              </div>
-            )}
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowSonarr}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowSonarr(next)
-                      void saveDashboardSettings({ show_sonarr: next })
-                    }}
-                  />
-                  <span>Sonarr</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowRadarr}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowRadarr(next)
-                      void saveDashboardSettings({ show_radarr: next })
-                    }}
-                  />
-                  <span>Radarr</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowSabnzbd}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowSabnzbd(next)
-                      void saveDashboardSettings({ show_sabnzbd: next })
-                    }}
-                  />
-                  <span>SABnzbd</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowPlex}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowPlex(next)
-                      void saveDashboardSettings({ show_plex: next })
-                    }}
-                  />
-                  <span>Plex</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Downloads</h4>
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
-                <label className="grid gap-1">
-                  <span className="text-xs text-gray-400">Recent download groups</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={settingsSabRecentLimit}
-                    onChange={(event) => {
-                      const value = Number(event.target.value)
-                      if (Number.isNaN(value)) return
-                      setSettingsSabRecentLimit(value)
-                    }}
-                    onBlur={() => {
-                      const value = Math.max(1, Math.min(20, settingsSabRecentLimit || 10))
-                      setSettingsSabRecentLimit(value)
-                      void saveSettings({ sab_recent_group_limit: value })
-                    }}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Streaming Services</h4>
-              {streamingUpdateError && (
-                <div className="text-xs text-red-400 mb-2">Error: {streamingUpdateError}</div>
-              )}
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {config.streaming_services.map((service) => (
-                  <label key={service.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={service.enabled}
-                      disabled={streamingUpdateBusy}
-                      onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
-                    />
-                    {getStreamingLogo(service.id) ? (
-                      <img src={getStreamingLogo(service.id)} alt={service.name} className="h-5 w-5 object-contain" />
-                    ) : (
-                      <span className="text-gray-500 text-xs">?</span>
-                    )}
-                    <span>{service.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
       </div>
 
       {/* Loading overlay for releases */}
@@ -1399,6 +986,7 @@ function HomeContent() {
         <DetailModal
           mode="ai"
           plan={aiIntentPlan}
+          aiResult={aiModalResult || undefined}
           releaseData={releaseData}
           busy={aiIntentBusy || aiModalSearchBusy}
           onConfirm={handleAiConfirm}
@@ -1426,7 +1014,6 @@ function HomeContent() {
           onGrabRelease={handleGrabRelease}
           onGrabAll={handleGrabAll}
           grabBusyIds={grabBusyIds}
-          grabFeedback={grabFeedback}
           aiEnabled={aiEnabled}
           aiSuggestion={aiSuggestion}
           aiSuggestBusy={aiSuggestBusy}

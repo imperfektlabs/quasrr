@@ -17,7 +17,7 @@ import { getRatingLink, formatSeriesYearSpan, formatSize, getReleaseKey } from '
 import { getStreamingLogoForProvider } from '@/utils/streaming'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
-import { DownloadIcon } from './Icons'
+import { DownloadIcon, SearchIcon } from './Icons'
 
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 
@@ -25,6 +25,7 @@ type DetailModalProps = {
   mode: 'ai' | 'discovery' | 'library'
   // AI mode props
   plan?: AIIntentPlan
+  aiResult?: DiscoveryResult
   releaseData?: ReleaseResponse | null
   busy?: boolean
   error?: string | null
@@ -46,6 +47,7 @@ type DetailModalProps = {
 export function DetailModal({
   mode,
   plan,
+  aiResult,
   result,
   libraryItem,
   releaseData,
@@ -114,7 +116,6 @@ export function DetailModal({
 
   const {
     busyIds: libraryGrabBusyIds,
-    feedback: libraryGrabFeedback,
     setFeedback: setLibraryGrabFeedback,
     grab: grabLibraryRelease,
     clear: clearLibraryGrab,
@@ -191,12 +192,7 @@ export function DetailModal({
   useEffect(() => {
     if (mode !== 'library' || !libraryItem || libraryItem.mediaType !== 'tv') return
     let active = true
-    const seasonNumbers = (libraryItem.seasons || [])
-      .map((season) => season.seasonNumber ?? 0)
-      .filter((season) => season > 0)
-    if (seasonNumbers.length > 0) {
-      setExpandedSeasons(new Set([Math.max(...seasonNumbers)]))
-    }
+    setExpandedSeasons(new Set())
     const fetchEpisodes = async () => {
       setEpisodesLoading(true)
       try {
@@ -764,7 +760,7 @@ export function DetailModal({
   let chips: React.ReactNode[] = []
   let ratings: React.ReactNode = null
   let genres: React.ReactNode = null
-  let status: 'not_in_library' | 'in_library' | 'downloaded' = 'not_in_library'
+  let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded' = 'not_in_library'
 
   if (mode === 'ai') {
     const availabilityYearLabel = intent?.media_type === 'tv'
@@ -781,6 +777,7 @@ export function DetailModal({
     displayTitle = availability?.title || intent?.title || plan?.query || 'Unknown'
     metadata = `${availabilityYearLabel || 'Unknown year'}${intent?.media_type && intent.media_type !== 'unknown' ? ` • ${intent.media_type}` : ''}`
     overview = availability?.overview
+    if (aiResult?.status) status = aiResult.status
 
     // AI-specific chips
     if (releaseData?.requested_season || intent?.season) {
@@ -847,16 +844,30 @@ export function DetailModal({
 
     // Library status
     if (libraryItem.mediaType === 'movies') {
-      status = libraryItem.hasFile ? 'downloaded' : 'not_in_library'
+      status = libraryItem.hasFile ? 'downloaded' : 'in_library'
     } else {
-      status = libraryItem.episodeCount && libraryItem.episodeFileCount === libraryItem.episodeCount
+      const totalEpisodes = libraryItem.totalEpisodeCount ?? libraryItem.episodeCount ?? 0
+      const downloadedEpisodes = libraryItem.episodeFileCount ?? 0
+      status = totalEpisodes > 0 && downloadedEpisodes >= totalEpisodes
         ? 'downloaded'
-        : 'not_in_library'
+        : downloadedEpisodes > 0
+          ? 'partial'
+          : 'in_library'
     }
 
     // Library chips
+    chips.push(
+      <span key="media_type" className="glass-chip px-2 py-1 rounded text-xs">
+        {libraryItem.mediaType === 'movies' ? 'Movie' : 'TV'}
+      </span>
+    )
     if (libraryItem.mediaType === 'tv') {
-      chips.push(<span key="eps" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.episodeFileCount || 0}/{libraryItem.episodeCount || 0} eps</span>)
+      const totalEpisodes = libraryItem.totalEpisodeCount ?? libraryItem.episodeCount ?? 0
+      chips.push(
+        <span key="eps" className="glass-chip px-2 py-1 rounded text-xs">
+          {libraryItem.episodeFileCount || 0}/{totalEpisodes} eps
+        </span>
+      )
     }
     chips.push(<span key="size" className="glass-chip px-2 py-1 rounded text-xs">{formatSize(libraryItem.sizeOnDisk)}</span>)
     if (libraryItem.path) chips.push(<span key="path" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.path}</span>)
@@ -1002,7 +1013,9 @@ export function DetailModal({
                   className="flex-1 flex items-center justify-between text-left"
                 >
                   <span>Season {season.seasonNumber ?? '—'}</span>
-                  <span className="text-slate-300">{season.episodeFileCount || 0}/{season.episodeCount || 0} eps</span>
+                  <span className="text-slate-300">
+                    {season.episodeFileCount || 0}/{season.totalEpisodeCount ?? season.episodeCount ?? 0} eps
+                  </span>
                 </button>
                 <div className="grid grid-cols-[auto_auto_auto_auto] items-center justify-end gap-2 text-slate-500">
                   <span className="w-[72px]" />
@@ -1022,7 +1035,7 @@ export function DetailModal({
                       : 'hover:bg-slate-700/60'
                     }`}
                   >
-                    ⌕
+                    <SearchIcon className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
@@ -1105,7 +1118,7 @@ export function DetailModal({
                                 : 'hover:bg-slate-700/60'
                               }`}
                             >
-                              ⌕
+                              <SearchIcon className="h-3.5 w-3.5" />
                             </button>
                             {isConfirmingDelete ? (
                               <>
@@ -1149,11 +1162,6 @@ export function DetailModal({
                         </div>
                         {isReleaseOpen && (
                           <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 space-y-2 w-full max-w-full min-w-0 overflow-x-hidden">
-                            {libraryGrabFeedback && (
-                              <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
-                                {libraryGrabFeedback.text}
-                              </div>
-                            )}
                             {isReleaseLoading && (
                               <div className="text-xs text-slate-400">Searching...</div>
                             )}
@@ -1282,7 +1290,7 @@ export function DetailModal({
             aria-label="Search All"
             className="h-6 w-6 inline-flex items-center justify-center bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 rounded text-xs font-medium transition-colors"
           >
-            ⌕
+            <SearchIcon className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
@@ -1416,11 +1424,6 @@ export function DetailModal({
 
           {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
             <div ref={libraryResultsRef} className="mt-4 space-y-2">
-              {libraryGrabFeedback && (
-                <div className={`text-xs ${libraryGrabFeedback.type === 'error' ? 'text-amber-300' : 'text-emerald-200'}`}>
-                  {libraryGrabFeedback.text}
-                </div>
-              )}
               {libraryReleaseLoading && !libraryActionMessage && (
                 <div className="text-xs text-slate-300">Searching...</div>
               )}
