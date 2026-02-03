@@ -24,6 +24,38 @@ class PlexClient:
     def _params(self) -> dict[str, str]:
         return {"X-Plex-Token": self.api_key or ""}
 
+    async def test_connection(self) -> dict:
+        if not self.is_configured:
+            return {"status": "error", "message": "Plex not configured"}
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.get(
+                    f"{self._base()}/",
+                    params=self._params(),
+                    headers={"Accept": "application/json"},
+                )
+                response.raise_for_status()
+                version = (
+                    response.headers.get("X-Plex-Version")
+                    or response.headers.get("X-Plex-Server-Version")
+                )
+                if not version:
+                    try:
+                        data = response.json()
+                        version = data.get("MediaContainer", {}).get("version")
+                    except Exception:
+                        version = None
+                return {"status": "ok", "version": version or "unknown"}
+        except httpx.TimeoutException:
+            return {"status": "error", "message": "Connection timeout"}
+        except httpx.HTTPStatusError as exc:
+            logger.error(f"Plex HTTP error: {exc.response.status_code}")
+            return {"status": "error", "message": f"HTTP {exc.response.status_code}"}
+        except Exception as exc:
+            logger.error(f"Plex connection error: {exc}")
+            return {"status": "error", "message": str(exc)}
+
     async def get_recently_added_count(self, days: int = 7) -> int:
         if not self.is_configured:
             return 0
@@ -70,6 +102,36 @@ class PlexClient:
         except Exception as exc:
             logger.error(f"Plex sessions error: {exc}")
             return 0
+
+    async def get_alerts(self, limit: int = 10) -> list[dict]:
+        if not self.is_configured:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.get(
+                    f"{self._base()}/activities",
+                    params=self._params(),
+                    headers={"Accept": "application/json"},
+                )
+                response.raise_for_status()
+                data = response.json()
+                activities = data.get("MediaContainer", {}).get("Activity", []) or []
+                alerts = []
+                for item in activities:
+                    if not isinstance(item, dict):
+                        continue
+                    title = item.get("title") or item.get("type") or "Activity"
+                    subtitle = item.get("subtitle")
+                    message = f"{title} — {subtitle}" if subtitle else title
+                    alerts.append({
+                        "level": "info",
+                        "message": message,
+                    })
+                return alerts[:limit]
+        except Exception as exc:
+            logger.error(f"Plex alerts error: {exc}")
+            return []
 
 
 def get_plex_client() -> PlexClient:

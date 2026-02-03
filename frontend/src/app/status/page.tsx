@@ -1,0 +1,203 @@
+'use client'
+
+import { useRef, useState } from 'react'
+
+import { useBackendApiSetup, useClickOutside } from '@/hooks'
+import { NavigationMenu } from '@/components'
+import { getStreamingLogo } from '@/utils/streaming'
+
+export default function StatusPage() {
+  const { health, config, integrationsStatus, error, loading } = useBackendApiSetup()
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const menuPanelRef = useRef<HTMLDivElement | null>(null)
+  const [expandedHealth, setExpandedHealth] = useState<Record<string, boolean>>({})
+
+  useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  return (
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
+      <NavigationMenu
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        menuButtonRef={menuButtonRef}
+        menuPanelRef={menuPanelRef}
+        currentPage="status"
+        config={config}
+      />
+
+      <div className="max-w-5xl mx-auto">
+        <section id="status" className="scroll-mt-24">
+          <details className="glass-panel rounded-lg" open>
+            <summary className="p-4 cursor-pointer font-semibold">
+              System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
+            </summary>
+
+            <div className="p-4 pt-0 space-y-4">
+              {loading && <div className="text-yellow-400">Checking backend...</div>}
+
+              {!loading && error && (
+                <div className="text-red-400">Error: {error}</div>
+              )}
+
+              {config && (
+                <>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-400 mb-2">Configuration</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-gray-500">Country:</span> {config.user.country}</div>
+                      <div><span className="text-gray-500">AI:</span> {config.ai.provider}</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-400 mb-2">Integrations</h3>
+                    <div className="space-y-2 text-sm">
+                      {[
+                        {
+                          key: 'sonarr',
+                          label: 'Sonarr',
+                          configured: Boolean(config.integrations.sonarr_url),
+                          status: integrationsStatus?.sonarr,
+                        },
+                        {
+                          key: 'radarr',
+                          label: 'Radarr',
+                          configured: Boolean(config.integrations.radarr_url),
+                          status: integrationsStatus?.radarr,
+                        },
+                        {
+                          key: 'sabnzbd',
+                          label: 'SABnzbd',
+                          configured: Boolean(config.integrations.sabnzbd_url),
+                          status: integrationsStatus?.sabnzbd,
+                        },
+                        {
+                          key: 'plex',
+                          label: 'Plex',
+                          configured: Boolean(config.integrations.plex_url),
+                          status: integrationsStatus?.plex,
+                        },
+                      ].map((item) => {
+                        const status = item.status?.status
+                        const isConfigured = item.configured
+                        const isOk = status === 'ok'
+                        const statusLabel = !isConfigured
+                          ? 'Not set'
+                          : (isOk ? 'Connected' : (status ? 'Error' : 'Checking...'))
+                        const statusClass = !isConfigured
+                          ? 'text-gray-600'
+                          : (isOk ? 'text-green-400' : 'text-red-400')
+                        const healthIssues = item.status?.health || []
+                        const warnings = item.status?.warnings || []
+                        const alerts = healthIssues.length > 0 ? healthIssues : warnings
+                        const alertsTitle = healthIssues.length > 0
+                          ? 'Health issues'
+                          : (item.key === 'plex' ? 'Alerts' : 'Warnings')
+                        const alertsTone = healthIssues.length > 0 ? 'text-amber-300' : 'text-amber-300'
+                        const alertsKey = `alerts-${item.key}`
+                        const alertsExpanded = Boolean(expandedHealth[alertsKey])
+                        const visibleAlerts = alertsExpanded ? alerts : alerts.slice(0, 2)
+                        const meta = !isConfigured
+                          ? 'Not configured'
+                          : (isOk
+                            ? `Version ${item.status?.version || 'unknown'}`
+                            : (item.status?.message || 'Unable to reach service'))
+                        return (
+                          <div
+                            key={item.key}
+                            className="rounded-md border border-slate-800/60 bg-slate-900/40 px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{item.label}</span>
+                              <span className={statusClass}>{statusLabel}</span>
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">{meta}</div>
+                            {alerts.length > 0 && (
+                              <div className="mt-2 grid gap-1 text-xs">
+                                <div className={`${alertsTone} font-semibold`}>
+                                  {alertsTitle} ({alerts.length})
+                                </div>
+                                {visibleAlerts.map((issue, index) => {
+                                  const level = (issue.level || '').toLowerCase()
+                                  const levelClass = level.includes('error') ? 'text-red-300' : 'text-amber-300'
+                                  return (
+                                    <div
+                                      key={`${item.key}-alert-${index}`}
+                                      className={`truncate ${levelClass}`}
+                                      title={issue.message || ''}
+                                    >
+                                      {issue.message || 'Unknown issue'}
+                                    </div>
+                                  )
+                                })}
+                                {alerts.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setExpandedHealth((prev) => ({
+                                        ...prev,
+                                        [alertsKey]: !alertsExpanded,
+                                      }))
+                                    }}
+                                    className="text-amber-200/80 hover:text-amber-200 underline decoration-dotted text-left"
+                                  >
+                                    {alertsExpanded
+                                      ? 'Show fewer'
+                                      : `+${alerts.length - 2} more`}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                      <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span>TMDB</span>
+                          <span className={config.integrations.tmdb_api_key ? 'text-green-400' : 'text-gray-600'}>
+                            {config.integrations.tmdb_api_key ? 'Connected' : 'Not set'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {config.integrations.tmdb_api_key ? 'API key configured' : 'API key missing'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-400 mb-2">Streaming Services</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {config.streaming_services.filter((service) => service.enabled).length === 0 && (
+                        <span className="text-xs text-gray-500">None enabled</span>
+                      )}
+                      {config.streaming_services.filter((service) => service.enabled).map((service) => (
+                        <span
+                          key={service.id}
+                          className="glass-chip px-2 py-1 rounded inline-flex items-center gap-2 text-xs"
+                        >
+                          {getStreamingLogo(service.id) ? (
+                            <img
+                              src={getStreamingLogo(service.id)}
+                              alt={service.name}
+                              className="h-4 w-4 object-contain"
+                            />
+                          ) : (
+                            <span className="text-gray-500 text-xs">?</span>
+                          )}
+                          <span>{service.name}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </details>
+        </section>
+      </div>
+    </main>
+  )
+}

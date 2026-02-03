@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { StreamingService, ConfigStatus } from '@/types'
 import { getStreamingLogo, getStreamingLink } from '@/utils/streaming'
+import { SearchIcon } from './Icons'
 
 type MenuItem = {
   key: string
@@ -24,9 +25,7 @@ export type NavigationMenuProps = {
   menuPanelRef: React.RefObject<HTMLDivElement>
 
   // Page context
-  currentPage: 'home' | 'sonarr' | 'radarr' | 'library'
-  activeSection?: 'search' | 'downloads' | 'status' | 'settings'
-  onSectionChange?: (section: 'search' | 'downloads' | 'status' | 'settings') => void
+  currentPage: 'home' | 'library' | 'downloads' | 'status' | 'settings'
 
   // Data for menu items (accepts ConfigStatus from main page or simplified config from library pages)
   config?: (ConfigStatus | {
@@ -48,8 +47,6 @@ export function NavigationMenu({
   menuButtonRef,
   menuPanelRef,
   currentPage,
-  activeSection,
-  onSectionChange,
   config,
   onHomeClick,
 }: NavigationMenuProps) {
@@ -60,65 +57,57 @@ export function NavigationMenu({
   const handleHomeClick = () => {
     if (onHomeClick) {
       onHomeClick()
-    } else if (currentPage === 'home') {
-      // On home page, stay on page
-      window.location.href = '/'
     } else {
-      // On other pages, navigate to home
       router.push('/')
     }
     setMenuOpen(false)
   }
-
-  const handleSectionClick = (section: 'search' | 'downloads' | 'status' | 'settings') => {
-    if (currentPage === 'home' && onSectionChange) {
-      onSectionChange(section)
-    } else {
-      router.push(`/?section=${section}`)
-    }
+  const handleNavigate = (path: '/' | '/downloads' | '/status' | '/settings') => {
+    router.push(path)
     setMenuOpen(false)
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3 glass-panel border-b border-slate-700/40">
-      <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((prev) => !prev)}
-          onMouseEnter={() => setMenuOpen(true)}
-          className="px-2 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center"
-          aria-label="Toggle menu"
-          aria-expanded={menuOpen}
-          ref={menuButtonRef}
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 6h16" />
-            <path d="M4 12h16" />
-            <path d="M4 18h16" />
-          </svg>
-        </button>
+    <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 pt-1">
+      <div className="max-w-5xl mx-auto">
+        <div className="glass-panel rounded-md border border-slate-700/40 shadow-[0_18px_45px_rgba(3,6,20,0.5)] px-3 md:px-4 py-2 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            onMouseEnter={() => setMenuOpen(true)}
+            className="px-2 py-2 rounded bg-slate-800/60 text-slate-200 inline-flex items-center"
+            aria-label="Toggle menu"
+            aria-expanded={menuOpen}
+            ref={menuButtonRef}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h16" />
+            </svg>
+          </button>
 
-        <button
-          type="button"
-          onClick={handleHomeClick}
-          className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
-          title="Go home"
-        >
-          Quasrr
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={handleHomeClick}
+            className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
+            title="Go home"
+          >
+            Quasrr
+          </button>
+        </div>
 
-      {menuOpen && (
-        <div
-          ref={menuPanelRef}
-          onMouseLeave={() => setMenuOpen(false)}
-          className="mt-3 grid gap-2 text-sm text-slate-200"
-        >
+        {menuOpen && (
+          <div
+            ref={menuPanelRef}
+            onMouseLeave={() => setMenuOpen(false)}
+            className="mt-2 w-full md:w-[360px] glass-panel rounded-md border border-slate-700/40 shadow-[0_18px_45px_rgba(3,6,20,0.5)] p-3 grid gap-1 text-sm text-slate-200"
+          >
           {/* Home Button */}
           <button
             type="button"
             onClick={handleHomeClick}
-            className="px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50"
+            className="px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-slate-800/50 hover:bg-slate-700/60 transition-colors"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 12l9-9 9 9" />
@@ -130,23 +119,20 @@ export function NavigationMenu({
           {/* Main Navigation Sections */}
           <button
             type="button"
-            onClick={() => handleSectionClick('search')}
+            onClick={() => handleNavigate('/')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'search' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'home' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="16.5" y1="16.5" x2="21" y2="21" />
-            </svg>
+            <SearchIcon className="h-4 w-4" />
             <span>Search</span>
           </button>
 
           <button
             type="button"
-            onClick={() => handleSectionClick('downloads')}
+            onClick={() => handleNavigate('/downloads')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'downloads' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'downloads' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -159,9 +145,9 @@ export function NavigationMenu({
 
           <button
             type="button"
-            onClick={() => handleSectionClick('status')}
+            onClick={() => handleNavigate('/status')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'status' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'status' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -172,38 +158,33 @@ export function NavigationMenu({
 
           <button
             type="button"
-            onClick={() => handleSectionClick('settings')}
+            onClick={() => handleNavigate('/settings')}
             className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-              currentPage === 'home' && activeSection === 'settings' ? 'bg-slate-700/60' : 'bg-slate-800/50'
+              currentPage === 'settings' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 6h16" />
-              <path d="M4 12h16" />
-              <path d="M4 18h16" />
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1 0 2.8 2 2 0 0 1-2.8 0l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c0 .7.4 1.3 1.5 1.5H21a2 2 0 0 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z" />
             </svg>
             <span>Settings</span>
           </button>
 
-          {/* Library Section */}
-          <div className="border-t border-slate-700/40 pt-2 mt-2">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">Library</div>
-            <Link
-              href="/library"
-              onClick={() => setMenuOpen(false)}
-              className={`mt-2 px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
-                currentPage === 'library' || currentPage === 'sonarr' || currentPage === 'radarr'
-                  ? 'bg-slate-700/60'
-                  : 'bg-slate-800/50 hover:bg-slate-700/60'
-              }`}
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
-              <span>Library</span>
-            </Link>
-          </div>
+          <Link
+            href="/library"
+            onClick={() => setMenuOpen(false)}
+            className={`px-3 py-2 rounded inline-flex items-center gap-2 text-left ${
+              currentPage === 'library'
+                ? 'bg-slate-700/60'
+                : 'bg-slate-800/50 hover:bg-slate-700/60'
+            }`}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span>Library</span>
+          </Link>
 
           {/* Streaming Services Section */}
           <div className="border-t border-slate-700/40 pt-2 mt-2">
@@ -238,8 +219,9 @@ export function NavigationMenu({
               })
             )}
           </div>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </header>
   )
 }

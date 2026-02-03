@@ -13,6 +13,22 @@ export type GrabFeedback = {
   text: string
 }
 
+type DownloadToastEvent = {
+  status: 'success' | 'error'
+  message: string
+  title?: string
+  releaseTitle?: string
+  mediaType?: 'movie' | 'tv'
+  season?: number
+  episode?: number
+  count?: number
+}
+
+const emitDownloadToast = (detail: DownloadToastEvent) => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('quasrr:download-toast', { detail }))
+}
+
 export type ReleaseGrabResult = {
   busyIds: Set<string>
   feedback: GrabFeedback | null
@@ -38,6 +54,8 @@ export function useReleaseGrab(
 
   const grab = async (release: Release) => {
     const key = getReleaseKey(release)
+    const episodeValue = Array.isArray(release.episode) ? release.episode[0] : release.episode
+    const mediaType = releaseData?.type as 'movie' | 'tv' | undefined
 
     setBusyIds((prev) => new Set(prev).add(key))
     setFeedback(null)
@@ -62,16 +80,26 @@ export function useReleaseGrab(
 
       if (!res.ok) {
         const errorData = await res.json()
-        setFeedback({
-          type: 'error',
-          text: errorData.detail || 'Failed to grab release',
+        emitDownloadToast({
+          status: 'error',
+          message: errorData.detail || 'Failed to grab release',
+          title: releaseData?.title,
+          releaseTitle: release.title,
+          mediaType,
+          season: release.season,
+          episode: episodeValue,
         })
         return
       }
 
-      setFeedback({
-        type: 'success',
-        text: 'Sent to download client',
+      emitDownloadToast({
+        status: 'success',
+        message: 'Sent to downloader',
+        title: releaseData?.title,
+        releaseTitle: release.title,
+        mediaType,
+        season: release.season,
+        episode: episodeValue,
       })
 
       // Refresh SABnzbd queue if configured
@@ -79,9 +107,14 @@ export function useReleaseGrab(
         await onRefreshSab()
       }
     } catch (e) {
-      setFeedback({
-        type: 'error',
-        text: 'Network error while grabbing release',
+      emitDownloadToast({
+        status: 'error',
+        message: 'Network error while grabbing release',
+        title: releaseData?.title,
+        releaseTitle: release.title,
+        mediaType,
+        season: release.season,
+        episode: episodeValue,
       })
     } finally {
       setBusyIds((prev) => {
@@ -122,9 +155,11 @@ export function useReleaseGrab(
 
       if (!res.ok) {
         const errorData = await res.json()
-        setFeedback({
-          type: 'error',
-          text: errorData.detail || 'Failed to grab releases',
+        emitDownloadToast({
+          status: 'error',
+          message: errorData.detail || 'Failed to grab releases',
+          title: releaseData?.title,
+          mediaType: releaseData?.type as 'movie' | 'tv' | undefined,
         })
         return
       }
@@ -133,14 +168,20 @@ export function useReleaseGrab(
       const { success = 0, failed = 0 } = result
 
       if (failed > 0) {
-        setFeedback({
-          type: 'error',
-          text: `Grabbed ${success}, failed ${failed}`,
+        emitDownloadToast({
+          status: 'error',
+          message: `Grabbed ${success}, failed ${failed}`,
+          title: releaseData?.title,
+          mediaType: releaseData?.type as 'movie' | 'tv' | undefined,
+          count: success,
         })
       } else {
-        setFeedback({
-          type: 'success',
-          text: `Successfully grabbed ${success} release${success > 1 ? 's' : ''}`,
+        emitDownloadToast({
+          status: 'success',
+          message: `Successfully grabbed ${success} release${success > 1 ? 's' : ''}`,
+          title: releaseData?.title,
+          mediaType: releaseData?.type as 'movie' | 'tv' | undefined,
+          count: success,
         })
       }
 
@@ -149,9 +190,11 @@ export function useReleaseGrab(
         await onRefreshSab()
       }
     } catch (e) {
-      setFeedback({
-        type: 'error',
-        text: 'Network error while grabbing releases',
+      emitDownloadToast({
+        status: 'error',
+        message: 'Network error while grabbing releases',
+        title: releaseData?.title,
+          mediaType: releaseData?.type as 'movie' | 'tv' | undefined,
       })
     } finally {
       setBusyIds(new Set())

@@ -92,6 +92,11 @@ class DashboardSettingsUpdate(BaseModel):
     show_plex: Optional[bool] = None
 
 
+class LayoutSettingsUpdate(BaseModel):
+    discovery_search_position: Optional[Literal["top", "bottom"]] = None
+    library_search_position: Optional[Literal["top", "bottom"]] = None
+
+
 class SabnzbdSettingsUpdate(BaseModel):
     recent_group_limit: Optional[int] = Field(default=None, ge=1, le=20)
 
@@ -100,6 +105,7 @@ class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
     ai_provider: Optional[str] = None
     dashboard: Optional[DashboardSettingsUpdate] = None
+    layout: Optional[LayoutSettingsUpdate] = None
     sabnzbd: Optional[SabnzbdSettingsUpdate] = None
 
 
@@ -301,11 +307,13 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
 async def update_basic_settings_config(payload: BasicSettingsUpdate):
     """Update non-secret settings in settings.yaml."""
     dashboard_settings = payload.dashboard.model_dump(exclude_unset=True) if payload.dashboard else None
+    layout_settings = payload.layout.model_dump(exclude_unset=True) if payload.layout else None
     sabnzbd_settings = payload.sabnzbd.model_dump(exclude_unset=True) if payload.sabnzbd else None
     config = update_basic_settings(
         payload.country,
         ai_provider=payload.ai_provider,
         dashboard=dashboard_settings,
+        layout=layout_settings,
         sabnzbd=sabnzbd_settings,
     )
     logger.info("Basic settings updated")
@@ -345,17 +353,46 @@ async def get_integrations_status():
     radarr = get_radarr_client()
     sonarr = get_sonarr_client()
     sab = get_sabnzbd_client()
+    plex = get_plex_client()
 
-    radarr_status, sonarr_status, sab_status = await asyncio.gather(
+    radarr_status, sonarr_status, sab_status, plex_status = await asyncio.gather(
         radarr.test_connection(),
         sonarr.test_connection(),
-        sab.test_connection()
+        sab.test_connection(),
+        plex.test_connection()
+    )
+
+    async def enrich_status(client, status: dict) -> dict:
+        if not status or status.get("status") != "ok":
+            return status
+        health = await client.get_health_issues()
+        status["health"] = health
+        return status
+
+    async def enrich_sab(status: dict) -> dict:
+        if not status or status.get("status") != "ok":
+            return status
+        status["warnings"] = await sab.get_warnings(10)
+        return status
+
+    async def enrich_plex(status: dict) -> dict:
+        if not status or status.get("status") != "ok":
+            return status
+        status["warnings"] = await plex.get_alerts(10)
+        return status
+
+    radarr_status, sonarr_status, sab_status, plex_status = await asyncio.gather(
+        enrich_status(radarr, radarr_status),
+        enrich_status(sonarr, sonarr_status),
+        enrich_sab(sab_status),
+        enrich_plex(plex_status),
     )
 
     return {
         "radarr": radarr_status,
         "sonarr": sonarr_status,
         "sabnzbd": sab_status,
+        "plex": plex_status,
     }
 
 
@@ -708,12 +745,22 @@ async def delete_download_job(job_id: str):
 async def search(
     query: str = Query(..., min_length=1, description="Search term"),
     type: Optional[SearchType] = Query(None, description="Search type: movie or tv"),
-    status: Optional[Literal["not_in_library", "in_library", "downloaded"]] = Query(
+    status: Optional[Literal["not_in_library", "in_library", "partial", "downloaded"]] = Query(
         None, description="Filter by library status"
     ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(25, ge=1, le=50, description="Results per page"),
-    sort_by: Literal["relevance", "year", "title", "rating", "popularity"] = Query(
+    sort_by: Literal[
+        "relevance",
+        "year",
+        "title",
+        "rating",
+        "popularity",
+        "added",
+        "imdbRating",
+        "releaseDate",
+        "size",
+    ] = Query(
         "relevance", description="Sort field"
     ),
     sort_dir: Literal["asc", "desc"] = Query(
@@ -734,6 +781,14 @@ async def search(
         f"page={page}, page_size={page_size}, sort_by={sort_by}, sort_dir={sort_dir}"
     )
 
+    effective_sort_by = sort_by
+    if sort_by in {"added", "size"}:
+        effective_sort_by = "relevance"
+    elif sort_by == "imdbRating":
+        effective_sort_by = "rating"
+    elif sort_by == "releaseDate":
+        effective_sort_by = "year"
+
     def rating_value(item: dict) -> float:
         ratings = item.get("ratings", [])
         if not ratings:
@@ -746,11 +801,11 @@ async def search(
         return value if isinstance(value, (int, float)) else 0.0
 
     def sort_key(item: dict):
-        if sort_by == "title":
+        if effective_sort_by == "title":
             return (item.get("title") or "").lower()
-        if sort_by == "rating":
+        if effective_sort_by == "rating":
             return rating_value(item)
-        if sort_by == "popularity":
+        if effective_sort_by == "popularity":
             return (popularity_value(item), item.get("year") or 0)
         return item.get("year") or 0
 
@@ -781,7 +836,7 @@ async def search(
             item["type"] = "tv"
             item["_rank"] = index
 
-        if sort_by == "relevance":
+        if effective_sort_by == "relevance":
             max_len = max(len(movie_results), len(tv_results))
             for index in range(max_len):
                 if index < len(movie_results):
@@ -816,7 +871,7 @@ async def search(
     if status:
         results = [r for r in results if r.get("status") == status]
 
-    if sort_by != "relevance":
+    if effective_sort_by != "relevance":
         reverse = sort_dir == "desc"
         results.sort(key=sort_key, reverse=reverse)
 

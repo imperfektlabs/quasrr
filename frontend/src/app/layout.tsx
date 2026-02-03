@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { DownloadToastHost } from '@/components/DownloadToastHost'
 
 export const metadata: Metadata = {
   title: 'Quasrr',
@@ -15,6 +16,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="text-slate-100 min-h-screen">
         {children}
+        <DownloadToastHost />
       </body>
     </html>
   )

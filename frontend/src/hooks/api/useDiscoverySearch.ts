@@ -72,7 +72,7 @@ export function useDiscoverySearch(): DiscoverySearchResult {
   // Search filters & pagination
   const [filterType, setFilterType] = useState<SearchFilterType>('all')
   const [filterStatus, setFilterStatus] = useState<SearchStatusFilter>('all')
-  const [sortField, setSortField] = useState<SearchSortField>('relevance')
+  const [sortField, setSortField] = useState<SearchSortField>('added')
   const [sortDirection, setSortDirection] = useState<SearchSortDirection>('desc')
   const [page, setPage] = useState(1)
 
@@ -80,10 +80,14 @@ export function useDiscoverySearch(): DiscoverySearchResult {
   const urlSyncRef = useRef<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
+  const getSortParam = (field: SearchSortField): string | null => {
+    if (field === 'added' || field === 'relevance') return null
+    return field
+  }
+
   // URL Sync: Parse URL params and update state
   useEffect(() => {
     const query = searchParams.get('q') || ''
-    const pageParam = searchParams.get('page')
     const typeParam = searchParams.get('type') as SearchFilterType | null
     const statusParam = searchParams.get('status') as SearchStatusFilter | null
     const sortByParam = searchParams.get('sort_by') as SearchSortField | null
@@ -94,16 +98,15 @@ export function useDiscoverySearch(): DiscoverySearchResult {
       setActiveQuery(query)
     }
 
-    if (pageParam) {
-      const parsedPage = parseInt(pageParam, 10)
-      if (!isNaN(parsedPage) && parsedPage > 0) {
-        setPage(parsedPage)
-      }
-    }
 
     if (typeParam) setFilterType(typeParam)
     if (statusParam) setFilterStatus(statusParam)
-    if (sortByParam) setSortField(sortByParam)
+    if (sortByParam) {
+      if (sortByParam === 'relevance') setSortField('added')
+      else if (sortByParam === 'rating') setSortField('imdbRating')
+      else if (sortByParam === 'year') setSortField('releaseDate')
+      else setSortField(sortByParam)
+    }
     if (sortDirParam) setSortDirection(sortDirParam)
   }, [searchParams])
 
@@ -115,9 +118,9 @@ export function useDiscoverySearch(): DiscoverySearchResult {
   // Run search when query or filters change
   useEffect(() => {
     if (activeQuery) {
-      runSearch(activeQuery, page)
+      runSearch(activeQuery)
     }
-  }, [activeQuery, page, filterType, filterStatus, sortField, sortDirection])
+  }, [activeQuery, filterType, filterStatus, sortField, sortDirection])
 
   // Update URL when state changes
   useEffect(() => {
@@ -125,10 +128,10 @@ export function useDiscoverySearch(): DiscoverySearchResult {
 
     const params = new URLSearchParams()
     params.set('q', activeQuery)
-    if (page > 1) params.set('page', page.toString())
     if (filterType !== 'all') params.set('type', filterType)
     if (filterStatus !== 'all') params.set('status', filterStatus)
-    if (sortField !== 'relevance') params.set('sort_by', sortField)
+    const sortParam = getSortParam(sortField)
+    if (sortParam) params.set('sort_by', sortParam)
     if (sortDirection !== 'desc') params.set('sort_dir', sortDirection)
 
     const next = `/?${params.toString()}`
@@ -138,9 +141,9 @@ export function useDiscoverySearch(): DiscoverySearchResult {
     urlSyncRef.current = next
 
     router.replace(next, { scroll: false })
-  }, [activeQuery, page, filterType, filterStatus, sortField, sortDirection, router])
+  }, [activeQuery, filterType, filterStatus, sortField, sortDirection, router])
 
-  const runSearch = async (query: string, nextPage: number) => {
+  const runSearch = async (query: string) => {
     setSearching(true)
     setSearchError(null)
 
@@ -148,13 +151,13 @@ export function useDiscoverySearch(): DiscoverySearchResult {
       const backendUrl = getBackendUrl()
       const params = new URLSearchParams({
         query,
-        page: nextPage.toString(),
         page_size: PAGE_SIZE.toString(),
       })
 
       if (filterType !== 'all') params.set('type', filterType)
       if (filterStatus !== 'all') params.set('status', filterStatus)
-      if (sortField !== 'relevance') params.set('sort_by', sortField)
+      const sortParam = getSortParam(sortField)
+      if (sortParam) params.set('sort_by', sortParam)
       if (sortDirection !== 'desc') params.set('sort_dir', sortDirection)
 
       const res = await fetch(`${backendUrl}/search?${params.toString()}`)
@@ -191,7 +194,8 @@ export function useDiscoverySearch(): DiscoverySearchResult {
     params.set('q', queryToUse.trim())
     if (filterType !== 'all') params.set('type', filterType)
     if (filterStatus !== 'all') params.set('status', filterStatus)
-    if (sortField !== 'relevance') params.set('sort_by', sortField)
+    const sortParam = getSortParam(sortField)
+    if (sortParam) params.set('sort_by', sortParam)
     if (sortDirection !== 'desc') params.set('sort_dir', sortDirection)
 
     router.replace(`/?${params.toString()}`, { scroll: false })
