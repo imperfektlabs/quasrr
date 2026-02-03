@@ -72,6 +72,22 @@ export default function SettingsPage() {
     return ai.model
   })()
 
+  const aiProviderIcons: Record<string, string> = {
+    openai: '/logos/ais/openai.svg',
+    gemini: '/logos/ais/gemini.svg',
+    openrouter: '/logos/ais/openrouter.svg',
+    deepseek: '/logos/ais/deepseek.svg',
+    anthropic: '/logos/ais/claude.svg',
+    local: '/logos/ais/ollama.svg',
+  }
+
+  const toolIcons: Record<string, string> = {
+    sonarr: '/logos/tools/sonarr.svg',
+    radarr: '/logos/tools/radarr.svg',
+    sabnzbd: '/logos/tools/sabnzbd.svg',
+    plex: '/logos/tools/plex.svg',
+  }
+
   return (
     <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
       <NavigationMenu
@@ -139,6 +155,17 @@ export default function SettingsPage() {
                             void saveSettings({ ai_provider: provider.id })
                           }}
                         />
+                        <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                          {aiProviderIcons[provider.id] ? (
+                            <img
+                              src={aiProviderIcons[provider.id]}
+                              alt={provider.label}
+                              className="h-4 w-4 object-contain"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-slate-500">AI</span>
+                          )}
+                        </span>
                         <span>{provider.label}</span>
                       </label>
                     )
@@ -176,6 +203,9 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_sonarr: next })
                     }}
                   />
+                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <img src={toolIcons.sonarr} alt="Sonarr" className="h-4 w-4 object-contain" />
+                  </span>
                   <span>Sonarr</span>
                 </label>
                 <label className="flex items-center gap-2">
@@ -188,6 +218,9 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_radarr: next })
                     }}
                   />
+                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <img src={toolIcons.radarr} alt="Radarr" className="h-4 w-4 object-contain" />
+                  </span>
                   <span>Radarr</span>
                 </label>
                 <label className="flex items-center gap-2">
@@ -200,6 +233,9 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_sabnzbd: next })
                     }}
                   />
+                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <img src={toolIcons.sabnzbd} alt="SABnzbd" className="h-4 w-4 object-contain" />
+                  </span>
                   <span>SABnzbd</span>
                 </label>
                 <label className="flex items-center gap-2">
@@ -212,6 +248,9 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_plex: next })
                     }}
                   />
+                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <img src={toolIcons.plex} alt="Plex" className="h-4 w-4 object-contain" />
+                  </span>
                   <span>Plex</span>
                 </label>
               </div>
@@ -293,11 +332,17 @@ export default function SettingsPage() {
                       disabled={streamingUpdateBusy}
                       onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
                     />
-                    {getStreamingLogo(service.id) ? (
-                      <img src={getStreamingLogo(service.id)} alt={service.name} className="h-5 w-5 object-contain" />
-                    ) : (
-                      <span className="text-gray-500 text-xs">?</span>
-                    )}
+                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                      {getStreamingLogo(service.id) ? (
+                        <img
+                          src={getStreamingLogo(service.id)}
+                          alt={service.name}
+                          className="h-4 w-4 object-contain"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-slate-500">?</span>
+                      )}
+                    </span>
                     <span>{service.name}</span>
                   </label>
                 ))}
