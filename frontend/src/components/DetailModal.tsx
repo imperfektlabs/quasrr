@@ -25,6 +25,7 @@ type DetailModalProps = {
   mode: 'ai' | 'discovery' | 'library'
   // AI mode props
   plan?: AIIntentPlan
+  aiResult?: DiscoveryResult
   releaseData?: ReleaseResponse | null
   busy?: boolean
   error?: string | null
@@ -46,6 +47,7 @@ type DetailModalProps = {
 export function DetailModal({
   mode,
   plan,
+  aiResult,
   result,
   libraryItem,
   releaseData,
@@ -775,6 +777,7 @@ export function DetailModal({
     displayTitle = availability?.title || intent?.title || plan?.query || 'Unknown'
     metadata = `${availabilityYearLabel || 'Unknown year'}${intent?.media_type && intent.media_type !== 'unknown' ? ` • ${intent.media_type}` : ''}`
     overview = availability?.overview
+    if (aiResult?.status) status = aiResult.status
 
     // AI-specific chips
     if (releaseData?.requested_season || intent?.season) {

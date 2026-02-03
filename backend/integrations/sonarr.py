@@ -749,11 +749,17 @@ class SonarrClient:
 
             # Determine library status
             if library_series:
-                # Check if any episodes have files
                 stats = library_series.get("statistics", {})
-                episode_file_count = stats.get("episodeFileCount", 0)
-                if episode_file_count > 0:
+                episode_file_count = stats.get("episodeFileCount", 0) or 0
+                total_episode_count = (
+                    stats.get("totalEpisodeCount")
+                    or stats.get("episodeCount")
+                    or 0
+                )
+                if total_episode_count > 0 and episode_file_count >= total_episode_count:
                     status = "downloaded"
+                elif episode_file_count > 0:
+                    status = "partial"
                 else:
                     status = "in_library"
             else:
