@@ -60,7 +60,7 @@ export type ConfigStatus = {
 
 export type SearchType = 'movie' | 'tv'
 export type SearchFilterType = 'all' | SearchType
-export type SearchStatusFilter = 'all' | 'not_in_library' | 'in_library' | 'downloaded'
+export type SearchStatusFilter = 'all' | 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
 export type SearchSortField =
   | 'added'
   | 'imdbRating'
@@ -95,7 +95,7 @@ export type DiscoveryResult = {
   ended?: boolean
   overview?: string
   poster?: string
-  status: 'not_in_library' | 'in_library' | 'downloaded'
+  status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
   tmdb_id?: number
   imdb_id?: string
   runtime?: number
@@ -316,6 +316,7 @@ export type SonarrLibraryItem = {
   seasonCount?: number
   episodeCount?: number
   episodeFileCount?: number
+  totalEpisodeCount?: number
   sizeOnDisk?: number
   tvdbId?: number
   imdbId?: string
