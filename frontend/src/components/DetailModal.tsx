@@ -17,7 +17,7 @@ import { getRatingLink, formatSeriesYearSpan, formatSize, getReleaseKey } from '
 import { getStreamingLogoForProvider } from '@/utils/streaming'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
-import { DownloadIcon } from './Icons'
+import { DownloadIcon, SearchIcon } from './Icons'
 
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 
@@ -1023,7 +1023,7 @@ export function DetailModal({
                       : 'hover:bg-slate-700/60'
                     }`}
                   >
-                    ⌕
+                    <SearchIcon className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
@@ -1106,7 +1106,7 @@ export function DetailModal({
                                 : 'hover:bg-slate-700/60'
                               }`}
                             >
-                              ⌕
+                              <SearchIcon className="h-3.5 w-3.5" />
                             </button>
                             {isConfirmingDelete ? (
                               <>
@@ -1278,7 +1278,7 @@ export function DetailModal({
             aria-label="Search All"
             className="h-6 w-6 inline-flex items-center justify-center bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 rounded text-xs font-medium transition-colors"
           >
-            ⌕
+            <SearchIcon className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"

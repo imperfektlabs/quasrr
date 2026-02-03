@@ -48,6 +48,7 @@ import {
   TvIcon,
   ArrowUpLineIcon,
   ArrowDownLineIcon,
+  SearchIcon,
 } from '@/components'
 
 function HomeContent() {
@@ -776,7 +777,7 @@ function HomeContent() {
                   className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1.5 rounded text-xs font-semibold transition-colors inline-flex items-center justify-center"
                   aria-label="Search"
                 >
-                  {submittingSearch || searching || aiIntentBusy ? '...' : '⌕'}
+                  {submittingSearch || searching || aiIntentBusy ? '...' : <SearchIcon className="h-4 w-4" />}
                 </button>
               </div>
 
