@@ -9,6 +9,8 @@ import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
 import { MediaCard } from '@/components/MediaCard'
 import { DetailModal } from '@/components/DetailModal'
+import { ArrowDownLineIcon, ArrowUpLineIcon, DriveStackIcon, EyeIcon, ProjectorIcon, TvIcon } from '@/components/Icons'
+import { SearchPanel } from '@/components/SearchPanel'
 
 type ConfigResponse = {
   streaming_services?: StreamingService[]
@@ -17,9 +19,14 @@ type ConfigResponse = {
     radarr_url?: string
     sabnzbd_url?: string
   }
+  layout?: {
+    discovery_search_position?: 'top' | 'bottom'
+    library_search_position?: 'top' | 'bottom'
+  }
 }
 
 type MediaType = 'movies' | 'tv'
+type MediaTypeFilter = 'all' | MediaType
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 type RawLibraryItem = SonarrLibraryItem | RadarrLibraryItem
 
@@ -39,17 +46,21 @@ function LibraryContent() {
   const [searchText, setSearchText] = useState('')
   const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
   const [filterModes, setFilterModes] = useState<Set<'downloaded' | 'missing' | 'monitored' | 'unmonitored'>>(new Set())
-  const [mediaTypes, setMediaTypes] = useState<Set<MediaType>>(() => {
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaTypeFilter>(() => {
     const type = searchParams.get('type')
     if (type === 'movies' || type === 'tv') {
-      return new Set<MediaType>([type])
+      return type
     }
-    return new Set<MediaType>(['movies', 'tv'])
+    return 'all'
   })
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
   const [autoSearch, setAutoSearch] = useState(false)
   const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const librarySearchAtBottom = (config?.layout?.library_search_position ?? 'top') === 'bottom'
+  const librarySearchStickyClass = librarySearchAtBottom
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 md:px-8'
+    : 'sticky top-16'
 
   useEffect(() => {
     let active = true
@@ -105,9 +116,9 @@ function LibraryContent() {
   useEffect(() => {
     const type = searchParams.get('type')
     if (type === 'movies' || type === 'tv') {
-      setMediaTypes(new Set<MediaType>([type]))
+      setMediaTypeFilter(type)
     } else {
-      setMediaTypes(new Set<MediaType>(['movies', 'tv']))
+      setMediaTypeFilter('all')
     }
   }, [searchParams])
 
@@ -133,7 +144,7 @@ function LibraryContent() {
       if (normalizedQuery && !item.title.toLowerCase().includes(normalizedQuery)) {
         return false
       }
-      if (!mediaTypes.has(item.mediaType)) {
+      if (mediaTypeFilter !== 'all' && item.mediaType !== mediaTypeFilter) {
         return false
       }
 
@@ -187,7 +198,7 @@ function LibraryContent() {
       return (left - right) * (sortDir === 'asc' ? 1 : -1)
     })
     return next
-  }, [combinedItems, sortField, sortDir, searchText, filterModes, mediaTypes])
+  }, [combinedItems, sortField, sortDir, searchText, filterModes, mediaTypeFilter])
 
   const totalSize = useMemo(
     () => sortedItems.reduce((sum, item) => sum + (item.sizeOnDisk || 0), 0),
@@ -217,37 +228,20 @@ function LibraryContent() {
     [sortedItems]
   )
 
-  const updateMediaTypes = (updater: (prev: Set<MediaType>) => Set<MediaType>) => {
-    setMediaTypes((prev) => {
-      const next = updater(prev)
-      const params = new URLSearchParams(searchParams.toString())
-      if (next.size === 1) {
-        const [only] = Array.from(next.values())
-        params.set('type', only)
-      } else {
-        params.delete('type')
-      }
-      const newUrl = params.toString() ? `?${params.toString()}` : '/library'
-      router.push(newUrl)
-      return next
-    })
-  }
-
-  const toggleMediaType = (type: MediaType) => {
-    updateMediaTypes((prev) => {
-      const next = new Set(prev)
-      if (next.has(type)) {
-        if (next.size === 1) return next
-        next.delete(type)
-      } else {
-        next.add(type)
-      }
-      return next
-    })
+  const updateMediaTypeFilter = (next: MediaTypeFilter) => {
+    setMediaTypeFilter(next)
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'all') {
+      params.delete('type')
+    } else {
+      params.set('type', next)
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : '/library'
+    router.push(newUrl)
   }
 
   const handleTypeToggle = (type: 'movie' | 'tv') => {
-    toggleMediaType(type === 'movie' ? 'movies' : 'tv')
+    updateMediaTypeFilter(type === 'movie' ? 'movies' : 'tv')
   }
 
   const toggleFilterMode = (mode: 'downloaded' | 'missing' | 'monitored' | 'unmonitored') => {
@@ -271,6 +265,24 @@ function LibraryContent() {
     setSelectedItem(null)
   }
 
+  const updateLibrarySearchPosition = async (next: 'top' | 'bottom') => {
+    try {
+      const backendUrl = getBackendUrl()
+      const res = await fetch(`${backendUrl}/config/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          layout: { library_search_position: next },
+        }),
+      })
+      if (!res.ok) return
+      const updated = await res.json()
+      setConfig(updated.config)
+    } catch {
+      // Ignore layout update errors.
+    }
+  }
+
   useEffect(() => {
     if (loading) return
     const q = (searchParams.get('q') || '').toLowerCase()
@@ -287,11 +299,11 @@ function LibraryContent() {
       const found = radarrItems.find((item) => item.tmdbId === tmdb)
       match = found ? { ...found, mediaType: 'movies' as const } : undefined
     } else if (q) {
-      const pool: RawLibraryItem[] = mediaTypes.size === 1
-        ? mediaTypes.has('tv')
-          ? sonarrItems
-          : radarrItems
-        : [...sonarrItems, ...radarrItems]
+      const pool: RawLibraryItem[] = mediaTypeFilter === 'tv'
+        ? sonarrItems
+        : mediaTypeFilter === 'movies'
+          ? radarrItems
+          : [...sonarrItems, ...radarrItems]
       const found = pool.find((item) => item.title.toLowerCase().includes(q))
       match = found ? toLibraryItem(found) : undefined
     }
@@ -304,10 +316,10 @@ function LibraryContent() {
           setAutoExpandSeason(null)
         }
       }
-  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypes])
+  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter])
 
   return (
-    <main className="min-h-screen pt-24 px-4 pb-8 md:px-8">
+    <main className="min-h-screen pt-16 px-4 pb-8 md:px-8">
       <NavigationMenu
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
@@ -318,177 +330,246 @@ function LibraryContent() {
       />
 
       <div className="max-w-5xl mx-auto space-y-4">
-        <section className="space-y-3">
-          <div className="sticky top-20 z-20">
-            <div className="glass-panel rounded-lg p-3 space-y-3">
-              <div className="space-y-2 text-xs text-slate-300">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-base font-semibold text-slate-100">
-                      {mediaTypes.size === 1 ? (mediaTypes.has('movies') ? 'Movies' : 'Series') : 'Library'}
+        <section className={`space-y-3 ${librarySearchAtBottom ? 'pb-28' : ''}`}>
+          {(() => {
+            const searchPanel = (
+              <SearchPanel
+                stickyClass={librarySearchStickyClass}
+                headerTitle={mediaTypeFilter === 'all' ? 'Library' : (mediaTypeFilter === 'movies' ? 'Movies' : 'Series')}
+                headerCount={sortedItems.length}
+                headerRight={(
+                  <>
+                    <span
+                      className="glass-chip px-2 py-1 rounded inline-flex items-center gap-1"
+                      title="Total size"
+                    >
+                      <DriveStackIcon className="h-3.5 w-3.5" />
+                      <span>{formatSize(totalSize)}</span>
                     </span>
-                    <span className="text-xl font-semibold text-slate-100">{sortedItems.length}</span>
-                  </div>
-                  <span>Total size: {formatSize(totalSize)}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('downloaded')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('downloaded')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Downloaded: {totalDownloaded}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('missing')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('missing')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Missing: {totalMissing}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFilterMode('monitored')}
-                    className={`glass-chip px-2 py-1 rounded transition ${
-                      filterModes.has('monitored')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Monitored: {totalMonitored}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => toggleMediaType('movies')}
-                    className={`px-2.5 py-1 rounded transition ${
-                      mediaTypes.has('movies')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    Movies
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleMediaType('tv')}
-                    className={`px-2.5 py-1 rounded transition ${
-                      mediaTypes.has('tv')
-                        ? 'bg-cyan-500/80 text-white'
-                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
-                    }`}
-                  >
-                    TV
-                  </button>
-                </div>
-                <div className="relative flex-1 min-w-0">
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchText}
-                    onChange={(event) => setSearchText(event.target.value)}
-                    placeholder="Search library..."
-                    className="w-full min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 pr-8 text-md text-slate-200 placeholder-slate-500"
-                  />
-                  {searchText && (
                     <button
                       type="button"
-                      onClick={() => setSearchText('')}
-                      aria-label="Clear search"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center text-slate-400 hover:text-slate-200"
+                      onClick={() => toggleFilterMode('downloaded')}
+                      className={`glass-chip px-2 py-1 rounded transition ${
+                        filterModes.has('downloaded')
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="Downloaded"
+                      aria-pressed={filterModes.has('downloaded')}
+                      aria-label={`Downloaded: ${totalDownloaded}`}
                     >
-                      ✕
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden="true">✓</span>
+                        <span>{totalDownloaded}</span>
+                      </span>
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => toggleFilterMode('missing')}
+                      className={`glass-chip px-2 py-1 rounded transition ${
+                        filterModes.has('missing')
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="Missing"
+                      aria-pressed={filterModes.has('missing')}
+                      aria-label={`Missing: ${totalMissing}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden="true">○</span>
+                        <span>{totalMissing}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleFilterMode('monitored')}
+                      className={`glass-chip px-2 py-1 rounded transition ${
+                        filterModes.has('monitored')
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="Monitored"
+                      aria-pressed={filterModes.has('monitored')}
+                      aria-label={`Monitored: ${totalMonitored}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <EyeIcon className="h-3.5 w-3.5" />
+                        <span>{totalMonitored}</span>
+                      </span>
+                    </button>
+                  </>
+                )}
+                toggle={{
+                  onClick: () => {
+                    const next = librarySearchAtBottom ? 'top' : 'bottom'
+                    void updateLibrarySearchPosition(next)
+                  },
+                  title: librarySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom',
+                  ariaLabel: librarySearchAtBottom ? 'Pin search to top' : 'Pin search to bottom',
+                  icon: librarySearchAtBottom ? (
+                    <ArrowUpLineIcon className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownLineIcon className="h-4 w-4" />
+                  ),
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => updateMediaTypeFilter('all')}
+                      className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                        mediaTypeFilter === 'all'
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="All"
+                      aria-label="All"
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateMediaTypeFilter('movies')}
+                      className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                        mediaTypeFilter === 'movies'
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="Movies"
+                      aria-label="Movies"
+                    >
+                      <ProjectorIcon className="h-5 w-5" />
+                      <span className="sr-only">Movies</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateMediaTypeFilter('tv')}
+                      className={`px-2.5 py-1 rounded transition inline-flex items-center justify-center ${
+                        mediaTypeFilter === 'tv'
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/60'
+                      }`}
+                      title="TV Shows"
+                      aria-label="TV Shows"
+                    >
+                      <TvIcon className="h-5 w-5" />
+                      <span className="sr-only">TV</span>
+                    </button>
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchText}
+                      onChange={(event) => setSearchText(event.target.value)}
+                      placeholder="Search library..."
+                      className="w-full min-w-0 bg-slate-900/60 border border-slate-700/60 rounded px-3 py-1.5 pr-8 text-md text-slate-200 placeholder-slate-500"
+                    />
+                    {searchText && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchText('')}
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center text-slate-400 hover:text-slate-200"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <details>
-                <summary className="text-xs text-slate-300 cursor-pointer select-none">
-                  Filters/Sorting
-                </summary>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {(['downloaded', 'missing', 'monitored', 'unmonitored'] as const).map((mode) => (
-                      <label key={mode} className="flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={filterModes.has(mode)}
-                          onChange={() => toggleFilterMode(mode)}
-                        />
-                        <span className="capitalize">{mode}</span>
-                      </label>
+                <details>
+                  <summary className="text-xs text-slate-300 cursor-pointer select-none">
+                    Filters/Sorting
+                  </summary>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {(['downloaded', 'missing', 'monitored', 'unmonitored'] as const).map((mode) => (
+                        <label key={mode} className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={filterModes.has(mode)}
+                            onChange={() => toggleFilterMode(mode)}
+                          />
+                          <span className="capitalize">{mode}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <label className="text-slate-400">Sort</label>
+                    <select
+                      value={sortField}
+                      onChange={(event) => setSortField(event.target.value as typeof sortField)}
+                      className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
+                    >
+                      <option value="added">Added</option>
+                      <option value="imdbRating">IMDb Rating</option>
+                      <option value="popularity">Popularity</option>
+                      <option value="releaseDate">Release Date</option>
+                      <option value="size">Size on Disk</option>
+                      <option value="title">Title</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                      className="px-2 py-1 rounded bg-slate-800/60"
+                    >
+                      {sortDir === 'asc' ? 'Asc' : 'Desc'}
+                    </button>
+                  </div>
+                </details>
+              </SearchPanel>
+            )
+
+            const listContent = (
+              <>
+                {loading && <div className="text-slate-300">Loading library...</div>}
+                {error && <div className="text-amber-300">Error: {error}</div>}
+                {!loading && !error && sortedItems.length === 0 && (
+                  <div className="text-slate-400">No items found.</div>
+                )}
+
+                {!loading && !error && sortedItems.length > 0 && (
+                  <div className="grid gap-2">
+                    {sortedItems.map((item) => (
+                      <MediaCard
+                        key={`${item.mediaType}-${item.id}`}
+                        item={{ source: 'library', data: item }}
+                        onClick={() => {
+                          setSelectedItem(item)
+                          setAutoSearch(false)
+                          setAutoDeleteOpen(false)
+                        }}
+                        onLibrarySearch={() => {
+                          setSelectedItem(item)
+                          setAutoSearch(true)
+                          setAutoDeleteOpen(false)
+                        }}
+                        onLibraryDelete={() => {
+                          setSelectedItem(item)
+                          setAutoSearch(false)
+                          setAutoDeleteOpen(true)
+                        }}
+                        onTypeToggle={handleTypeToggle}
+                      />
                     ))}
                   </div>
-                  <label className="text-slate-400">Sort</label>
-                  <select
-                    value={sortField}
-                    onChange={(event) => setSortField(event.target.value as typeof sortField)}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-xs"
-                  >
-                    <option value="added">Added</option>
-                    <option value="imdbRating">IMDb Rating</option>
-                    <option value="popularity">Popularity</option>
-                    <option value="releaseDate">Release Date</option>
-                    <option value="size">Size on Disk</option>
-                    <option value="title">Title</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                    className="px-2 py-1 rounded bg-slate-800/60"
-                  >
-                    {sortDir === 'asc' ? 'Asc' : 'Desc'}
-                  </button>
-                </div>
-              </details>
-            </div>
-          </div>
+                )}
+              </>
+            )
 
-          {loading && <div className="text-slate-300">Loading library...</div>}
-          {error && <div className="text-amber-300">Error: {error}</div>}
-          {!loading && !error && sortedItems.length === 0 && (
-            <div className="text-slate-400">No items found.</div>
-          )}
-
-          {!loading && !error && sortedItems.length > 0 && (
-            <div className="grid gap-2">
-              {sortedItems.map((item) => (
-                <MediaCard
-                  key={`${item.mediaType}-${item.id}`}
-                  item={{ source: 'library', data: item }}
-                  onClick={() => {
-                    setSelectedItem(item)
-                    setAutoSearch(false)
-                    setAutoDeleteOpen(false)
-                  }}
-                  onLibrarySearch={() => {
-                    setSelectedItem(item)
-                    setAutoSearch(true)
-                    setAutoDeleteOpen(false)
-                  }}
-                  onLibraryDelete={() => {
-                    setSelectedItem(item)
-                    setAutoSearch(false)
-                    setAutoDeleteOpen(true)
-                  }}
-                  onTypeToggle={handleTypeToggle}
-                />
-              ))}
-            </div>
-          )}
+            return librarySearchAtBottom ? (
+              <>
+                {listContent}
+                {searchPanel}
+              </>
+            ) : (
+              <>
+                {searchPanel}
+                {listContent}
+              </>
+            )
+          })()}
         </section>
       </div>
 
@@ -514,7 +595,7 @@ function LibraryContent() {
 
 export default function LibraryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen pt-24 px-4 pb-8 md:px-8 text-slate-300">Loading library...</div>}>
+    <Suspense fallback={<div className="min-h-screen pt-16 px-4 pb-8 md:px-8 text-slate-300">Loading library...</div>}>
       <LibraryContent />
     </Suspense>
   )

@@ -22,6 +22,10 @@ export type SettingsResult = {
   setShowPlex: (next: boolean) => void
   sabRecentLimit: number
   setSabRecentLimit: (next: number) => void
+  discoverySearchPosition: 'top' | 'bottom'
+  setDiscoverySearchPosition: (next: 'top' | 'bottom') => void
+  librarySearchPosition: 'top' | 'bottom'
+  setLibrarySearchPosition: (next: 'top' | 'bottom') => void
   saving: boolean
   error: string | null
   saved: boolean
@@ -39,6 +43,8 @@ export type SettingsResult = {
     country: string
     ai_provider: string
     sab_recent_group_limit: number
+    discovery_search_position: 'top' | 'bottom'
+    library_search_position: 'top' | 'bottom'
   }>) => Promise<void>
 }
 
@@ -58,6 +64,8 @@ export function useSettings(
   const [showSabnzbd, setShowSabnzbd] = useState(true)
   const [showPlex, setShowPlex] = useState(false)
   const [sabRecentLimit, setSabRecentLimit] = useState(10)
+  const [discoverySearchPosition, setDiscoverySearchPosition] = useState<'top' | 'bottom'>('top')
+  const [librarySearchPosition, setLibrarySearchPosition] = useState<'top' | 'bottom'>('top')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -75,6 +83,8 @@ export function useSettings(
       setShowSabnzbd(config.dashboard.show_sabnzbd)
       setShowPlex(config.dashboard.show_plex)
       setSabRecentLimit(config.sabnzbd?.recent_group_limit ?? 10)
+      setDiscoverySearchPosition(config.layout?.discovery_search_position ?? 'top')
+      setLibrarySearchPosition(config.layout?.library_search_position ?? 'top')
     }
   }, [config])
 
@@ -170,6 +180,8 @@ export function useSettings(
     country: string
     ai_provider: string
     sab_recent_group_limit: number
+    discovery_search_position: 'top' | 'bottom'
+    library_search_position: 'top' | 'bottom'
   }>) => {
     setSaving(true)
     setError(null)
@@ -178,6 +190,8 @@ export function useSettings(
     const nextCountry = next?.country ?? country
     const nextAiProvider = next?.ai_provider ?? aiProvider
     const nextSabRecentLimit = next?.sab_recent_group_limit ?? sabRecentLimit
+    const nextDiscoverySearchPosition = next?.discovery_search_position ?? discoverySearchPosition
+    const nextLibrarySearchPosition = next?.library_search_position ?? librarySearchPosition
 
     try {
       const backendUrl = getBackendUrl()
@@ -187,6 +201,10 @@ export function useSettings(
         body: JSON.stringify({
           country: nextCountry,
           ai_provider: nextAiProvider,
+          layout: {
+            discovery_search_position: nextDiscoverySearchPosition,
+            library_search_position: nextLibrarySearchPosition,
+          },
           sabnzbd: {
             recent_group_limit: nextSabRecentLimit,
           },
@@ -227,6 +245,10 @@ export function useSettings(
     setShowPlex,
     sabRecentLimit,
     setSabRecentLimit,
+    discoverySearchPosition,
+    setDiscoverySearchPosition,
+    librarySearchPosition,
+    setLibrarySearchPosition,
     saving,
     error,
     saved,
