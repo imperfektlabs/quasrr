@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { StreamingService, ConfigStatus } from '@/types'
 import { getStreamingLogo, getStreamingLink } from '@/utils/streaming'
+import { SearchIcon } from './Icons'
 
 type MenuItem = {
   key: string
@@ -123,10 +124,7 @@ export function NavigationMenu({
               currentPage === 'home' ? 'bg-slate-700/60' : 'bg-slate-800/50 hover:bg-slate-700/60'
             }`}
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="16.5" y1="16.5" x2="21" y2="21" />
-            </svg>
+            <SearchIcon className="h-4 w-4" />
             <span>Search</span>
           </button>
 
