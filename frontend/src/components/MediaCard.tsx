@@ -5,7 +5,7 @@ import type { DiscoveryResult, SonarrLibraryItem, RadarrLibraryItem } from '@/ty
 import { formatSeriesYearSpan, formatSize, getRatingLink } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
-import { ProjectorIcon, TvIcon } from './Icons'
+import { ProjectorIcon, TvIcon, SearchIcon } from './Icons'
 
 // Discriminated union for all media item types
 type MediaItem =
@@ -202,7 +202,7 @@ export function MediaCard({
               title="Search All"
               aria-label="Search All"
             >
-              ⌕
+              <SearchIcon className="h-3.5 w-3.5" />
             </button>
           )}
           <button
