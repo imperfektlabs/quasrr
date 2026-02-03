@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 
 import { useBackendApiSetup, useSettings, useClickOutside } from '@/hooks'
+import { getLocalToolUrl } from '@/utils/backend'
 import { NavigationMenu } from '@/components'
 import { getStreamingLogo } from '@/utils/streaming'
 
@@ -54,7 +55,25 @@ export default function SettingsPage() {
     { id: 'deepseek', label: 'DeepSeek' },
     { id: 'anthropic', label: 'Anthropic' },
     { id: 'local', label: 'Local' },
-  ]
+  ].sort((a, b) => a.label.localeCompare(b.label))
+
+  const purchaseProviderIds = new Set(['apple_tv_store', 'amazon_video', 'google_play_movies', 'youtube'])
+  const streamingServices = [...(config?.streaming_services ?? [])]
+  const sortedStreamingServices = streamingServices
+    .filter((service) => !purchaseProviderIds.has(service.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .concat(
+      streamingServices
+        .filter((service) => purchaseProviderIds.has(service.id))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    )
+
+  const toolLinks = {
+    sonarr: config?.integrations?.sonarr_url || getLocalToolUrl(8989),
+    radarr: config?.integrations?.radarr_url || getLocalToolUrl(7878),
+    sabnzbd: config?.integrations?.sabnzbd_url || getLocalToolUrl(8080),
+    plex: config?.integrations?.plex_url || getLocalToolUrl(32400, '/web'),
+  }
 
   const selectedProviderAvailable = settingsAiProvider
     ? availableAiProviderSet.has(settingsAiProvider)
@@ -129,7 +148,7 @@ export default function SettingsPage() {
                   onBlur={() => {
                     void saveSettings()
                   }}
-                  className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  className="h-9 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 text-sm leading-none"
                 />
               </label>
               <div className="grid gap-1">
@@ -203,10 +222,17 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_sonarr: next })
                     }}
                   />
-                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
-                    <img src={toolIcons.sonarr} alt="Sonarr" className="h-4 w-4 object-contain" />
-                  </span>
-                  <span>Sonarr</span>
+                  <a
+                    href={toolLinks.sonarr}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
+                  >
+                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                      <img src={toolIcons.sonarr} alt="Sonarr" className="h-4 w-4 object-contain" />
+                    </span>
+                    <span>Sonarr</span>
+                  </a>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -218,10 +244,17 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_radarr: next })
                     }}
                   />
-                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
-                    <img src={toolIcons.radarr} alt="Radarr" className="h-4 w-4 object-contain" />
-                  </span>
-                  <span>Radarr</span>
+                  <a
+                    href={toolLinks.radarr}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
+                  >
+                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                      <img src={toolIcons.radarr} alt="Radarr" className="h-4 w-4 object-contain" />
+                    </span>
+                    <span>Radarr</span>
+                  </a>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -233,10 +266,17 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_sabnzbd: next })
                     }}
                   />
-                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
-                    <img src={toolIcons.sabnzbd} alt="SABnzbd" className="h-4 w-4 object-contain" />
-                  </span>
-                  <span>SABnzbd</span>
+                  <a
+                    href={toolLinks.sabnzbd}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
+                  >
+                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                      <img src={toolIcons.sabnzbd} alt="SABnzbd" className="h-4 w-4 object-contain" />
+                    </span>
+                    <span>SABnzbd</span>
+                  </a>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -248,10 +288,17 @@ export default function SettingsPage() {
                       void saveDashboardSettings({ show_plex: next })
                     }}
                   />
-                  <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
-                    <img src={toolIcons.plex} alt="Plex" className="h-4 w-4 object-contain" />
-                  </span>
-                  <span>Plex</span>
+                  <a
+                    href={toolLinks.plex}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
+                  >
+                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                      <img src={toolIcons.plex} alt="Plex" className="h-4 w-4 object-contain" />
+                    </span>
+                    <span>Plex</span>
+                  </a>
                 </label>
               </div>
             </div>
@@ -324,7 +371,7 @@ export default function SettingsPage() {
                 <div className="text-xs text-red-400 mb-2">Error: {streamingUpdateError}</div>
               )}
               <div className="grid grid-cols-2 gap-2 text-sm">
-                {config.streaming_services.map((service) => (
+                {sortedStreamingServices.map((service) => (
                   <label key={service.id} className="flex items-center gap-2">
                     <input
                       type="checkbox"
