@@ -181,6 +181,36 @@ class RadarrClient:
             logger.error(f"Radarr connection error: {e}")
             return {"status": "error", "message": str(e)}
 
+    async def get_health_issues(self) -> list[dict]:
+        if not self.is_configured:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/health",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                data = response.json() or []
+                issues = []
+                for item in data:
+                    if not isinstance(item, dict):
+                        continue
+                    message = item.get("message")
+                    if not message:
+                        continue
+                    issues.append({
+                        "level": item.get("level") or item.get("type"),
+                        "message": message,
+                        "source": item.get("source"),
+                    })
+                return issues
+        except Exception as e:
+            logger.error(f"Radarr health check error: {e}")
+            return [{"level": "error", "message": "Health check failed"}]
+
+
     async def lookup_movie(self, term: str) -> list[dict]:
         """Search for a movie by name."""
         if not self.is_configured:

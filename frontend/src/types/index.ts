@@ -45,6 +45,10 @@ export type ConfigStatus = {
     show_sabnzbd: boolean
     show_plex: boolean
   }
+  layout?: {
+    discovery_search_position: 'top' | 'bottom'
+    library_search_position: 'top' | 'bottom'
+  }
   sabnzbd: {
     recent_group_limit: number
   }
@@ -56,8 +60,17 @@ export type ConfigStatus = {
 
 export type SearchType = 'movie' | 'tv'
 export type SearchFilterType = 'all' | SearchType
-export type SearchStatusFilter = 'all' | 'not_in_library' | 'in_library' | 'downloaded'
-export type SearchSortField = 'relevance' | 'year' | 'title' | 'rating' | 'popularity'
+export type SearchStatusFilter = 'all' | 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
+export type SearchSortField =
+  | 'added'
+  | 'imdbRating'
+  | 'popularity'
+  | 'releaseDate'
+  | 'size'
+  | 'title'
+  | 'relevance'
+  | 'year'
+  | 'rating'
 export type SearchSortDirection = 'asc' | 'desc'
 
 export type Rating = {
@@ -82,7 +95,7 @@ export type DiscoveryResult = {
   ended?: boolean
   overview?: string
   poster?: string
-  status: 'not_in_library' | 'in_library' | 'downloaded'
+  status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
   tmdb_id?: number
   imdb_id?: string
   runtime?: number
@@ -303,6 +316,7 @@ export type SonarrLibraryItem = {
   seasonCount?: number
   episodeCount?: number
   episodeFileCount?: number
+  totalEpisodeCount?: number
   sizeOnDisk?: number
   tvdbId?: number
   imdbId?: string
@@ -318,6 +332,7 @@ export type SonarrLibraryItem = {
     seasonNumber?: number
     episodeCount?: number
     episodeFileCount?: number
+    totalEpisodeCount?: number
   }>
 }
 
@@ -336,16 +351,30 @@ export type SonarrEpisode = {
 // Integration Types
 // ============================================
 
+export type IntegrationHealthIssue = {
+  level?: string
+  message?: string
+  source?: string
+}
+
+export type IntegrationWarning = {
+  level?: string
+  message?: string
+}
+
 export type IntegrationStatus = {
   status: string
   message?: string
   version?: string
+  health?: IntegrationHealthIssue[]
+  warnings?: IntegrationWarning[]
 }
 
 export type IntegrationsStatus = {
   radarr: IntegrationStatus
   sonarr: IntegrationStatus
   sabnzbd: IntegrationStatus
+  plex: IntegrationStatus
 }
 
 // ============================================
