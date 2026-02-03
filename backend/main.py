@@ -745,7 +745,7 @@ async def delete_download_job(job_id: str):
 async def search(
     query: str = Query(..., min_length=1, description="Search term"),
     type: Optional[SearchType] = Query(None, description="Search type: movie or tv"),
-    status: Optional[Literal["not_in_library", "in_library", "downloaded"]] = Query(
+    status: Optional[Literal["not_in_library", "in_library", "partial", "downloaded"]] = Query(
         None, description="Filter by library status"
     ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),

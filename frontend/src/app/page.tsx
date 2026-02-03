@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
 // Type imports
 import type {
@@ -117,6 +117,26 @@ function HomeContent() {
     execute: executeAiIntent,
     clear: clearAiIntent,
   } = useAiIntentSearch(aiEnabled)
+
+  const aiModalResult = useMemo(() => {
+    if (!aiIntentPlan || !searchResults?.results?.length) return null
+    const intent = aiIntentPlan.intent
+    const availability = aiIntentPlan.availability
+    const results = searchResults.results
+
+    if (intent.media_type === 'movie' && availability?.tmdb_id) {
+      const match = results.find((item) => item.tmdb_id === availability.tmdb_id)
+      if (match) return match
+    }
+
+    const intentTitle = (availability?.title || intent.title || '').trim().toLowerCase()
+    if (intentTitle) {
+      const match = results.find((item) => (item.title || '').trim().toLowerCase() === intentTitle)
+      if (match) return match
+    }
+
+    return results[0] || null
+  }, [aiIntentPlan, searchResults])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -966,6 +986,7 @@ function HomeContent() {
         <DetailModal
           mode="ai"
           plan={aiIntentPlan}
+          aiResult={aiModalResult || undefined}
           releaseData={releaseData}
           busy={aiIntentBusy || aiModalSearchBusy}
           onConfirm={handleAiConfirm}
