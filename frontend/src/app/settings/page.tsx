@@ -174,7 +174,7 @@ export default function SettingsPage() {
                             void saveSettings({ ai_provider: provider.id })
                           }}
                         />
-                        <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                        <span className="h-6 w-6 inline-flex items-center justify-center">
                           {aiProviderIcons[provider.id] ? (
                             <img
                               src={aiProviderIcons[provider.id]}
@@ -228,7 +228,7 @@ export default function SettingsPage() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
                   >
-                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <span className="h-6 w-6 inline-flex items-center justify-center">
                       <img src={toolIcons.sonarr} alt="Sonarr" className="h-4 w-4 object-contain" />
                     </span>
                     <span>Sonarr</span>
@@ -250,7 +250,7 @@ export default function SettingsPage() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
                   >
-                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <span className="h-6 w-6 inline-flex items-center justify-center">
                       <img src={toolIcons.radarr} alt="Radarr" className="h-4 w-4 object-contain" />
                     </span>
                     <span>Radarr</span>
@@ -272,7 +272,7 @@ export default function SettingsPage() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
                   >
-                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <span className="h-6 w-6 inline-flex items-center justify-center">
                       <img src={toolIcons.sabnzbd} alt="SABnzbd" className="h-4 w-4 object-contain" />
                     </span>
                     <span>SABnzbd</span>
@@ -294,7 +294,7 @@ export default function SettingsPage() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
                   >
-                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <span className="h-6 w-6 inline-flex items-center justify-center">
                       <img src={toolIcons.plex} alt="Plex" className="h-4 w-4 object-contain" />
                     </span>
                     <span>Plex</span>
@@ -379,7 +379,7 @@ export default function SettingsPage() {
                       disabled={streamingUpdateBusy}
                       onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
                     />
-                    <span className="glass-chip h-6 w-6 inline-flex items-center justify-center rounded">
+                    <span className="h-6 w-6 inline-flex items-center justify-center">
                       {getStreamingLogo(service.id) ? (
                         <img
                           src={getStreamingLogo(service.id)}
