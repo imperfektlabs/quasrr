@@ -658,6 +658,7 @@ class SonarrClient:
                             "seasonCount": len(series.get("seasons", [])),
                             "episodeCount": stats.get("episodeCount", 0),
                             "episodeFileCount": stats.get("episodeFileCount", 0),
+                            "totalEpisodeCount": stats.get("totalEpisodeCount", stats.get("episodeCount", 0)),
                             "sizeOnDisk": stats.get("sizeOnDisk", 0),
                             "tvdbId": series.get("tvdbId"),
                             "imdbId": series.get("imdbId"),

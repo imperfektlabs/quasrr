@@ -758,7 +758,7 @@ export function DetailModal({
   let chips: React.ReactNode[] = []
   let ratings: React.ReactNode = null
   let genres: React.ReactNode = null
-  let status: 'not_in_library' | 'in_library' | 'downloaded' = 'not_in_library'
+  let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded' = 'not_in_library'
 
   if (mode === 'ai') {
     const availabilityYearLabel = intent?.media_type === 'tv'
@@ -841,11 +841,15 @@ export function DetailModal({
 
     // Library status
     if (libraryItem.mediaType === 'movies') {
-      status = libraryItem.hasFile ? 'downloaded' : 'not_in_library'
+      status = libraryItem.hasFile ? 'downloaded' : 'in_library'
     } else {
-      status = libraryItem.episodeCount && libraryItem.episodeFileCount === libraryItem.episodeCount
+      const totalEpisodes = libraryItem.totalEpisodeCount ?? libraryItem.episodeCount ?? 0
+      const downloadedEpisodes = libraryItem.episodeFileCount ?? 0
+      status = totalEpisodes > 0 && downloadedEpisodes >= totalEpisodes
         ? 'downloaded'
-        : 'not_in_library'
+        : downloadedEpisodes > 0
+          ? 'partial'
+          : 'in_library'
     }
 
     // Library chips
@@ -855,7 +859,12 @@ export function DetailModal({
       </span>
     )
     if (libraryItem.mediaType === 'tv') {
-      chips.push(<span key="eps" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.episodeFileCount || 0}/{libraryItem.episodeCount || 0} eps</span>)
+      const totalEpisodes = libraryItem.totalEpisodeCount ?? libraryItem.episodeCount ?? 0
+      chips.push(
+        <span key="eps" className="glass-chip px-2 py-1 rounded text-xs">
+          {libraryItem.episodeFileCount || 0}/{totalEpisodes} eps
+        </span>
+      )
     }
     chips.push(<span key="size" className="glass-chip px-2 py-1 rounded text-xs">{formatSize(libraryItem.sizeOnDisk)}</span>)
     if (libraryItem.path) chips.push(<span key="path" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.path}</span>)
