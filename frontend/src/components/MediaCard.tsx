@@ -39,7 +39,7 @@ export function MediaCard({
 
   // Determine media type and status
   let mediaType: 'movie' | 'tv'
-  let status: 'not_in_library' | 'in_library' | 'downloaded'
+  let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
   let statusBadge: React.ReactNode
   let metadata: React.ReactNode
   let actionButton: React.ReactNode
@@ -144,11 +144,19 @@ export function MediaCard({
     const libItem = item.data
     mediaType = libItem.mediaType === 'movies' ? 'movie' : 'tv'
 
-    const isDownloaded = libItem.mediaType === 'movies'
-      ? libItem.hasFile
-      : (libItem.episodeCount || 0) > 0 && libItem.episodeFileCount === libItem.episodeCount
-
-    status = isDownloaded ? 'downloaded' : 'not_in_library'
+    if (libItem.mediaType === 'movies') {
+      status = libItem.hasFile ? 'downloaded' : 'in_library'
+    } else {
+      const totalEpisodes = libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0
+      const downloadedEpisodes = libItem.episodeFileCount ?? 0
+      if (totalEpisodes > 0 && downloadedEpisodes >= totalEpisodes) {
+        status = 'downloaded'
+      } else if (downloadedEpisodes > 0) {
+        status = 'partial'
+      } else {
+        status = 'in_library'
+      }
+    }
 
     const libraryYearLabel = libItem.mediaType === 'tv'
       ? formatSeriesYearSpan({
@@ -186,7 +194,7 @@ export function MediaCard({
         </button>
         {libItem.mediaType === 'tv' && (
           <span className="glass-chip text-xs px-2 py-1 rounded">
-            {libItem.episodeFileCount || 0}/{libItem.episodeCount || 0} eps
+            {libItem.episodeFileCount || 0}/{libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0} eps
           </span>
         )}
         <span className="glass-chip text-xs px-2 py-1 rounded">{formatSize(libItem.sizeOnDisk)}</span>
