@@ -9,15 +9,21 @@ const statusConfig = {
   },
   'in_library': {
     text: 'In library (not downloaded)',
-    icon: '◐',
+    icon: '◉',
     bg: 'bg-violet-900/60',
     textColor: 'text-violet-200',
   },
+  'partial': {
+    text: 'In library (partial)',
+    icon: '◐',
+    bg: 'bg-teal-900/60',
+    textColor: 'text-teal-200',
+  },
   'downloaded': {
     text: 'In library (downloaded)',
-    icon: '✓',
-    bg: 'bg-cyan-900/60',
-    textColor: 'text-cyan-200',
+    icon: '●',
+    bg: 'bg-emerald-900/60',
+    textColor: 'text-emerald-200',
   },
 } as const
 
