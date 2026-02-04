@@ -15,6 +15,7 @@ import { useReleaseGrab } from '@/hooks'
 import { getBackendUrl } from '@/utils/backend'
 import { getRatingLink, formatSeriesYearSpan, formatSize, getReleaseKey } from '@/utils/formatting'
 import { getStreamingLogoForProvider } from '@/utils/streaming'
+import type { Rating } from '@/types'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
 import { DownloadIcon, SearchIcon } from './Icons'
@@ -761,6 +762,18 @@ export function DetailModal({
   let ratings: React.ReactNode = null
   let genres: React.ReactNode = null
   let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded' = 'not_in_library'
+  const ratingPriority = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes', 'metacritic']
+  const sortRatings = (list: Rating[]) => (
+    [...list].sort((a, b) => {
+      const aSource = a.source.toLowerCase()
+      const bSource = b.source.toLowerCase()
+      const aIndex = ratingPriority.indexOf(aSource)
+      const bIndex = ratingPriority.indexOf(bSource)
+      const normalizedA = aIndex === -1 ? ratingPriority.length : aIndex
+      const normalizedB = bIndex === -1 ? ratingPriority.length : bIndex
+      return normalizedA - normalizedB
+    })
+  )
 
   if (mode === 'ai') {
     const availabilityYearLabel = intent?.media_type === 'tv'
@@ -787,6 +800,16 @@ export function DetailModal({
     }
     if (intent?.episode_date) chips.push(<span key="date" className="glass-chip px-2 py-1 rounded text-xs">{intent.episode_date}</span>)
     if (intent?.quality) chips.push(<span key="quality" className="glass-chip px-2 py-1 rounded text-xs">{intent.quality}</span>)
+
+    if (aiResult?.ratings && aiResult.ratings.length > 0) {
+      ratings = (
+        <div className="flex flex-wrap gap-2">
+          {sortRatings(aiResult.ratings)
+            .filter((r) => r.source.toLowerCase() !== 'trakt')
+            .map((r) => <RatingBadge key={r.source} rating={r} href={getRatingLink(aiResult, r)} />)}
+        </div>
+      )
+    }
   } else if (mode === 'discovery' && result) {
     const discoveryYearLabel = result.type === 'tv'
       ? formatSeriesYearSpan({
@@ -811,7 +834,7 @@ export function DetailModal({
     if (result.ratings && result.ratings.length > 0) {
       ratings = (
         <div className="flex flex-wrap gap-2">
-          {result.ratings
+          {sortRatings(result.ratings)
             .filter((r) => r.source.toLowerCase() !== 'trakt')
             .map((r) => <RatingBadge key={r.source} rating={r} href={getRatingLink(result, r)} />)}
         </div>
@@ -872,6 +895,35 @@ export function DetailModal({
     chips.push(<span key="size" className="glass-chip px-2 py-1 rounded text-xs">{formatSize(libraryItem.sizeOnDisk)}</span>)
     if (libraryItem.path) chips.push(<span key="path" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.path}</span>)
     chips.push(<span key="monitored" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.monitored ? 'Monitored' : 'Unmonitored'}</span>)
+
+    const libraryRatings = (libraryItem.ratings && libraryItem.ratings.length > 0)
+      ? libraryItem.ratings
+      : (libraryItem.imdbRating ? [{ source: 'imdb', value: libraryItem.imdbRating }] : [])
+    if (libraryRatings.length > 0) {
+      ratings = (
+        <div className="flex flex-wrap gap-2">
+          {sortRatings(libraryRatings)
+            .filter((r) => r.source.toLowerCase() !== 'trakt')
+            .map((r) => {
+              const source = r.source.toLowerCase()
+              let href: string | null = null
+              if (source === 'imdb' && libraryItem.imdbId) {
+                href = `https://www.imdb.com/title/${libraryItem.imdbId}/`
+              } else if (source === 'tmdb' && libraryItem.mediaType === 'movies' && libraryItem.tmdbId) {
+                href = `https://www.themoviedb.org/movie/${libraryItem.tmdbId}`
+              } else if (source === 'tvdb') {
+                href = `https://thetvdb.com/search?query=${encodeURIComponent(libraryItem.title)}`
+              } else if (source === 'rottentomatoes') {
+                href = `https://www.rottentomatoes.com/search?search=${encodeURIComponent(libraryItem.title)}`
+              } else if (source === 'metacritic') {
+                const typePath = libraryItem.mediaType === 'movies' ? 'movie' : 'tv'
+                href = `https://www.metacritic.com/search/${typePath}/${encodeURIComponent(libraryItem.title)}/results`
+              }
+              return <RatingBadge key={r.source} rating={r} href={href} />
+            })}
+        </div>
+      )
+    }
   }
 
   // ============================================
