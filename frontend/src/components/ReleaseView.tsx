@@ -10,8 +10,8 @@ import type {
   SeasonProgress,
   DiscoveryResult,
 } from '@/types'
-import { getReleaseKey } from '@/utils/formatting'
-import { DownloadIcon, DownloadAllIcon } from './Icons'
+import { getReleaseKey, isReleaseTitleMatch } from '@/utils/formatting'
+import { DownloadIcon, DownloadAllIcon, DriveStackIcon } from './Icons'
 import { StatusBadge } from './StatusBadge'
 
 // Check for size red flags per PROJECT_BRIEF
@@ -139,6 +139,15 @@ export function ReleaseView({
   const requestedSeason = data.requested_season
   const requestedEpisode = data.requested_episode
   const posterUrl = data.poster || result?.poster
+  const onDiskCandidates = [
+    data.episode_file?.sceneName,
+    data.episode_file?.relativePath,
+    data.episode_file?.path,
+    data.movie_file?.sceneName,
+    data.movie_file?.relativePath,
+    data.movie_file?.path,
+  ]
+  const isReleaseOnDisk = (release: Release) => isReleaseTitleMatch(release.title, onDiskCandidates)
 
   useEffect(() => {
     if (isEmbedded) return
@@ -409,7 +418,7 @@ export function ReleaseView({
   }
 
   const openGrabAllModal = (releases: Release[]) => {
-    const eligible = releases.filter((release) => release.guid && release.indexer_id)
+    const eligible = releases.filter((release) => release.guid && release.indexer_id && !isReleaseOnDisk(release))
     const grouped = new Map<string, Release[]>()
     eligible.forEach((release) => {
       const key = getEpisodeRangeKey(release)
@@ -427,17 +436,19 @@ export function ReleaseView({
   const toggleGrabAllAll = () => {
     setGrabAllModal((prev) => {
       if (!prev) return prev
-      const allSelected = prev.selected.size === prev.releases.length
+      const selectable = prev.releases.filter((release) => !isReleaseOnDisk(release))
+      const allSelected = prev.selected.size === selectable.length
       return {
         ...prev,
         selected: allSelected
           ? new Set()
-          : new Set(prev.releases.map((release) => getReleaseKey(release))),
+          : new Set(selectable.map((release) => getReleaseKey(release))),
       }
     })
   }
 
   const toggleGrabAllSelection = (release: Release) => {
+    if (isReleaseOnDisk(release)) return
     const key = getReleaseKey(release)
     setGrabAllModal((prev) => {
       if (!prev) return prev
@@ -736,6 +747,7 @@ export function ReleaseView({
   }
 
   const renderReleaseRow = (release: Release, groupKey: string, index: number) => {
+    const isOnDisk = isReleaseOnDisk(release)
     const warning = getSizeWarning(release, data.type)
     const recommendation = getSizeRecommendation(release, data.type)
     const rejectionText = release.rejected && release.rejections && release.rejections.length > 0
@@ -743,7 +755,7 @@ export function ReleaseView({
       : null
     const releaseGroup = data.type === 'tv' ? extractGroup(release.title) : null
     const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
-    const canGrab = Boolean(release.guid && release.indexer_id)
+    const canGrab = Boolean(release.guid && release.indexer_id) && !isOnDisk
     const isGrabBusy = grabBusyIds.has(getReleaseKey(release))
     const isAiPick = Boolean(aiPickGuid && release.guid === aiPickGuid)
     const isRequested = Boolean(
@@ -815,24 +827,34 @@ export function ReleaseView({
                   Show Group
                 </button>
               )}
-              <button
-                type="button"
-                disabled={!canGrab || isGrabBusy}
-                onClick={() => onGrabRelease(release)}
-                className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
-                  !canGrab || isGrabBusy
-                    ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                    : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
-                }`}
-                title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
-                aria-label="Grab release"
-              >
-                {isGrabBusy ? (
-                  <span className="text-[10px]">...</span>
-                ) : (
-                  <DownloadIcon className="h-4 w-4" />
-                )}
-              </button>
+              {isOnDisk ? (
+                <span
+                  title="On disk"
+                  aria-label="On disk"
+                  className="h-7 w-7 inline-flex items-center justify-center text-cyan-200"
+                >
+                  <DriveStackIcon className="h-4 w-4" />
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canGrab || isGrabBusy}
+                  onClick={() => onGrabRelease(release)}
+                  className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
+                    !canGrab || isGrabBusy
+                      ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                      : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
+                  }`}
+                  title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
+                  aria-label="Grab release"
+                >
+                  {isGrabBusy ? (
+                    <span className="text-[10px]">...</span>
+                  ) : (
+                    <DownloadIcon className="h-4 w-4" />
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -1055,7 +1077,7 @@ export function ReleaseView({
                           {group.showGrabAll && (
                             (() => {
                               const grabAllCandidates = groupReleases.filter(
-                                (release) => release.guid && release.indexer_id
+                                (release) => release.guid && release.indexer_id && !isReleaseOnDisk(release)
                               )
                               const grabAllBusy = grabAllCandidates.some((release) =>
                                 grabBusyIds.has(getReleaseKey(release))
@@ -1276,7 +1298,7 @@ export function ReleaseView({
             <input
               type="checkbox"
               ref={grabAllSelectAllRef}
-              checked={grabAllModal.selected.size === grabAllModal.releases.length}
+              checked={grabAllModal.selected.size === grabAllModal.releases.filter((release) => !isReleaseOnDisk(release)).length}
               onChange={toggleGrabAllAll}
             />
             <span>Select all</span>
@@ -1286,6 +1308,7 @@ export function ReleaseView({
             {sortByEpisodeOrder(grabAllModal.releases).map((release) => {
               const key = getReleaseKey(release)
               const checked = grabAllModal.selected.has(key)
+              const isOnDisk = isReleaseOnDisk(release)
               const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
               const episodeStatus = getEpisodeStatus(release)
               return (
@@ -1297,6 +1320,7 @@ export function ReleaseView({
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleGrabAllSelection(release)}
+                    disabled={isOnDisk}
                     className="mt-1"
                   />
                   <div className="min-w-0">
