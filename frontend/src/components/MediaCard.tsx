@@ -302,10 +302,8 @@ export function MediaCard({
   }
 
   // Unified card layout - same structure for both discovery and library
-  const CardWrapper = item.source === 'discovery' ? 'div' : 'button'
-  const wrapperProps = item.source === 'library'
-    ? { type: 'button' as const, onClick }
-    : {}
+  const CardWrapper = 'div'
+  const wrapperProps = {}
 
   return (
     <CardWrapper
@@ -336,7 +334,12 @@ export function MediaCard({
               )}
             </button>
           ) : (
-            <>
+            <button
+              type="button"
+              onClick={onClick}
+              className="w-full h-full"
+              title="Open details"
+            >
               {poster ? (
                 <img
                   src={poster}
@@ -349,7 +352,7 @@ export function MediaCard({
                   No poster
                 </div>
               )}
-            </>
+            </button>
           )}
         </div>
       </div>
