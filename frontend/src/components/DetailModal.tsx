@@ -1321,9 +1321,10 @@ export function DetailModal({
             }
             onClose()
           }}
-          className="bg-cyan-500/80 hover:bg-cyan-400 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+          className="bg-cyan-500/80 hover:bg-cyan-400 text-white h-8 w-8 rounded inline-flex items-center justify-center transition-colors"
+          aria-label="Find releases"
         >
-          Find Releases
+          <SearchIcon className="h-4 w-4" />
         </button>
       </div>
     )
@@ -1337,19 +1338,19 @@ export function DetailModal({
             disabled={libraryActionBusy}
             title="Search All"
             aria-label="Search All"
-            className="h-6 w-6 inline-flex items-center justify-center bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 rounded text-xs font-medium transition-colors"
-          >
-            <SearchIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeleteConfirmOpen(true)}
-            title="Remove title from library"
-            aria-label="Remove title from library"
-            className="h-6 w-6 inline-flex items-center justify-center bg-rose-500/70 hover:bg-rose-500/80 text-white rounded text-xs font-medium transition-colors"
-          >
-            ✕
-          </button>
+          className="h-8 w-8 inline-flex items-center justify-center bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-cyan-900/40 disabled:cursor-not-allowed text-white rounded text-xs font-medium transition-colors"
+        >
+          <SearchIcon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setDeleteConfirmOpen(true)}
+          title="Remove title from library"
+          aria-label="Remove title from library"
+          className="h-8 w-8 inline-flex items-center justify-center bg-rose-500/70 hover:bg-rose-500/80 text-white rounded text-xs font-medium transition-colors"
+        >
+          ✕
+        </button>
         </div>
         {libraryActionMessage && <div className="text-xs text-cyan-200">{libraryActionMessage}</div>}
         {libraryActionError && <div className="text-xs text-amber-300">Search: {libraryActionError}</div>}
