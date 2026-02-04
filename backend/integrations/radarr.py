@@ -325,6 +325,7 @@ class RadarrClient:
                         "tmdbId": movie.get("tmdbId"),
                         "imdbId": movie.get("imdbId"),
                         "imdbRating": (movie.get("ratings", {}) or {}).get("imdb", {}).get("value"),
+                        "ratings": extract_ratings(movie.get("ratings", {})),
                         "popularity": movie.get("popularity"),
                         "releaseDate": (
                             movie.get("digitalRelease")

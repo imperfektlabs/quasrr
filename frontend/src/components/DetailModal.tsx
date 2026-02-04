@@ -15,6 +15,7 @@ import { useReleaseGrab } from '@/hooks'
 import { getBackendUrl } from '@/utils/backend'
 import { getRatingLink, formatSeriesYearSpan, formatSize, getReleaseKey } from '@/utils/formatting'
 import { getStreamingLogoForProvider } from '@/utils/streaming'
+import type { Rating } from '@/types'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
 import { DownloadIcon, SearchIcon } from './Icons'
@@ -761,6 +762,19 @@ export function DetailModal({
   let ratings: React.ReactNode = null
   let genres: React.ReactNode = null
   let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded' = 'not_in_library'
+  let libraryLink: string | null = null
+  const ratingPriority = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
+  const sortRatings = (list: Rating[]) => (
+    [...list].sort((a, b) => {
+      const aSource = a.source.toLowerCase()
+      const bSource = b.source.toLowerCase()
+      const aIndex = ratingPriority.indexOf(aSource)
+      const bIndex = ratingPriority.indexOf(bSource)
+      const normalizedA = aIndex === -1 ? ratingPriority.length : aIndex
+      const normalizedB = bIndex === -1 ? ratingPriority.length : bIndex
+      return normalizedA - normalizedB
+    })
+  )
 
   if (mode === 'ai') {
     const availabilityYearLabel = intent?.media_type === 'tv'
@@ -778,6 +792,11 @@ export function DetailModal({
     metadata = `${availabilityYearLabel || 'Unknown year'}${intent?.media_type && intent.media_type !== 'unknown' ? ` • ${intent.media_type}` : ''}`
     overview = availability?.overview
     if (aiResult?.status) status = aiResult.status
+    if (aiResult?.type === 'movie' && aiResult.tmdb_id) {
+      libraryLink = `/library?tmdb=${aiResult.tmdb_id}`
+    } else if (aiResult?.type === 'tv' && aiResult.tvdb_id) {
+      libraryLink = `/library?tvdb=${aiResult.tvdb_id}`
+    }
 
     // AI-specific chips
     if (releaseData?.requested_season || intent?.season) {
@@ -787,6 +806,16 @@ export function DetailModal({
     }
     if (intent?.episode_date) chips.push(<span key="date" className="glass-chip px-2 py-1 rounded text-xs">{intent.episode_date}</span>)
     if (intent?.quality) chips.push(<span key="quality" className="glass-chip px-2 py-1 rounded text-xs">{intent.quality}</span>)
+
+    if (aiResult?.ratings && aiResult.ratings.length > 0) {
+      ratings = (
+        <div className="flex flex-wrap gap-2">
+          {sortRatings(aiResult.ratings)
+            .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
+            .map((r) => <RatingBadge key={r.source} rating={r} href={getRatingLink(aiResult, r)} />)}
+        </div>
+      )
+    }
   } else if (mode === 'discovery' && result) {
     const discoveryYearLabel = result.type === 'tv'
       ? formatSeriesYearSpan({
@@ -803,6 +832,11 @@ export function DetailModal({
     metadata = `${discoveryYearLabel}${result.type === 'movie' && result.runtime ? ` • ${result.runtime} min` : ''}${result.type === 'tv' && result.seasons ? ` • ${result.seasons} season${result.seasons !== 1 ? 's' : ''}` : ''}${result.network ? ` • ${result.network}` : ''}`
     overview = result.overview
     status = result.status
+    if (result.type === 'movie' && result.tmdb_id) {
+      libraryLink = `/library?tmdb=${result.tmdb_id}`
+    } else if (result.type === 'tv' && result.tvdb_id) {
+      libraryLink = `/library?tvdb=${result.tvdb_id}`
+    }
 
     // Discovery chips
     if (result.series_status) chips.push(<span key="series_status" className="glass-chip px-2 py-1 rounded text-xs">{result.series_status}</span>)
@@ -811,8 +845,8 @@ export function DetailModal({
     if (result.ratings && result.ratings.length > 0) {
       ratings = (
         <div className="flex flex-wrap gap-2">
-          {result.ratings
-            .filter((r) => r.source.toLowerCase() !== 'trakt')
+          {sortRatings(result.ratings)
+            .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
             .map((r) => <RatingBadge key={r.source} rating={r} href={getRatingLink(result, r)} />)}
         </div>
       )
@@ -872,6 +906,32 @@ export function DetailModal({
     chips.push(<span key="size" className="glass-chip px-2 py-1 rounded text-xs">{formatSize(libraryItem.sizeOnDisk)}</span>)
     if (libraryItem.path) chips.push(<span key="path" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.path}</span>)
     chips.push(<span key="monitored" className="glass-chip px-2 py-1 rounded text-xs">{libraryItem.monitored ? 'Monitored' : 'Unmonitored'}</span>)
+
+    const libraryRatings = (libraryItem.ratings && libraryItem.ratings.length > 0)
+      ? libraryItem.ratings
+      : (libraryItem.imdbRating ? [{ source: 'imdb', value: libraryItem.imdbRating }] : [])
+    if (libraryRatings.length > 0) {
+      ratings = (
+        <div className="flex flex-wrap gap-2">
+          {sortRatings(libraryRatings)
+            .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
+            .map((r) => {
+              const source = r.source.toLowerCase()
+              let href: string | null = null
+              if (source === 'imdb' && libraryItem.imdbId) {
+                href = `https://www.imdb.com/title/${libraryItem.imdbId}/`
+              } else if (source === 'tmdb' && libraryItem.mediaType === 'movies' && libraryItem.tmdbId) {
+                href = `https://www.themoviedb.org/movie/${libraryItem.tmdbId}`
+              } else if (source === 'tvdb') {
+                href = `https://thetvdb.com/search?query=${encodeURIComponent(libraryItem.title)}`
+              } else if (source === 'rottentomatoes') {
+                href = `https://www.rottentomatoes.com/search?search=${encodeURIComponent(libraryItem.title)}`
+              }
+              return <RatingBadge key={r.source} rating={r} href={href} />
+            })}
+        </div>
+      )
+    }
   }
 
   // ============================================
@@ -1272,9 +1332,10 @@ export function DetailModal({
             }
             onClose()
           }}
-          className="bg-cyan-500/80 hover:bg-cyan-400 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+          className="bg-cyan-500/80 hover:bg-cyan-400 text-white h-8 w-8 rounded inline-flex items-center justify-center transition-colors"
+          aria-label="Find releases"
         >
-          Find Releases
+          <SearchIcon className="h-4 w-4" />
         </button>
       </div>
     )
@@ -1288,19 +1349,19 @@ export function DetailModal({
             disabled={libraryActionBusy}
             title="Search All"
             aria-label="Search All"
-            className="h-6 w-6 inline-flex items-center justify-center bg-slate-800/60 hover:bg-slate-700/60 disabled:bg-slate-800/30 disabled:cursor-not-allowed text-slate-200 rounded text-xs font-medium transition-colors"
-          >
-            <SearchIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeleteConfirmOpen(true)}
-            title="Remove title from library"
-            aria-label="Remove title from library"
-            className="h-6 w-6 inline-flex items-center justify-center bg-rose-500/70 hover:bg-rose-500/80 text-white rounded text-xs font-medium transition-colors"
-          >
-            ✕
-          </button>
+          className="h-8 w-8 inline-flex items-center justify-center bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-cyan-900/40 disabled:cursor-not-allowed text-white rounded text-xs font-medium transition-colors"
+        >
+          <SearchIcon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setDeleteConfirmOpen(true)}
+          title="Remove title from library"
+          aria-label="Remove title from library"
+          className="h-8 w-8 inline-flex items-center justify-center bg-rose-500/70 hover:bg-rose-500/80 text-white rounded text-xs font-medium transition-colors"
+        >
+          ✕
+        </button>
         </div>
         {libraryActionMessage && <div className="text-xs text-cyan-200">{libraryActionMessage}</div>}
         {libraryActionError && <div className="text-xs text-amber-300">Search: {libraryActionError}</div>}
@@ -1387,7 +1448,18 @@ export function DetailModal({
 
               {/* Status badge + chips */}
               <div className="flex flex-wrap gap-2">
-                <StatusBadge status={status} />
+                {status !== 'not_in_library' && libraryLink && (mode === 'ai' || mode === 'discovery') ? (
+                  <a
+                    href={libraryLink}
+                    className="inline-flex"
+                    title="View in library"
+                    aria-label="View in library"
+                  >
+                    <StatusBadge status={status} />
+                  </a>
+                ) : (
+                  <StatusBadge status={status} />
+                )}
                 {chips}
               </div>
 
