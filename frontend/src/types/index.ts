@@ -167,6 +167,10 @@ export type ReleaseResponse = {
   runtime?: number
   releases: Release[]
   message?: string
+  episode_meta?: Record<number, Record<number, {
+    title?: string | null
+    airDate?: string | null
+  }>>
   episode_file?: {
     relativePath?: string | null
     path?: string | null

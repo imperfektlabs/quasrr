@@ -974,6 +974,7 @@ class SonarrClient:
 
         episode_file: dict | None = None
         episode_downloaded: dict[int, dict[int, bool]] = {}
+        episode_meta: dict[int, dict[int, dict]] = {}
         season_progress: list[dict] = []
         episodes: list[dict] = []
         if series_id:
@@ -993,6 +994,10 @@ class SonarrClient:
                     )
                     has_file = bool(ep.get("hasFile"))
                     season_entry["episodes"][episode_number] = has_file
+                    episode_meta.setdefault(season_number, {})[episode_number] = {
+                        "title": ep.get("title"),
+                        "airDate": ep.get("airDate"),
+                    }
                     season_entry["total"] += 1
                     if has_file:
                         season_entry["downloaded"] += 1
@@ -1023,6 +1028,7 @@ class SonarrClient:
                 "message": "Episode number provided without season.",
                 "requested_season": None,
                 "requested_episode": episode,
+                "episode_meta": episode_meta,
                 "episode_file": episode_file,
                 "episode_downloaded": episode_downloaded,
                 "season_progress": season_progress,
@@ -1071,6 +1077,7 @@ class SonarrClient:
                 "requested_season": resolved_season,
                 "requested_episode": None,
                 "requested_episode_title": resolved_title,
+                "episode_meta": episode_meta,
                 "episode_file": episode_file,
                 "episode_downloaded": episode_downloaded,
                 "season_progress": season_progress,
@@ -1125,6 +1132,7 @@ class SonarrClient:
                 "message": "No releases found. Check indexers are configured.",
                 "requested_season": resolved_season,
                 "requested_episode": resolved_episode,
+                "episode_meta": episode_meta,
                 "episode_file": episode_file,
                 "episode_downloaded": episode_downloaded,
                 "season_progress": season_progress,
@@ -1207,6 +1215,7 @@ class SonarrClient:
             "requested_season": resolved_season,
             "requested_episode": resolved_episode,
             "requested_episode_title": resolved_title,
+            "episode_meta": episode_meta,
             "episode_file": episode_file,
             "message": fallback_message,
             "episode_downloaded": episode_downloaded,
