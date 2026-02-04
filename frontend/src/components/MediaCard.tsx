@@ -36,10 +36,21 @@ export function MediaCard({
     getHref: (rating: NonNullable<DiscoveryResult['ratings']>[number]) => string | null,
   ) => {
     if (!ratings || ratings.length === 0) return null
+    const priorityOrder = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes', 'metacritic']
+    const sortedRatings = [...ratings]
+      .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+      .sort((a, b) => {
+        const aSource = a.source.toLowerCase()
+        const bSource = b.source.toLowerCase()
+        const aIndex = priorityOrder.indexOf(aSource)
+        const bIndex = priorityOrder.indexOf(bSource)
+        const normalizedA = aIndex === -1 ? priorityOrder.length : aIndex
+        const normalizedB = bIndex === -1 ? priorityOrder.length : bIndex
+        return normalizedA - normalizedB
+      })
     return (
       <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
-        {ratings
-          .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+        {sortedRatings
           .slice(0, 3)
           .map((rating, idx) => (
             <span
