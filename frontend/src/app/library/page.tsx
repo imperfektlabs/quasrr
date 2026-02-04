@@ -41,8 +41,13 @@ function LibraryContent() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
-  const [sortField, setSortField] = useState<'added' | 'imdbRating' | 'popularity' | 'releaseDate' | 'size' | 'title'>('added')
+  const [sortField, setSortField] = useState<'added' | 'imdbRating' | 'tvdbRating' | 'popularity' | 'releaseDate' | 'size' | 'title'>('added')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const getTvdbRating = (item: typeof combinedItems[number]) => {
+    const rating = item.ratings?.find((entry) => entry.source.toLowerCase() === 'tvdb')
+    return rating?.value ?? 0
+  }
   const [searchText, setSearchText] = useState('')
   const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
   const [filterModes, setFilterModes] = useState<Set<'downloaded' | 'missing' | 'monitored' | 'unmonitored'>>(new Set())
@@ -181,6 +186,9 @@ function LibraryContent() {
       } else if (sortField === 'imdbRating') {
         left = a.imdbRating || 0
         right = b.imdbRating || 0
+      } else if (sortField === 'tvdbRating') {
+        left = getTvdbRating(a)
+        right = getTvdbRating(b)
       } else if (sortField === 'popularity') {
         left = a.popularity || 0
         right = b.popularity || 0
@@ -504,6 +512,7 @@ function LibraryContent() {
                     >
                       <option value="added">Added</option>
                       <option value="imdbRating">IMDb Rating</option>
+                      <option value="tvdbRating">TVDB Rating</option>
                       <option value="popularity">Popularity</option>
                       <option value="releaseDate">Release Date</option>
                       <option value="size">Size on Disk</option>
