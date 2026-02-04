@@ -298,6 +298,7 @@ export type RadarrLibraryItem = {
   tmdbId?: number
   imdbId?: string
   imdbRating?: number
+  ratings?: Rating[]
   popularity?: number
   releaseDate?: string
   added?: string
@@ -321,6 +322,7 @@ export type SonarrLibraryItem = {
   tvdbId?: number
   imdbId?: string
   imdbRating?: number
+  ratings?: Rating[]
   popularity?: number
   releaseDate?: string
   firstAired?: string
