@@ -9,10 +9,15 @@ import type {
   SortDirection,
   SeasonProgress,
   DiscoveryResult,
+  Rating,
 } from '@/types'
-import { getReleaseKey, isReleaseTitleMatch } from '@/utils/formatting'
+import { getReleaseKey, isReleaseTitleMatch, getRatingLink } from '@/utils/formatting'
+import { getBackendUrl } from '@/utils/backend'
+import { getStreamingLogoForProvider } from '@/utils/streaming'
 import { DownloadIcon, DownloadAllIcon, DriveStackIcon } from './Icons'
 import { StatusBadge } from './StatusBadge'
+import { RatingBadge } from './RatingBadge'
+import { SeasonHeaderRow, EpisodeRow } from './SeasonEpisodeList'
 
 // Check for size red flags per PROJECT_BRIEF
 function getSizeWarning(release: Release, mediaType: string): string | null {
@@ -139,6 +144,14 @@ export function ReleaseView({
   const requestedSeason = data.requested_season
   const requestedEpisode = data.requested_episode
   const posterUrl = data.poster || result?.poster
+  const episodeMeta = data.episode_meta || {}
+  const [availability, setAvailability] = useState<{
+    flatrate?: Array<{ name: string; logo_url?: string | null }>
+    subscribed?: string[]
+    link?: string | null
+  } | null>(null)
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null)
   const onDiskCandidates = [
     data.episode_file?.sceneName,
     data.episode_file?.relativePath,
@@ -148,6 +161,23 @@ export function ReleaseView({
     data.movie_file?.path,
   ]
   const isReleaseOnDisk = (release: Release) => isReleaseTitleMatch(release.title, onDiskCandidates)
+  const getEpisodeMeta = (season: number | null, episode: number | null) => {
+    if (!season || !episode) return null
+    return episodeMeta[season]?.[episode] || null
+  }
+
+  const ratingPriority = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
+  const sortRatings = (list: Rating[]) => (
+    [...list].sort((a, b) => {
+      const aSource = a.source.toLowerCase()
+      const bSource = b.source.toLowerCase()
+      const aIndex = ratingPriority.indexOf(aSource)
+      const bIndex = ratingPriority.indexOf(bSource)
+      const normalizedA = aIndex === -1 ? ratingPriority.length : aIndex
+      const normalizedB = bIndex === -1 ? ratingPriority.length : bIndex
+      return normalizedA - normalizedB
+    })
+  )
 
   useEffect(() => {
     if (isEmbedded) return
@@ -160,6 +190,36 @@ export function ReleaseView({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isEmbedded, onClose])
+
+  useEffect(() => {
+    if (!result?.title || !result?.type) return
+    let active = true
+    const fetchAvailability = async () => {
+      setAvailability(null)
+      setAvailabilityError(null)
+      setAvailabilityLoading(true)
+      try {
+        const backendUrl = getBackendUrl()
+        const params = new URLSearchParams({
+          query: result.title,
+          type: result.type,
+        })
+        const response = await fetch(`${backendUrl}/availability?${params}`)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.detail || `HTTP ${response.status}`)
+        }
+        const data = await response.json()
+        if (active) setAvailability(data.availability || null)
+      } catch (err) {
+        if (active) setAvailabilityError(err instanceof Error ? err.message : 'Failed to fetch availability')
+      } finally {
+        if (active) setAvailabilityLoading(false)
+      }
+    }
+    fetchAvailability()
+    return () => { active = false }
+  }, [result?.title, result?.type])
 
   useEffect(() => {
     if (data.type !== 'tv') {
@@ -373,8 +433,14 @@ export function ReleaseView({
     if (episodes.length > 0) {
       const minEp = Math.min(...episodes)
       const maxEp = Math.max(...episodes)
-      const episodeLabel = minEp === maxEp ? `E${minEp}` : `E${minEp}-E${maxEp}`
-      return season > 0 ? `S${season}${episodeLabel}` : `Episode ${episodeLabel}`
+      const episodeLabel = minEp === maxEp ? `E${minEp.toString().padStart(2, '0')}` : `E${minEp}-E${maxEp}`
+      if (minEp === maxEp) {
+        const meta = getEpisodeMeta(season, minEp)
+        if (meta?.title) {
+          return `${episodeLabel} ${meta.title}`
+        }
+      }
+      return episodeLabel
     }
 
     return null
@@ -468,6 +534,7 @@ export function ReleaseView({
       label: string
       sortKey: number
       releases: Release[]
+      dateLabel?: string
     }
 
     const groups = new Map<string, Group>()
@@ -493,8 +560,11 @@ export function ReleaseView({
       if (episodes.length > 0) {
         const minEp = Math.min(...episodes)
         const maxEp = Math.max(...episodes)
-        const episodeLabel = minEp === maxEp ? `E${minEp}` : `E${minEp}-E${maxEp}`
-        const label = season > 0 ? `S${season}${episodeLabel}` : `Episode ${episodeLabel}`
+        const episodeLabel = minEp === maxEp ? `E${minEp.toString().padStart(2, '0')}` : `E${minEp}-E${maxEp}`
+        const meta = minEp === maxEp ? getEpisodeMeta(season, minEp) : null
+        const titleSuffix = meta?.title ? ` ${meta.title}` : ''
+        const label = `${episodeLabel}${titleSuffix}`
+        const dateLabel = meta?.airDate ? meta.airDate.slice(0, 10) : undefined
         const key = `s${season}-e${minEp}-${maxEp}`
         if (!groups.has(key)) {
           groups.set(key, {
@@ -502,6 +572,7 @@ export function ReleaseView({
             label,
             sortKey: season * 1000 + minEp,
             releases: [],
+            dateLabel,
           })
         }
         groups.get(key)?.releases.push(release)
@@ -642,6 +713,17 @@ export function ReleaseView({
     return `${progress.downloaded}/${progress.total}`
   }
 
+  const getSeasonCountLabel = (season: number, fallback: string) => {
+    const progressLabel = getSeasonProgressLabel(season)
+    if (progressLabel) return `${progressLabel} eps`
+    const meta = episodeMeta[season]
+    if (meta) {
+      const total = Object.keys(meta).length
+      if (total > 0) return `0/${total} eps`
+    }
+    return fallback
+  }
+
   const isReleaseDownloaded = (release: Release) => {
     if (data.type !== 'tv') return false
     const season = getSeason(release)
@@ -687,10 +769,10 @@ export function ReleaseView({
     })
 
     if (downloadedCount === 0) {
-      return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
+      return { label: 'Missing', icon: '○', className: 'text-slate-300' }
     }
     if (downloadedCount === episodeKeys.size) {
-      return { label: 'Downloaded', icon: '✓', className: 'bg-cyan-900/60 text-cyan-200' }
+      return { label: 'Downloaded', icon: '✓', className: 'text-cyan-200' }
     }
     return { label: 'Partial', icon: '◐', className: 'bg-fuchsia-900/60 text-fuchsia-200' }
   }
@@ -705,12 +787,12 @@ export function ReleaseView({
       const progress = seasonProgressMap.get(season)
       if (progress && progress.total > 0) {
         if (progress.downloaded === progress.total) {
-          return { label: 'Downloaded', icon: '✓', className: 'bg-cyan-900/60 text-cyan-200' }
+          return { label: 'Downloaded', icon: '✓', className: 'text-cyan-200' }
         }
         if (progress.downloaded > 0) {
           return { label: 'Partial', icon: '◐', className: 'bg-fuchsia-900/60 text-fuchsia-200' }
         }
-        return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
+        return { label: 'Missing', icon: '○', className: 'text-slate-300' }
       }
       return null
     }
@@ -726,10 +808,10 @@ export function ReleaseView({
     }
 
     if (downloadedCount === 0) {
-      return { label: 'Missing', icon: '○', className: 'bg-slate-800/60 text-slate-300' }
+      return { label: 'Missing', icon: '○', className: 'text-slate-300' }
     }
     if (downloadedCount === episodes.length) {
-      return { label: 'Downloaded', icon: '✓', className: 'bg-cyan-900/60 text-cyan-200' }
+      return { label: 'Downloaded', icon: '✓', className: 'text-cyan-200' }
     }
     return { label: 'Partial', icon: '◐', className: 'bg-fuchsia-900/60 text-fuchsia-200' }
   }
@@ -755,6 +837,12 @@ export function ReleaseView({
       : null
     const releaseGroup = data.type === 'tv' ? extractGroup(release.title) : null
     const episodeLabel = data.type === 'tv' ? getEpisodeLabel(release) : null
+    const episodeMetaEntry = data.type === 'tv' && getEpisodes(release).length === 1
+      ? getEpisodeMeta(getSeason(release), getEpisodes(release)[0])
+      : null
+    const episodeAirDate = episodeMetaEntry?.airDate
+      ? episodeMetaEntry.airDate.slice(0, 10)
+      : null
     const canGrab = Boolean(release.guid && release.indexer_id) && !isOnDisk
     const isGrabBusy = grabBusyIds.has(getReleaseKey(release))
     const isAiPick = Boolean(aiPickGuid && release.guid === aiPickGuid)
@@ -778,15 +866,16 @@ export function ReleaseView({
             {release.title}
           </p>
 
-          <div className="mt-1.5 grid gap-2 text-[11px] text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300">
             <div className="flex flex-wrap items-center gap-2">
               <span>{release.size_formatted}</span>
               <span className="text-cyan-300">{release.quality}</span>
               <span className="text-slate-400">{release.age}</span>
               {episodeLabel && (
-                <span className="bg-slate-800/60 text-slate-200 px-1.5 rounded">
-                  {episodeLabel}
-                </span>
+                <span className="text-slate-300">{episodeLabel}</span>
+              )}
+              {episodeAirDate && (
+                <span className="text-slate-400">{episodeAirDate}</span>
               )}
               {release.full_season && (
                 <span className="bg-violet-900/60 text-violet-200 px-1.5 rounded">
@@ -817,7 +906,7 @@ export function ReleaseView({
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 justify-end">
               {releaseGroup && data.type === 'tv' && (
                 <button
                   type="button"
@@ -865,9 +954,9 @@ export function ReleaseView({
   }
 
   const releaseList = (
-    <div className="mt-3 glass-card rounded-md px-3 py-2 text-xs">
+    <div className="mt-4 space-y-3 text-xs">
       {data.releases.length === 0 ? (
-        <div className="py-6 text-center text-xs text-gray-400">
+        <div className="py-6 text-center text-xs text-gray-400 glass-card rounded-md">
           {data.message || 'No releases found. Check indexer configuration.'}
         </div>
       ) : (
@@ -944,70 +1033,45 @@ export function ReleaseView({
                   label: group.label,
                   releases: group.releases,
                   showGrabAll: false,
+                  dateLabel: group.dateLabel,
                 }))
 
                 return (
-                  <div key={seasonKey} className="rounded-md border border-slate-800/60 px-3 py-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => toggleSeason(seasonKey)}
-                      className="w-full flex items-center justify-between text-slate-200"
-                    >
-                      <span>
-                        {seasonGroup.label}
-                        {(() => {
-                          const progressLabel = getSeasonProgressLabel(seasonGroup.season)
-                          if (!progressLabel) return null
-                          return (
-                            <span className="ml-2 text-cyan-200">
-                              {progressLabel}
-                            </span>
-                          )
-                        })()}
-                        <span className="ml-2 text-slate-400">
-                          ({seasonGroup.releases.length} releases)
-                        </span>
-                      </span>
-                      <span className="text-slate-400">
-                        {isSeasonCollapsed ? 'Show' : 'Hide'}
-                      </span>
-                    </button>
+                  <div key={seasonKey}>
+                    <SeasonHeaderRow
+                      label={seasonGroup.label}
+                      countLabel={getSeasonCountLabel(seasonGroup.season, `${seasonGroup.releases.length} releases`)}
+                      onToggle={() => toggleSeason(seasonKey)}
+                      isCollapsed={isSeasonCollapsed}
+                      onSearch={() => toggleSeason(seasonKey)}
+                      searchDisabled={false}
+                      onDelete={undefined}
+                      deleteDisabled
+                    />
 
                     {!isSeasonCollapsed && (
                       <div className="mt-2 space-y-2">
                         {groups.map((group) => {
                           const groupReleases = sortReleases(group.releases)
                           const isCollapsed = collapsedGroups.has(group.key)
-
+                          const status = getEpisodeGroupStatus(group.releases)
                           return (
-                            <div key={group.key} className="rounded-md border border-slate-800/60 overflow-hidden">
-                              <button
-                                type="button"
-                                onClick={() => toggleGroup(group.key)}
-                                className="w-full px-3 py-2 text-[11px] font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span>{group.label} ({groupReleases.length})</span>
-                                  {(() => {
-                                    const status = getEpisodeGroupStatus(group.releases)
-                                    if (!status) return null
-                                    return (
-                                      <span
-                                        className={`px-1.5 rounded ${status.className}`}
-                                        title={status.label}
-                                      >
-                                        {status.icon}
-                                      </span>
-                                    )
-                                  })()}
-                                </span>
-                                <span className="text-slate-400">
-                                  {isCollapsed ? 'Show' : 'Hide'}
-                                </span>
-                              </button>
-
+                            <div key={group.key} className="space-y-2">
+                              <EpisodeRow
+                                title={`${group.label} (${groupReleases.length})`}
+                                dateLabel={group.dateLabel || ''}
+                                statusIcon={status?.icon}
+                                statusClassName={status?.className || 'text-slate-500'}
+                                statusTitle={status?.label}
+                                onSearch={() => toggleGroup(group.key)}
+                                searchDisabled={false}
+                                searchActive={!isCollapsed}
+                                onDelete={undefined}
+                                deleteDisabled
+                                onRowClick={() => toggleGroup(group.key)}
+                              />
                               {!isCollapsed && (
-                                <div className="divide-y divide-slate-800/60">
+                                <div className="divide-y divide-slate-800/60 rounded-md border border-slate-800/60 bg-slate-900/30">
                                   {groupReleases.map((release, index) => (
                                     renderReleaseRow(release, group.key, index)
                                   ))}
@@ -1033,6 +1097,7 @@ export function ReleaseView({
                       label: `${seasonGroup.label} • ${groupFocus} • ${bucket.label}`,
                       releases: bucket.releases,
                       showGrabAll: true,
+                      dateLabel: undefined,
                     }))
                   })
                 : (tvGroups
@@ -1041,8 +1106,9 @@ export function ReleaseView({
                       label: group.label,
                       releases: group.releases,
                       showGrabAll: false,
+                      dateLabel: group.dateLabel,
                     }))
-                  : [{ key: 'all', label: '', releases: sortedReleases, showGrabAll: false }]
+                  : [{ key: 'all', label: '', releases: sortedReleases, showGrabAll: false, dateLabel: undefined }]
                 )
               ).map((group) => {
                 const groupReleases = data.type === 'tv' && groupFocus
@@ -1051,73 +1117,61 @@ export function ReleaseView({
                 const isCollapsed = collapsedGroups.has(group.key)
 
                 return (
-                  <div key={group.key} className="rounded-md border border-slate-800/60 px-3 py-2 text-xs">
+                  <div key={group.key} className="space-y-2">
                     {group.label && (
-                      <button
-                        type="button"
-                        onClick={() => toggleGroup(group.key)}
-                        className="w-full px-2 py-2 text-[11px] font-semibold text-slate-300 bg-slate-900/40 flex items-center justify-between rounded-md"
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>{group.label} ({groupReleases.length})</span>
-                          {(() => {
-                            const status = getEpisodeGroupStatus(group.releases)
-                            if (!status) return null
-                            return (
-                              <span
-                                className={`px-1.5 rounded ${status.className}`}
-                                title={status.label}
-                              >
-                                {status.icon}
-                              </span>
-                            )
-                          })()}
-                        </span>
-                        <span className="flex items-center gap-2">
-                          {group.showGrabAll && (
-                            (() => {
-                              const grabAllCandidates = groupReleases.filter(
-                                (release) => release.guid && release.indexer_id && !isReleaseOnDisk(release)
-                              )
-                              const grabAllBusy = grabAllCandidates.some((release) =>
-                                grabBusyIds.has(getReleaseKey(release))
-                              )
-                              return (
-                                <button
-                                  type="button"
-                                  disabled={grabAllCandidates.length === 0 || grabAllBusy}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    openGrabAllModal(grabAllCandidates)
-                                  }}
-                                  className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
-                                    grabAllCandidates.length === 0 || grabAllBusy
-                                      ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                                      : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
-                                  }`}
-                                  title={grabAllCandidates.length === 0
-                                    ? 'Missing release identifiers'
-                                    : 'Send all releases in this group'}
-                                  aria-label="Grab all releases"
-                                >
-                                  {grabAllBusy ? (
-                                    <span className="text-[10px]">...</span>
-                                  ) : (
-                                    <DownloadAllIcon className="h-4 w-4" />
-                                  )}
-                                </button>
-                              )
-                            })()
-                          )}
-                          <span className="text-slate-400">
-                            {isCollapsed ? 'Show' : 'Hide'}
-                          </span>
-                        </span>
-                      </button>
+                      <EpisodeRow
+                        title={`${group.label} (${groupReleases.length})`}
+                        dateLabel={group.dateLabel || ''}
+                        statusIcon={getEpisodeGroupStatus(group.releases)?.icon}
+                        statusClassName={getEpisodeGroupStatus(group.releases)?.className || 'text-slate-500'}
+                        statusTitle={getEpisodeGroupStatus(group.releases)?.label}
+                        onSearch={() => toggleGroup(group.key)}
+                        searchDisabled={false}
+                        searchActive={!isCollapsed}
+                        onDelete={undefined}
+                        deleteDisabled
+                        onRowClick={() => toggleGroup(group.key)}
+                      />
                     )}
-
+                    {group.showGrabAll && (
+                      <div className="flex justify-end">
+                        {(() => {
+                          const grabAllCandidates = groupReleases.filter(
+                            (release) => release.guid && release.indexer_id && !isReleaseOnDisk(release)
+                          )
+                          const grabAllBusy = grabAllCandidates.some((release) =>
+                            grabBusyIds.has(getReleaseKey(release))
+                          )
+                          return (
+                            <button
+                              type="button"
+                              disabled={grabAllCandidates.length === 0 || grabAllBusy}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                openGrabAllModal(grabAllCandidates)
+                              }}
+                              className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
+                                grabAllCandidates.length === 0 || grabAllBusy
+                                  ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                                  : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
+                              }`}
+                              title={grabAllCandidates.length === 0
+                                ? 'Missing release identifiers'
+                                : 'Send all releases in this group'}
+                              aria-label="Grab all releases"
+                            >
+                              {grabAllBusy ? (
+                                <span className="text-[10px]">...</span>
+                              ) : (
+                                <DownloadAllIcon className="h-4 w-4" />
+                              )}
+                            </button>
+                          )
+                        })()}
+                      </div>
+                    )}
                     {!isCollapsed && (
-                      <div className={`mt-2 ${group.label ? 'rounded-md border border-slate-800/60 overflow-hidden' : ''}`}>
+                      <div className={`rounded-md border border-slate-800/60 bg-slate-900/30 ${group.label ? 'overflow-hidden' : ''}`}>
                         <div className={group.label ? 'divide-y divide-slate-800/60' : ''}>
                           {groupReleases.map((release, index) => (
                             renderReleaseRow(release, group.key, index)
@@ -1132,6 +1186,54 @@ export function ReleaseView({
           </div>
         </>
       )}
+    </div>
+  )
+
+  const ratingsBlock = result?.ratings && result.ratings.length > 0 ? (
+    <div className="flex flex-wrap gap-2">
+      {sortRatings(result.ratings)
+        .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
+        .map((r) => <RatingBadge key={r.source} rating={r} href={getRatingLink(result, r)} />)}
+    </div>
+  ) : null
+
+  const streamingBlock = (
+    <div className="space-y-2">
+      {availabilityLoading && <div className="text-xs text-gray-400">Loading streaming options...</div>}
+      {availability?.flatrate && availability.flatrate.length > 0 && (
+        <div>
+          <div className="text-gray-400 text-xs mb-2">Streaming options</div>
+          <div className="flex flex-wrap gap-2">
+            {availability.flatrate.map((provider) => {
+              const isSubscribed = availability.subscribed?.includes(provider.name)
+              const logoUrl = provider.logo_url || getStreamingLogoForProvider(provider.name)
+              return (
+                <div
+                  key={provider.name}
+                  className={`flex items-center gap-2 rounded px-2 py-1 text-xs border ${
+                    isSubscribed
+                      ? 'border-cyan-400/70 bg-cyan-900/20 text-cyan-200'
+                      : 'border-slate-700/60 bg-slate-800/60 text-slate-200'
+                  }`}
+                >
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={provider.name} className="h-5 w-5 object-contain" />
+                  ) : (
+                    <span className="text-gray-500">?</span>
+                  )}
+                  <span>{provider.name}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {availability?.link && (
+        <a href={availability.link} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs text-cyan-300 hover:text-cyan-200">
+          View streaming options
+        </a>
+      )}
+      {availabilityError && <div className="text-xs text-red-400">Streaming: {availabilityError}</div>}
     </div>
   )
 
@@ -1259,6 +1361,8 @@ export function ReleaseView({
                   {result.overview}
                 </p>
               )}
+              {ratingsBlock}
+              {result && streamingBlock}
             </div>
           </div>
 
