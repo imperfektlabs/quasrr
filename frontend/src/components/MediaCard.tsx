@@ -31,6 +31,63 @@ export function MediaCard({
 }: MediaCardProps) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
 
+  const renderRatings = (
+    ratings: DiscoveryResult['ratings'] | null | undefined,
+    getHref: (rating: NonNullable<DiscoveryResult['ratings']>[number]) => string | null,
+  ) => {
+    if (!ratings || ratings.length === 0) return null
+    const priorityOrder = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
+    const sortedRatings = [...ratings]
+      .filter((rating) => !['trakt', 'metacritic'].includes(rating.source.toLowerCase()))
+      .sort((a, b) => {
+        const aSource = a.source.toLowerCase()
+        const bSource = b.source.toLowerCase()
+        const aIndex = priorityOrder.indexOf(aSource)
+        const bIndex = priorityOrder.indexOf(bSource)
+        const normalizedA = aIndex === -1 ? priorityOrder.length : aIndex
+        const normalizedB = bIndex === -1 ? priorityOrder.length : bIndex
+        return normalizedA - normalizedB
+      })
+    return (
+      <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
+        {sortedRatings
+          .slice(0, 3)
+          .map((rating, idx) => (
+            <span
+              key={rating.source}
+              className={idx === 0 ? 'inline-flex' : 'hidden sm:inline-flex'}
+            >
+              <RatingBadge
+                rating={rating}
+                href={getHref(rating)}
+              />
+            </span>
+          ))}
+      </div>
+    )
+  }
+
+  const getLibraryRatingLink = (
+    rating: NonNullable<DiscoveryResult['ratings']>[number],
+    libItem: SonarrLibraryItem | RadarrLibraryItem,
+    type: 'movie' | 'tv',
+  ) => {
+    const source = rating.source.toLowerCase()
+    if (source === 'imdb' && libItem.imdbId) {
+      return `https://www.imdb.com/title/${libItem.imdbId}/`
+    }
+    if (source === 'tmdb' && (libItem as RadarrLibraryItem).tmdbId) {
+      const tmdbId = (libItem as RadarrLibraryItem).tmdbId
+      return type === 'movie'
+        ? `https://www.themoviedb.org/movie/${tmdbId}`
+        : `https://www.themoviedb.org/tv/${tmdbId}`
+    }
+    if (source === 'tvdb') {
+      return `https://thetvdb.com/search?query=${encodeURIComponent(libItem.title)}`
+    }
+    return null
+  }
+
   // Extract common fields based on source
   const poster = item.source === 'discovery' ? item.data.poster : item.data.poster
   const title = item.source === 'discovery' ? item.data.title : item.data.title
@@ -59,9 +116,25 @@ export function MediaCard({
       </div>
     ) : null
 
+    const discoveryLibraryLink = result.type === 'movie' && result.tmdb_id
+      ? `/library?tmdb=${result.tmdb_id}`
+      : (result.type === 'tv' && result.tvdb_id ? `/library?tvdb=${result.tvdb_id}` : null)
+
     statusBadge = (
       <div className="flex flex-wrap gap-1.5 items-center">
-        <StatusBadge status={result.status} />
+        {result.status !== 'not_in_library' && discoveryLibraryLink ? (
+          <a
+            href={discoveryLibraryLink}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex"
+            title="View in library"
+            aria-label="View in library"
+          >
+            <StatusBadge status={result.status} />
+          </a>
+        ) : (
+          <StatusBadge status={result.status} />
+        )}
         <button
           type="button"
           onClick={(event) => {
@@ -112,30 +185,14 @@ export function MediaCard({
 
     actionButton = (
       <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
-        {result.ratings && result.ratings.length > 0 && (
-          <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
-            {result.ratings
-              .filter((rating) => rating.source.toLowerCase() !== 'trakt')
-              .slice(0, 3)
-              .map((rating, idx) => (
-                <span
-                  key={rating.source}
-                  className={idx === 0 ? 'inline-flex' : 'hidden sm:inline-flex'}
-                >
-                  <RatingBadge
-                    rating={rating}
-                    href={getRatingLink(result, rating)}
-                  />
-                </span>
-              ))}
-          </div>
-        )}
+        {renderRatings(result.ratings, (rating) => getRatingLink(result, rating))}
 
         <button
           onClick={handleReleasesClick}
-          className="bg-cyan-500/80 hover:bg-cyan-400 text-white py-1 px-2 sm:py-1.5 sm:px-3 rounded text-[11px] sm:text-xs font-semibold tracking-wide transition-colors ml-auto md:ml-0"
+          className="bg-cyan-500/80 hover:bg-cyan-400 text-white h-7 w-7 sm:h-8 sm:w-8 rounded inline-flex items-center justify-center transition-colors ml-auto md:ml-0"
+          aria-label="Find releases"
         >
-          Find Releases
+          <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </button>
       </div>
     )
@@ -198,7 +255,21 @@ export function MediaCard({
           </span>
         )}
         <span className="glass-chip text-xs px-2 py-1 rounded">{formatSize(libItem.sizeOnDisk)}</span>
-        <div className="flex items-center gap-2 ml-auto">
+      </div>
+    )
+
+    const libraryRatings = (libItem.ratings && libItem.ratings.length > 0)
+      ? libItem.ratings
+      : (libItem.imdbRating ? [{ source: 'imdb', value: libItem.imdbRating }] : [])
+    const filteredRatings = mediaType === 'tv'
+      ? libraryRatings.filter((rating) => rating.source.toLowerCase() === 'tvdb')
+      : libraryRatings
+
+    actionButton = (
+      <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
+        {renderRatings(filteredRatings, (rating) => getLibraryRatingLink(rating, libItem, mediaType))}
+
+        <div className="flex items-center gap-2 ml-auto md:ml-0">
           {libItem.mediaType === 'movies' && (
             <button
               type="button"
@@ -206,7 +277,7 @@ export function MediaCard({
                 event.stopPropagation()
                 onLibrarySearch?.()
               }}
-              className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 hover:bg-slate-700/60 text-xs"
+              className="h-7 w-7 sm:h-8 sm:w-8 rounded bg-cyan-500/80 text-white hover:bg-cyan-400 inline-flex items-center justify-center transition-colors"
               title="Search All"
               aria-label="Search All"
             >
@@ -219,7 +290,7 @@ export function MediaCard({
               event.stopPropagation()
               onLibraryDelete?.()
             }}
-            className="px-2 py-1 rounded bg-rose-500/70 text-white hover:bg-rose-500/80 text-xs"
+            className="h-7 w-7 sm:h-8 sm:w-8 rounded bg-rose-500/70 text-white hover:bg-rose-500/80 inline-flex items-center justify-center transition-colors"
             title="Remove title from library"
             aria-label="Remove title from library"
           >
@@ -228,15 +299,11 @@ export function MediaCard({
         </div>
       </div>
     )
-
-    actionButton = null
   }
 
   // Unified card layout - same structure for both discovery and library
-  const CardWrapper = item.source === 'discovery' ? 'div' : 'button'
-  const wrapperProps = item.source === 'library'
-    ? { type: 'button' as const, onClick }
-    : {}
+  const CardWrapper = 'div'
+  const wrapperProps = {}
 
   return (
     <CardWrapper
@@ -257,7 +324,7 @@ export function MediaCard({
                 <img
                   src={poster}
                   alt={title}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain block"
                   loading="lazy"
                 />
               ) : (
@@ -267,12 +334,17 @@ export function MediaCard({
               )}
             </button>
           ) : (
-            <>
+            <button
+              type="button"
+              onClick={onClick}
+              className="w-full h-full"
+              title="Open details"
+            >
               {poster ? (
                 <img
                   src={poster}
                   alt={title}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain block"
                   loading="lazy"
                 />
               ) : (
@@ -280,7 +352,7 @@ export function MediaCard({
                   No poster
                 </div>
               )}
-            </>
+            </button>
           )}
         </div>
       </div>

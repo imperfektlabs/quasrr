@@ -663,6 +663,7 @@ class SonarrClient:
                             "tvdbId": series.get("tvdbId"),
                             "imdbId": series.get("imdbId"),
                             "imdbRating": (series.get("ratings", {}) or {}).get("imdb", {}).get("value"),
+                            "ratings": extract_ratings(series.get("ratings", {})),
                             "popularity": series.get("popularity"),
                             "releaseDate": series.get("firstAired"),
                             "firstAired": series.get("firstAired"),
