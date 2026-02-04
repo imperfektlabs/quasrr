@@ -36,9 +36,9 @@ export function MediaCard({
     getHref: (rating: NonNullable<DiscoveryResult['ratings']>[number]) => string | null,
   ) => {
     if (!ratings || ratings.length === 0) return null
-    const priorityOrder = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes', 'metacritic']
+    const priorityOrder = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
     const sortedRatings = [...ratings]
-      .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+      .filter((rating) => !['trakt', 'metacritic'].includes(rating.source.toLowerCase()))
       .sort((a, b) => {
         const aSource = a.source.toLowerCase()
         const bSource = b.source.toLowerCase()

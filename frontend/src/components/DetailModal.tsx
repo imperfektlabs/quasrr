@@ -762,7 +762,7 @@ export function DetailModal({
   let ratings: React.ReactNode = null
   let genres: React.ReactNode = null
   let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded' = 'not_in_library'
-  const ratingPriority = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes', 'metacritic']
+  const ratingPriority = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
   const sortRatings = (list: Rating[]) => (
     [...list].sort((a, b) => {
       const aSource = a.source.toLowerCase()
@@ -805,7 +805,7 @@ export function DetailModal({
       ratings = (
         <div className="flex flex-wrap gap-2">
           {sortRatings(aiResult.ratings)
-            .filter((r) => r.source.toLowerCase() !== 'trakt')
+            .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
             .map((r) => <RatingBadge key={r.source} rating={r} href={getRatingLink(aiResult, r)} />)}
         </div>
       )
@@ -835,7 +835,7 @@ export function DetailModal({
       ratings = (
         <div className="flex flex-wrap gap-2">
           {sortRatings(result.ratings)
-            .filter((r) => r.source.toLowerCase() !== 'trakt')
+            .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
             .map((r) => <RatingBadge key={r.source} rating={r} href={getRatingLink(result, r)} />)}
         </div>
       )
@@ -903,7 +903,7 @@ export function DetailModal({
       ratings = (
         <div className="flex flex-wrap gap-2">
           {sortRatings(libraryRatings)
-            .filter((r) => r.source.toLowerCase() !== 'trakt')
+            .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
             .map((r) => {
               const source = r.source.toLowerCase()
               let href: string | null = null
@@ -915,9 +915,6 @@ export function DetailModal({
                 href = `https://thetvdb.com/search?query=${encodeURIComponent(libraryItem.title)}`
               } else if (source === 'rottentomatoes') {
                 href = `https://www.rottentomatoes.com/search?search=${encodeURIComponent(libraryItem.title)}`
-              } else if (source === 'metacritic') {
-                const typePath = libraryItem.mediaType === 'movies' ? 'movie' : 'tv'
-                href = `https://www.metacritic.com/search/${typePath}/${encodeURIComponent(libraryItem.title)}/results`
               }
               return <RatingBadge key={r.source} rating={r} href={href} />
             })}
