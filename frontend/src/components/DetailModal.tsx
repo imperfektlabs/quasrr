@@ -762,6 +762,7 @@ export function DetailModal({
   let ratings: React.ReactNode = null
   let genres: React.ReactNode = null
   let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded' = 'not_in_library'
+  let libraryLink: string | null = null
   const ratingPriority = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
   const sortRatings = (list: Rating[]) => (
     [...list].sort((a, b) => {
@@ -791,6 +792,11 @@ export function DetailModal({
     metadata = `${availabilityYearLabel || 'Unknown year'}${intent?.media_type && intent.media_type !== 'unknown' ? ` • ${intent.media_type}` : ''}`
     overview = availability?.overview
     if (aiResult?.status) status = aiResult.status
+    if (aiResult?.type === 'movie' && aiResult.tmdb_id) {
+      libraryLink = `/library?tmdb=${aiResult.tmdb_id}`
+    } else if (aiResult?.type === 'tv' && aiResult.tvdb_id) {
+      libraryLink = `/library?tvdb=${aiResult.tvdb_id}`
+    }
 
     // AI-specific chips
     if (releaseData?.requested_season || intent?.season) {
@@ -826,6 +832,11 @@ export function DetailModal({
     metadata = `${discoveryYearLabel}${result.type === 'movie' && result.runtime ? ` • ${result.runtime} min` : ''}${result.type === 'tv' && result.seasons ? ` • ${result.seasons} season${result.seasons !== 1 ? 's' : ''}` : ''}${result.network ? ` • ${result.network}` : ''}`
     overview = result.overview
     status = result.status
+    if (result.type === 'movie' && result.tmdb_id) {
+      libraryLink = `/library?tmdb=${result.tmdb_id}`
+    } else if (result.type === 'tv' && result.tvdb_id) {
+      libraryLink = `/library?tvdb=${result.tvdb_id}`
+    }
 
     // Discovery chips
     if (result.series_status) chips.push(<span key="series_status" className="glass-chip px-2 py-1 rounded text-xs">{result.series_status}</span>)
@@ -1437,7 +1448,18 @@ export function DetailModal({
 
               {/* Status badge + chips */}
               <div className="flex flex-wrap gap-2">
-                <StatusBadge status={status} />
+                {status !== 'not_in_library' && libraryLink && (mode === 'ai' || mode === 'discovery') ? (
+                  <a
+                    href={libraryLink}
+                    className="inline-flex"
+                    title="View in library"
+                    aria-label="View in library"
+                  >
+                    <StatusBadge status={status} />
+                  </a>
+                ) : (
+                  <StatusBadge status={status} />
+                )}
                 {chips}
               </div>
 

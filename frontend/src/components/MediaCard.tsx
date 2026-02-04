@@ -116,9 +116,25 @@ export function MediaCard({
       </div>
     ) : null
 
+    const discoveryLibraryLink = result.type === 'movie' && result.tmdb_id
+      ? `/library?tmdb=${result.tmdb_id}`
+      : (result.type === 'tv' && result.tvdb_id ? `/library?tvdb=${result.tvdb_id}` : null)
+
     statusBadge = (
       <div className="flex flex-wrap gap-1.5 items-center">
-        <StatusBadge status={result.status} />
+        {result.status !== 'not_in_library' && discoveryLibraryLink ? (
+          <a
+            href={discoveryLibraryLink}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex"
+            title="View in library"
+            aria-label="View in library"
+          >
+            <StatusBadge status={result.status} />
+          </a>
+        ) : (
+          <StatusBadge status={result.status} />
+        )}
         <button
           type="button"
           onClick={(event) => {
