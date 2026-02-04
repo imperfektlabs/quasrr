@@ -31,6 +31,52 @@ export function MediaCard({
 }: MediaCardProps) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
 
+  const renderRatings = (
+    ratings: DiscoveryResult['ratings'] | null | undefined,
+    getHref: (rating: NonNullable<DiscoveryResult['ratings']>[number]) => string | null,
+  ) => {
+    if (!ratings || ratings.length === 0) return null
+    return (
+      <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
+        {ratings
+          .filter((rating) => rating.source.toLowerCase() !== 'trakt')
+          .slice(0, 3)
+          .map((rating, idx) => (
+            <span
+              key={rating.source}
+              className={idx === 0 ? 'inline-flex' : 'hidden sm:inline-flex'}
+            >
+              <RatingBadge
+                rating={rating}
+                href={getHref(rating)}
+              />
+            </span>
+          ))}
+      </div>
+    )
+  }
+
+  const getLibraryRatingLink = (
+    rating: NonNullable<DiscoveryResult['ratings']>[number],
+    libItem: SonarrLibraryItem | RadarrLibraryItem,
+    type: 'movie' | 'tv',
+  ) => {
+    const source = rating.source.toLowerCase()
+    if (source === 'imdb' && libItem.imdbId) {
+      return `https://www.imdb.com/title/${libItem.imdbId}/`
+    }
+    if (source === 'tmdb' && (libItem as RadarrLibraryItem).tmdbId) {
+      const tmdbId = (libItem as RadarrLibraryItem).tmdbId
+      return type === 'movie'
+        ? `https://www.themoviedb.org/movie/${tmdbId}`
+        : `https://www.themoviedb.org/tv/${tmdbId}`
+    }
+    if (source === 'tvdb') {
+      return `https://thetvdb.com/search?query=${encodeURIComponent(libItem.title)}`
+    }
+    return null
+  }
+
   // Extract common fields based on source
   const poster = item.source === 'discovery' ? item.data.poster : item.data.poster
   const title = item.source === 'discovery' ? item.data.title : item.data.title
@@ -112,24 +158,7 @@ export function MediaCard({
 
     actionButton = (
       <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
-        {result.ratings && result.ratings.length > 0 && (
-          <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
-            {result.ratings
-              .filter((rating) => rating.source.toLowerCase() !== 'trakt')
-              .slice(0, 3)
-              .map((rating, idx) => (
-                <span
-                  key={rating.source}
-                  className={idx === 0 ? 'inline-flex' : 'hidden sm:inline-flex'}
-                >
-                  <RatingBadge
-                    rating={rating}
-                    href={getRatingLink(result, rating)}
-                  />
-                </span>
-              ))}
-          </div>
-        )}
+        {renderRatings(result.ratings, (rating) => getRatingLink(result, rating))}
 
         <button
           onClick={handleReleasesClick}
@@ -198,7 +227,21 @@ export function MediaCard({
           </span>
         )}
         <span className="glass-chip text-xs px-2 py-1 rounded">{formatSize(libItem.sizeOnDisk)}</span>
-        <div className="flex items-center gap-2 ml-auto">
+      </div>
+    )
+
+    const libraryRatings = (libItem.ratings && libItem.ratings.length > 0)
+      ? libItem.ratings
+      : (libItem.imdbRating ? [{ source: 'imdb', value: libItem.imdbRating }] : [])
+    const filteredRatings = mediaType === 'tv'
+      ? libraryRatings.filter((rating) => rating.source.toLowerCase() === 'tvdb')
+      : libraryRatings
+
+    actionButton = (
+      <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
+        {renderRatings(filteredRatings, (rating) => getLibraryRatingLink(rating, libItem, mediaType))}
+
+        <div className="flex items-center gap-2 ml-auto md:ml-0">
           {libItem.mediaType === 'movies' && (
             <button
               type="button"
@@ -228,8 +271,6 @@ export function MediaCard({
         </div>
       </div>
     )
-
-    actionButton = null
   }
 
   // Unified card layout - same structure for both discovery and library
@@ -257,7 +298,7 @@ export function MediaCard({
                 <img
                   src={poster}
                   alt={title}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain block"
                   loading="lazy"
                 />
               ) : (
@@ -272,7 +313,7 @@ export function MediaCard({
                 <img
                   src={poster}
                   alt={title}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain block"
                   loading="lazy"
                 />
               ) : (
