@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 
 import { useBackendApiSetup, useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components'
+import { getLocalToolUrl } from '@/utils/backend'
 import { getStreamingLogo } from '@/utils/streaming'
 
 export default function StatusPage() {
@@ -15,6 +16,24 @@ export default function StatusPage() {
   const [expandedHealth, setExpandedHealth] = useState<Record<string, boolean>>({})
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  const buildAlertUrl = (baseUrl: string | undefined, alertPath: string) => {
+    if (!baseUrl) return ''
+    const [pathPart, hashPart] = alertPath.split('#')
+    try {
+      const url = new URL(baseUrl)
+      const basePath = url.pathname.replace(/\/$/, '')
+      const suffix = pathPart.startsWith('/') ? pathPart : `/${pathPart}`
+      url.pathname = `${basePath}${suffix}`
+      url.search = ''
+      url.hash = hashPart ? `#${hashPart}` : ''
+      return url.toString()
+    } catch {
+      const trimmed = baseUrl.replace(/\/$/, '')
+      const suffix = pathPart.startsWith('/') ? pathPart : `/${pathPart}`
+      return `${trimmed}${suffix}${hashPart ? `#${hashPart}` : ''}`
+    }
+  }
 
   return (
     <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
@@ -51,6 +70,8 @@ export default function StatusPage() {
                     </div>
                   </div>
 
+                  <div className="border-t border-slate-800/60 my-4" />
+
                   <div>
                     <h3 className="text-sm font-semibold text-gray-400 mb-2">Integrations</h3>
                     <div className="space-y-2 text-sm">
@@ -60,24 +81,34 @@ export default function StatusPage() {
                           label: 'Sonarr',
                           configured: Boolean(config.integrations.sonarr_url),
                           status: integrationsStatus?.sonarr,
+                          baseUrl: config.integrations.sonarr_url || getLocalToolUrl(8989),
+                          alertPath: '/system/status',
                         },
                         {
                           key: 'radarr',
                           label: 'Radarr',
                           configured: Boolean(config.integrations.radarr_url),
                           status: integrationsStatus?.radarr,
+                          baseUrl: config.integrations.radarr_url || getLocalToolUrl(7878),
+                          alertPath: '/system/status',
                         },
                         {
                           key: 'sabnzbd',
                           label: 'SABnzbd',
                           configured: Boolean(config.integrations.sabnzbd_url),
                           status: integrationsStatus?.sabnzbd,
+                          baseUrl: config.integrations.sabnzbd_url || getLocalToolUrl(8080),
+                          alertPath: '/warnings',
                         },
                         {
                           key: 'plex',
                           label: 'Plex',
                           configured: Boolean(config.integrations.plex_url),
                           status: integrationsStatus?.plex,
+                          baseUrl: config.integrations.plex_url || getLocalToolUrl(32400, '/web'),
+                          alertPath: (config.integrations.plex_url || '').includes('/web')
+                            ? '/index.html#!/settings/server/alerts'
+                            : '/web/index.html#!/settings/server/alerts',
                         },
                       ].map((item) => {
                         const status = item.status?.status
@@ -104,13 +135,25 @@ export default function StatusPage() {
                           : (isOk
                             ? `Version ${item.status?.version || 'unknown'}`
                             : (item.status?.message || 'Unable to reach service'))
+                        const alertUrl = isConfigured ? buildAlertUrl(item.baseUrl, item.alertPath) : ''
                         return (
                           <div
                             key={item.key}
                             className="rounded-md border border-slate-800/60 bg-slate-900/40 px-3 py-2"
                           >
                             <div className="flex items-center justify-between">
-                              <span>{item.label}</span>
+                              {alertUrl ? (
+                                <a
+                                  href={alertUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-slate-200 hover:text-cyan-200 transition-colors"
+                                >
+                                  {item.label}
+                                </a>
+                              ) : (
+                                <span>{item.label}</span>
+                              )}
                               <span className={statusClass}>{statusLabel}</span>
                             </div>
                             <div className="text-xs text-gray-400 mt-1">{meta}</div>
@@ -167,6 +210,8 @@ export default function StatusPage() {
                     </div>
                   </div>
 
+                  <div className="border-t border-slate-800/60 my-4" />
+
                   <div>
                     <h3 className="text-sm font-semibold text-gray-400 mb-2">Streaming Services</h3>
                     <div className="flex flex-wrap gap-2">
@@ -176,7 +221,7 @@ export default function StatusPage() {
                       {config.streaming_services.filter((service) => service.enabled).map((service) => (
                         <span
                           key={service.id}
-                          className="glass-chip px-2 py-1 rounded inline-flex items-center gap-2 text-xs"
+                          className="inline-flex items-center gap-2 text-xs"
                         >
                           {getStreamingLogo(service.id) ? (
                             <img
