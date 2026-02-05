@@ -539,28 +539,33 @@ function LibraryContent() {
                 )}
 
                 {!loading && !error && sortedItems.length > 0 && (
-                  <div className="grid gap-2">
-                    {sortedItems.map((item) => (
-                      <MediaCard
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                    {sortedItems.map((item, index) => (
+                      <div
                         key={`${item.mediaType}-${item.id}`}
-                        item={{ source: 'library', data: item }}
-                        onClick={() => {
-                          setSelectedItem(item)
-                          setAutoSearch(false)
-                          setAutoDeleteOpen(false)
-                        }}
-                        onLibrarySearch={() => {
-                          setSelectedItem(item)
-                          setAutoSearch(true)
-                          setAutoDeleteOpen(false)
-                        }}
-                        onLibraryDelete={() => {
-                          setSelectedItem(item)
-                          setAutoSearch(false)
-                          setAutoDeleteOpen(true)
-                        }}
-                        onTypeToggle={handleTypeToggle}
-                      />
+                        className="opacity-0 animate-fade-in"
+                        style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
+                      >
+                        <MediaCard
+                          item={{ source: 'library', data: item }}
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setAutoSearch(false)
+                            setAutoDeleteOpen(false)
+                          }}
+                          onLibrarySearch={() => {
+                            setSelectedItem(item)
+                            setAutoSearch(true)
+                            setAutoDeleteOpen(false)
+                          }}
+                          onLibraryDelete={() => {
+                            setSelectedItem(item)
+                            setAutoSearch(false)
+                            setAutoDeleteOpen(true)
+                          }}
+                          onTypeToggle={handleTypeToggle}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
