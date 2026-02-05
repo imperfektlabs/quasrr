@@ -262,7 +262,7 @@ class RadarrClient:
                 response = await client.get(
                     f"{self.base_url}/api/v3/movie",
                     headers=self._get_headers(),
-                    params={"tmdbId": tmdb_id},
+                    params={"tmdbId": tmdb_id, "includeMovieFile": "true"},
                 )
                 response.raise_for_status()
                 movies = response.json()
@@ -309,6 +309,7 @@ class RadarrClient:
                 response = await client.get(
                     f"{self.base_url}/api/v3/movie",
                     headers=self._get_headers(),
+                    params={"includeMovieFile": "true"},
                 )
                 response.raise_for_status()
                 movies = response.json()
@@ -320,6 +321,9 @@ class RadarrClient:
                         "overview": movie.get("overview"),
                         "path": movie.get("path"),
                         "hasFile": movie.get("hasFile", False),
+                        "movieFilePath": (movie.get("movieFile") or {}).get("path"),
+                        "movieFileRelativePath": (movie.get("movieFile") or {}).get("relativePath"),
+                        "movieFileSceneName": (movie.get("movieFile") or {}).get("sceneName"),
                         "monitored": movie.get("monitored", True),
                         "sizeOnDisk": movie.get("sizeOnDisk", 0),
                         "tmdbId": movie.get("tmdbId"),
@@ -489,6 +493,7 @@ class RadarrClient:
         # Check if movie is in library
         existing_movie = await self.get_movie_by_tmdb(tmdb_id)
 
+        movie_file: dict | None = None
         if not existing_movie:
             # Add movie to library first
             logger.info(f"Movie not in library, adding: TMDB {tmdb_id}")
@@ -499,12 +504,19 @@ class RadarrClient:
                     "releases": [],
                     "title": title,
                     "tmdb_id": tmdb_id,
+                    "movie_file": movie_file,
                 }
 
         movie_id = existing_movie.get("id")
         movie_title = existing_movie.get("title", title)
         movie_year = existing_movie.get("year")
         movie_runtime = existing_movie.get("runtime", 0)
+        if existing_movie.get("hasFile"):
+            movie_file = {
+                "relativePath": (existing_movie.get("movieFile") or {}).get("relativePath"),
+                "path": (existing_movie.get("movieFile") or {}).get("path"),
+                "sceneName": (existing_movie.get("movieFile") or {}).get("sceneName"),
+            }
 
         logger.info(f"Searching releases for movie ID {movie_id}: '{movie_title}'")
 
@@ -519,6 +531,7 @@ class RadarrClient:
                 "radarr_id": movie_id,
                 "runtime": movie_runtime,
                 "releases": [],
+                "movie_file": movie_file,
                 "message": "No releases found. Check indexers are configured.",
             }
 
@@ -558,6 +571,7 @@ class RadarrClient:
             "radarr_id": movie_id,
             "runtime": movie_runtime,
             "releases": normalized,
+            "movie_file": movie_file,
         }
 
     async def interactive_search(self, term: str) -> list[dict]:

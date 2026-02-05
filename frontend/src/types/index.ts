@@ -148,6 +148,7 @@ export type Release = {
   season?: number
   episode?: number[]
   full_season?: boolean
+  on_disk?: boolean
 }
 
 export type ReleaseResponse = {
@@ -166,6 +167,20 @@ export type ReleaseResponse = {
   runtime?: number
   releases: Release[]
   message?: string
+  episode_meta?: Record<number, Record<number, {
+    title?: string | null
+    airDate?: string | null
+  }>>
+  episode_file?: {
+    relativePath?: string | null
+    path?: string | null
+    sceneName?: string | null
+  } | null
+  movie_file?: {
+    relativePath?: string | null
+    path?: string | null
+    sceneName?: string | null
+  } | null
   episode_downloaded?: EpisodeDownloadMap
   season_progress?: SeasonProgress[]
 }
@@ -293,6 +308,9 @@ export type RadarrLibraryItem = {
   overview?: string
   path?: string
   hasFile: boolean
+  movieFilePath?: string | null
+  movieFileRelativePath?: string | null
+  movieFileSceneName?: string | null
   monitored: boolean
   sizeOnDisk?: number
   tmdbId?: number
@@ -347,6 +365,10 @@ export type SonarrEpisode = {
   airDate?: string
   hasFile?: boolean
   quality?: string | null
+  relativePath?: string | null
+  filePath?: string | null
+  sceneName?: string | null
+  size?: number | null
 }
 
 // ============================================
