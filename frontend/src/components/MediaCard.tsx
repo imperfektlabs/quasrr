@@ -31,64 +31,7 @@ export function MediaCard({
 }: MediaCardProps) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
 
-  const renderRatings = (
-    ratings: DiscoveryResult['ratings'] | null | undefined,
-    getHref: (rating: NonNullable<DiscoveryResult['ratings']>[number]) => string | null,
-  ) => {
-    if (!ratings || ratings.length === 0) return null
-    const priorityOrder = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
-    const sortedRatings = [...ratings]
-      .filter((rating) => !['trakt', 'metacritic'].includes(rating.source.toLowerCase()))
-      .sort((a, b) => {
-        const aSource = a.source.toLowerCase()
-        const bSource = b.source.toLowerCase()
-        const aIndex = priorityOrder.indexOf(aSource)
-        const bIndex = priorityOrder.indexOf(bSource)
-        const normalizedA = aIndex === -1 ? priorityOrder.length : aIndex
-        const normalizedB = bIndex === -1 ? priorityOrder.length : bIndex
-        return normalizedA - normalizedB
-      })
-    return (
-      <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
-        {sortedRatings
-          .slice(0, 3)
-          .map((rating, idx) => (
-            <span
-              key={rating.source}
-              className={idx === 0 ? 'inline-flex' : 'hidden sm:inline-flex'}
-            >
-              <RatingBadge
-                rating={rating}
-                href={getHref(rating)}
-              />
-            </span>
-          ))}
-      </div>
-    )
-  }
-
-  const getLibraryRatingLink = (
-    rating: NonNullable<DiscoveryResult['ratings']>[number],
-    libItem: SonarrLibraryItem | RadarrLibraryItem,
-    type: 'movie' | 'tv',
-  ) => {
-    const source = rating.source.toLowerCase()
-    if (source === 'imdb' && libItem.imdbId) {
-      return `https://www.imdb.com/title/${libItem.imdbId}/`
-    }
-    if (source === 'tmdb' && (libItem as RadarrLibraryItem).tmdbId) {
-      const tmdbId = (libItem as RadarrLibraryItem).tmdbId
-      return type === 'movie'
-        ? `https://www.themoviedb.org/movie/${tmdbId}`
-        : `https://www.themoviedb.org/tv/${tmdbId}`
-    }
-    if (source === 'tvdb') {
-      return `https://thetvdb.com/search?query=${encodeURIComponent(libItem.title)}`
-    }
-    return null
-  }
-
-  // Extract common fields based on source
+  // Extract common fields
   const poster = item.source === 'discovery' ? item.data.poster : item.data.poster
   const title = item.source === 'discovery' ? item.data.title : item.data.title
   const year = item.source === 'discovery' ? item.data.year : item.data.year
@@ -97,104 +40,94 @@ export function MediaCard({
   // Determine media type and status
   let mediaType: 'movie' | 'tv'
   let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
-  let statusBadge: React.ReactNode
-  let metadata: React.ReactNode
-  let actionButton: React.ReactNode
+  let ratings: React.ReactNode = null
+  let badges: React.ReactNode = null
+  let actionButtons: React.ReactNode = null
 
   if (item.source === 'discovery') {
     const result = item.data
     mediaType = result.type
     status = result.status
 
-    // Discovery metadata: year only
-    metadata = result.year ? (
-      <div className="text-2xs text-gray-400 mt-0.5 leading-relaxed">
-        {result.year}
-        {result.type === 'movie' && result.runtime && ` • ${result.runtime} min`}
-        {result.type === 'tv' && result.seasons && ` • ${result.seasons} season${result.seasons !== 1 ? 's' : ''}`}
-        {result.type === 'tv' && result.network && ` • ${result.network}`}
-      </div>
-    ) : null
+    // Ratings
+    const priorityOrder = ['imdb', 'tmdb', 'tvdb', 'rottentomatoes']
+    const sortedRatings = result.ratings
+      ? [...result.ratings]
+          .filter((r) => !['trakt', 'metacritic'].includes(r.source.toLowerCase()))
+          .sort((a, b) => {
+            const aIdx = priorityOrder.indexOf(a.source.toLowerCase())
+            const bIdx = priorityOrder.indexOf(b.source.toLowerCase())
+            return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx)
+          })
+          .slice(0, 2)
+      : []
 
+    ratings = sortedRatings.length > 0 && (
+      <div className="flex flex-wrap gap-1">
+        {sortedRatings.map((rating) => (
+          <RatingBadge
+            key={rating.source}
+            rating={rating}
+            href={getRatingLink(result, rating)}
+          />
+        ))}
+      </div>
+    )
+
+    // Badges
     const discoveryLibraryLink = result.type === 'movie' && result.tmdb_id
       ? `/library?tmdb=${result.tmdb_id}`
       : (result.type === 'tv' && result.tvdb_id ? `/library?tvdb=${result.tvdb_id}` : null)
 
-    statusBadge = (
+    badges = (
       <div className="flex flex-wrap gap-1.5 items-center">
         {result.status !== 'not_in_library' && discoveryLibraryLink ? (
           <a
             href={discoveryLibraryLink}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex"
             title="View in library"
-            aria-label="View in library"
           >
             <StatusBadge status={result.status} />
           </a>
         ) : (
           <StatusBadge status={result.status} />
         )}
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onTypeToggle?.(result.type)
-          }}
-          className="glass-chip text-2xs px-2 py-0.5 rounded transition-smooth hover:border-slate-200/70 hover:shadow-glow-cyan inline-flex items-center justify-center"
-          title={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
-          aria-label={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
-        >
-          {result.type === 'movie' ? (
-            <ProjectorIcon className="h-3.5 w-3.5" />
-          ) : (
-            <TvIcon className="h-3.5 w-3.5" />
-          )}
-          <span className="sr-only">{result.type === 'movie' ? 'Movie' : 'TV'}</span>
-        </button>
         {result.type === 'tv' && result.seasons && result.seasons > 1 && (
           <select
             value={selectedSeason}
-            onChange={(event) => {
-              const value = event.target.value
-              setSelectedSeason(value === 'all' ? 'all' : Number(value))
-            }}
-            onClick={(event) => event.stopPropagation()}
-            className="bg-slate-900/70 border border-slate-700/60 rounded px-2 py-0.5 text-2xs transition-smooth hover:border-cyan-400/50 hover:bg-slate-900/80 cursor-pointer"
-            title="Season"
+            onChange={(e) => setSelectedSeason(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            onClick={(e) => e.stopPropagation()}
+            className="glass-badge text-2xs px-1.5 py-0.5 rounded cursor-pointer border-0 transition-smooth hover:shadow-glow-cyan"
           >
-            <option value="all">All seasons</option>
-            {Array.from({ length: result.seasons }, (_, index) => index + 1).map((season) => (
-              <option key={season} value={season}>
-                Season {season}
-              </option>
+            <option value="all">All</option>
+            {Array.from({ length: result.seasons }, (_, i) => i + 1).map((s) => (
+              <option key={s} value={s}>S{s}</option>
             ))}
           </select>
         )}
       </div>
     )
 
-    const handleReleasesClick = (event: React.MouseEvent) => {
-      event.stopPropagation()
+    // Action button
+    const handleReleasesClick = (e: React.MouseEvent) => {
+      e.stopPropagation()
       if (result.type === 'tv' && selectedSeason !== 'all') {
         onShowReleases?.(result, selectedSeason)
-        return
+      } else {
+        onShowReleases?.(result)
       }
-      onShowReleases?.(result)
     }
 
-    actionButton = (
-      <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
-        {renderRatings(result.ratings, (rating) => getRatingLink(result, rating))}
-
-        <button
-          onClick={handleReleasesClick}
-          className="bg-cyan-500/80 hover:bg-cyan-400 hover:shadow-glow-cyan text-white h-8 w-8 sm:h-9 sm:w-9 rounded-lg inline-flex items-center justify-center transition-smooth hover:scale-105 ml-auto md:ml-0"
-          aria-label="Find releases"
-        >
-          <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        </button>
-      </div>
+    actionButtons = (
+      <button
+        onClick={handleReleasesClick}
+        className="w-full bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+        aria-label="Find releases"
+      >
+        <SearchIcon className="h-4 w-4" />
+        <span className="text-sm font-medium">Find Releases</span>
+      </button>
     )
   } else {
     // Library item
@@ -204,190 +137,133 @@ export function MediaCard({
     if (libItem.mediaType === 'movies') {
       status = libItem.hasFile ? 'downloaded' : 'in_library'
     } else {
-      const totalEpisodes = libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0
-      const downloadedEpisodes = libItem.episodeFileCount ?? 0
-      if (totalEpisodes > 0 && downloadedEpisodes >= totalEpisodes) {
-        status = 'downloaded'
-      } else if (downloadedEpisodes > 0) {
-        status = 'partial'
-      } else {
-        status = 'in_library'
-      }
+      const total = libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0
+      const downloaded = libItem.episodeFileCount ?? 0
+      status = total > 0 && downloaded >= total ? 'downloaded' : downloaded > 0 ? 'partial' : 'in_library'
     }
 
-    const libraryYearLabel = libItem.mediaType === 'tv'
-      ? formatSeriesYearSpan({
-        year: libItem.year,
-        firstAired: libItem.firstAired,
-        lastAired: libItem.lastAired,
-        ended: libItem.ended,
-      })
-      : (libItem.year ? `${libItem.year}` : '')
-    metadata = libraryYearLabel ? (
-      <div className="text-2xs text-gray-400 mt-0.5 leading-relaxed">
-        {libraryYearLabel}
-      </div>
-    ) : null
-
-    statusBadge = (
-      <div className="flex flex-wrap gap-1.5 items-center">
-        <StatusBadge status={status} />
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onTypeToggle?.(libItem.mediaType === 'movies' ? 'movie' : 'tv')
-          }}
-          className="glass-chip text-2xs px-2 py-0.5 rounded transition-smooth hover:border-slate-200/70 hover:shadow-glow-cyan inline-flex items-center justify-center"
-          title={`Filter to ${libItem.mediaType === 'movies' ? 'movies' : 'TV shows'}`}
-          aria-label={`Filter to ${libItem.mediaType === 'movies' ? 'movies' : 'TV shows'}`}
-        >
-          {libItem.mediaType === 'movies' ? (
-            <ProjectorIcon className="h-3.5 w-3.5" />
-          ) : (
-            <TvIcon className="h-3.5 w-3.5" />
-          )}
-          <span className="sr-only">{libItem.mediaType === 'movies' ? 'Movie' : 'TV'}</span>
-        </button>
-        {libItem.mediaType === 'tv' && (
-          <span className="glass-chip text-2xs px-2 py-0.5 rounded">
-            {libItem.episodeFileCount || 0}/{libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0} eps
-          </span>
-        )}
-        <span className="glass-chip text-2xs px-2 py-0.5 rounded">{formatSize(libItem.sizeOnDisk)}</span>
-      </div>
-    )
-
-    const libraryRatings = (libItem.ratings && libItem.ratings.length > 0)
+    // Ratings
+    const libRatings = (libItem.ratings && libItem.ratings.length > 0)
       ? libItem.ratings
       : (libItem.imdbRating ? [{ source: 'imdb', value: libItem.imdbRating }] : [])
     const filteredRatings = mediaType === 'tv'
-      ? libraryRatings.filter((rating) => rating.source.toLowerCase() === 'tvdb')
-      : libraryRatings
+      ? libRatings.filter((r) => r.source.toLowerCase() === 'tvdb').slice(0, 1)
+      : libRatings.slice(0, 2)
 
-    actionButton = (
-      <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
-        {renderRatings(filteredRatings, (rating) => getLibraryRatingLink(rating, libItem, mediaType))}
+    ratings = filteredRatings.length > 0 && (
+      <div className="flex flex-wrap gap-1">
+        {filteredRatings.map((rating) => {
+          const source = rating.source.toLowerCase()
+          let href = null
+          if (source === 'imdb' && libItem.imdbId) href = `https://www.imdb.com/title/${libItem.imdbId}/`
+          else if (source === 'tmdb' && (libItem as RadarrLibraryItem).tmdbId) {
+            const tmdbId = (libItem as RadarrLibraryItem).tmdbId
+            href = mediaType === 'movie' ? `https://www.themoviedb.org/movie/${tmdbId}` : `https://www.themoviedb.org/tv/${tmdbId}`
+          }
+          return <RatingBadge key={rating.source} rating={rating} href={href} />
+        })}
+      </div>
+    )
 
-        <div className="flex items-center gap-2 ml-auto md:ml-0">
-          {libItem.mediaType === 'movies' && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                onLibrarySearch?.()
-              }}
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-cyan-500/80 text-white hover:bg-cyan-400 hover:shadow-glow-cyan inline-flex items-center justify-center transition-smooth hover:scale-105"
-              title="Search All"
-              aria-label="Search All"
-            >
-              <SearchIcon className="h-3.5 w-3.5" />
-            </button>
-          )}
+    // Badges
+    badges = (
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <StatusBadge status={status} />
+        {libItem.mediaType === 'tv' && (
+          <span className="glass-badge text-2xs px-1.5 py-0.5 rounded">
+            {libItem.episodeFileCount || 0}/{libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0}
+          </span>
+        )}
+        <span className="glass-badge text-2xs px-1.5 py-0.5 rounded">
+          {formatSize(libItem.sizeOnDisk)}
+        </span>
+      </div>
+    )
+
+    // Action buttons
+    actionButtons = (
+      <div className="flex gap-2">
+        {libItem.mediaType === 'movies' && (
           <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onLibraryDelete?.()
-            }}
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-rose-500/70 text-white hover:bg-rose-500 transition-smooth hover:scale-105"
-            title="Remove title from library"
-            aria-label="Remove title from library"
+            onClick={(e) => { e.stopPropagation(); onLibrarySearch?.() }}
+            className="flex-1 bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
           >
-            ✕
+            <SearchIcon className="h-4 w-4" />
+            <span className="text-sm font-medium">Search</span>
           </button>
-        </div>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onLibraryDelete?.() }}
+          className="flex-1 bg-rose-500/80 hover:bg-rose-500 text-white py-2 px-3 rounded-lg inline-flex items-center justify-center transition-all duration-300 hover:scale-[1.02] active:scale-95"
+        >
+          <span className="text-sm font-medium">Remove</span>
+        </button>
       </div>
     )
   }
 
-  // Unified card layout - same structure for both discovery and library
-  const CardWrapper = 'div'
-  const wrapperProps = {}
+  // Metadata
+  const metadata = item.source === 'discovery'
+    ? item.data.year
+      ? `${item.data.year}${item.data.type === 'movie' && item.data.runtime ? ` • ${item.data.runtime}m` : ''}${item.data.type === 'tv' && item.data.seasons ? ` • ${item.data.seasons}S` : ''}`
+      : ''
+    : item.data.mediaType === 'tv'
+      ? formatSeriesYearSpan({
+          year: item.data.year,
+          firstAired: item.data.firstAired,
+          lastAired: item.data.lastAired,
+          ended: item.data.ended,
+        })
+      : item.data.year ? `${item.data.year}` : ''
 
   return (
-    <CardWrapper
-      {...wrapperProps}
-      className="glass-card rounded-lg overflow-hidden flex w-full text-left transition-smooth hover:border-slate-300/50 hover:shadow-lg group"
-    >
-      {/* Poster */}
-      <div className="w-[7rem] md:w-[9rem] flex-shrink-0">
-        <div className="aspect-[2/3] w-full bg-slate-800/60 relative overflow-hidden">
-          {item.source === 'discovery' ? (
-            <button
-              type="button"
-              onClick={onClick}
-              className="w-full h-full relative overflow-hidden group/poster"
-              title="Open details"
-            >
-              {poster ? (
-                <>
-                  <img
-                    src={poster}
-                    alt={title}
-                    className="w-full h-full object-contain block transition-smooth group-hover/poster:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover/poster:opacity-100 transition-smooth" />
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xs p-2 text-center">
-                  No poster
-                </div>
-              )}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onClick}
-              className="w-full h-full relative overflow-hidden group/poster"
-              title="Open details"
-            >
-              {poster ? (
-                <>
-                  <img
-                    src={poster}
-                    alt={title}
-                    className="w-full h-full object-contain block transition-smooth group-hover/poster:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover/poster:opacity-100 transition-smooth" />
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xs p-2 text-center">
-                  No poster
-                </div>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="glass-card rounded-xl overflow-hidden group transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-cyan-500/20 hover:border-cyan-400/40">
+      {/* POSTER - Full-width hero */}
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full aspect-[2/3] relative overflow-hidden bg-slate-800/60"
+        title="View details"
+      >
+        {poster ? (
+          <>
+            <img
+              src={poster}
+              alt={title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              loading="lazy"
+            />
+            {/* Gradient overlay that appears on hover */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-      {/* Content - unified grid layout */}
-      <div className="flex-1 p-2.5 sm:p-3 grid grid-cols-1 md:grid-cols-[1fr,150px] gap-2 md:gap-3 min-w-0">
-        {/* Left column: Title, metadata, badges, overview */}
-        <div className="min-w-0 flex flex-col">
-          <div className="mb-1.5">
-            <h3 className="font-semibold text-sm sm:text-base leading-tight truncate text-slate-50 group-hover:text-cyan-200 transition-colors">
-              {title}
-            </h3>
-            {metadata}
+            {/* Badges overlaid on poster bottom */}
+            <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+              {badges}
+              {ratings}
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
+            No poster
           </div>
+        )}
+      </button>
 
-          <div className="mb-1.5">
-            {statusBadge}
-          </div>
-
-          {overview && (
-            <p className="text-gray-400 text-2xs sm:text-xs line-clamp-2 sm:line-clamp-3 leading-relaxed">
-              {overview}
+      {/* CONTENT - Compact below poster */}
+      <div className="p-3 space-y-2.5">
+        <div>
+          <h3 className="font-semibold text-sm leading-tight truncate text-slate-50 group-hover:text-cyan-200 transition-colors">
+            {title}
+          </h3>
+          {metadata && (
+            <p className="text-2xs text-gray-400 mt-0.5 truncate">
+              {metadata}
             </p>
           )}
         </div>
 
-        {/* Right column: Ratings and action button (discovery only) */}
-        {actionButton}
+        {actionButtons}
       </div>
-    </CardWrapper>
+    </div>
   )
 }
