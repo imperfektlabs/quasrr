@@ -911,15 +911,20 @@ function HomeContent() {
                   No results found
                 </div>
               ) : (
-                <div className="grid gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                   {searchResults.results.map((result, index) => (
-                    <MediaCard
+                    <div
                       key={result.tmdb_id || result.tvdb_id || index}
-                      item={{ source: 'discovery', data: result }}
-                      onClick={() => setSelectedResult(result)}
-                      onShowReleases={handleShowReleases}
-                      onTypeToggle={handleTypeToggle}
-                    />
+                      className="opacity-0 animate-fade-in"
+                      style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
+                    >
+                      <MediaCard
+                        item={{ source: 'discovery', data: result }}
+                        onClick={() => setSelectedResult(result)}
+                        onShowReleases={handleShowReleases}
+                        onTypeToggle={handleTypeToggle}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
