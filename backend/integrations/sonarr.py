@@ -701,9 +701,17 @@ class SonarrClient:
                 files_response.raise_for_status()
                 episode_files = {
                     episode_file.get("id"): (
-                        episode_file.get("quality", {})
-                        .get("quality", {})
-                        .get("name")
+                        {
+                            "quality": (
+                                episode_file.get("quality", {})
+                                .get("quality", {})
+                                .get("name")
+                            ),
+                            "relativePath": episode_file.get("relativePath"),
+                            "path": episode_file.get("path"),
+                            "sceneName": episode_file.get("sceneName"),
+                            "size": episode_file.get("size"),
+                        }
                     )
                     for episode_file in files_response.json()
                 }
@@ -716,13 +724,34 @@ class SonarrClient:
                         "title": episode.get("title"),
                         "airDate": episode.get("airDate"),
                         "hasFile": episode.get("hasFile", False),
-                        "quality": episode_files.get(episode.get("episodeFileId")),
+                        "quality": episode_files.get(episode.get("episodeFileId"), {}).get("quality"),
+                        "relativePath": episode_files.get(episode.get("episodeFileId"), {}).get("relativePath"),
+                        "filePath": episode_files.get(episode.get("episodeFileId"), {}).get("path"),
+                        "sceneName": episode_files.get(episode.get("episodeFileId"), {}).get("sceneName"),
+                        "size": episode_files.get(episode.get("episodeFileId"), {}).get("size"),
                     }
                     for episode in episodes
                 ]
         except Exception as e:
             logger.error(f"Sonarr get episodes error: {e}")
             return []
+
+    async def get_episode_file(self, episode_file_id: int) -> dict | None:
+        """Get a single episode file by ID."""
+        if not self.is_configured:
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v3/episodefile/{episode_file_id}",
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            logger.error(f"Sonarr get episode file error: {e}")
+            return None
 
     async def discover(self, term: str) -> list[dict]:
         """
@@ -943,7 +972,9 @@ class SonarrClient:
         series_title = existing_series.get("title", title)
         series_year = existing_series.get("year")
 
+        episode_file: dict | None = None
         episode_downloaded: dict[int, dict[int, bool]] = {}
+        episode_meta: dict[int, dict[int, dict]] = {}
         season_progress: list[dict] = []
         episodes: list[dict] = []
         if series_id:
@@ -963,6 +994,10 @@ class SonarrClient:
                     )
                     has_file = bool(ep.get("hasFile"))
                     season_entry["episodes"][episode_number] = has_file
+                    episode_meta.setdefault(season_number, {})[episode_number] = {
+                        "title": ep.get("title"),
+                        "airDate": ep.get("airDate"),
+                    }
                     season_entry["total"] += 1
                     if has_file:
                         season_entry["downloaded"] += 1
@@ -993,6 +1028,8 @@ class SonarrClient:
                 "message": "Episode number provided without season.",
                 "requested_season": None,
                 "requested_episode": episode,
+                "episode_meta": episode_meta,
+                "episode_file": episode_file,
                 "episode_downloaded": episode_downloaded,
                 "season_progress": season_progress,
             }
@@ -1006,6 +1043,17 @@ class SonarrClient:
         )
 
         episode_id = self._find_episode_id(episodes, resolved_season, resolved_episode, resolved_date)
+        if episode_id:
+            matched_episode = next((ep for ep in episodes if ep.get("id") == episode_id), None)
+            episode_file_id = matched_episode.get("episodeFileId") if matched_episode else None
+            if episode_file_id:
+                file_data = await self.get_episode_file(episode_file_id)
+                if file_data:
+                    episode_file = {
+                        "relativePath": file_data.get("relativePath"),
+                        "path": file_data.get("path"),
+                        "sceneName": file_data.get("sceneName"),
+                    }
 
         logger.info(
             "Episode resolution: season=%s, episode=%s, title=%s, episode_date=%s, resolved_date=%s, fallback=%s, episode_id=%s",
@@ -1029,6 +1077,8 @@ class SonarrClient:
                 "requested_season": resolved_season,
                 "requested_episode": None,
                 "requested_episode_title": resolved_title,
+                "episode_meta": episode_meta,
+                "episode_file": episode_file,
                 "episode_downloaded": episode_downloaded,
                 "season_progress": season_progress,
             }
@@ -1082,6 +1132,8 @@ class SonarrClient:
                 "message": "No releases found. Check indexers are configured.",
                 "requested_season": resolved_season,
                 "requested_episode": resolved_episode,
+                "episode_meta": episode_meta,
+                "episode_file": episode_file,
                 "episode_downloaded": episode_downloaded,
                 "season_progress": season_progress,
             }
@@ -1163,6 +1215,8 @@ class SonarrClient:
             "requested_season": resolved_season,
             "requested_episode": resolved_episode,
             "requested_episode_title": resolved_title,
+            "episode_meta": episode_meta,
+            "episode_file": episode_file,
             "message": fallback_message,
             "episode_downloaded": episode_downloaded,
             "season_progress": season_progress,

@@ -162,3 +162,37 @@ export function formatSeriesYearSpan(params: {
   if (!end) return `${start}-${start}`
   return `${start}-${end}`
 }
+
+function stripExtension(value: string): string {
+  return value.replace(/\.[a-z0-9]{2,5}$/i, '')
+}
+
+export function getFileNameFromPath(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const parts = trimmed.split(/[\\/]/)
+  const last = parts[parts.length - 1] || ''
+  return stripExtension(last)
+}
+
+export function normalizeReleaseMatchText(value: string): string {
+  return stripExtension(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+export function isReleaseTitleMatch(releaseTitle: string, candidates: Array<string | null | undefined>): boolean {
+  const normalizedRelease = normalizeReleaseMatchText(releaseTitle)
+  if (!normalizedRelease) return false
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    const normalizedCandidate = normalizeReleaseMatchText(getFileNameFromPath(candidate))
+    if (!normalizedCandidate) continue
+    if (normalizedCandidate.includes(normalizedRelease) || normalizedRelease.includes(normalizedCandidate)) {
+      return true
+    }
+  }
+  return false
+}
