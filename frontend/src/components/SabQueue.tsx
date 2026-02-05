@@ -68,13 +68,13 @@ export function SabQueue({
   }
 
   if (error) {
-    return <div className="text-red-400">Error fetching queue: {error}</div>
+    return <div className="text-red-400 text-sm">Error fetching queue: {error}</div>
   }
   if (!data) {
-    return <div className="text-yellow-400">Loading queue...</div>
+    return <div className="text-yellow-400 text-sm">Loading queue...</div>
   }
   if (data.jobs.length === 0) {
-    return <div className="text-gray-400">Nothing downloading</div>
+    return <div className="text-gray-400 text-sm">Nothing downloading</div>
   }
 
   const queuePaused = Boolean(data.paused)
@@ -89,7 +89,7 @@ export function SabQueue({
               type="button"
               onClick={handleConfirm}
               disabled={actionBusy}
-              className="px-2 py-1 rounded bg-amber-500/80 text-white disabled:opacity-50"
+              className="px-2.5 py-1 rounded-lg bg-amber-500/80 text-white hover:bg-amber-500 transition-smooth disabled:opacity-50"
             >
               Confirm
             </button>
@@ -97,7 +97,7 @@ export function SabQueue({
               type="button"
               onClick={handleCancel}
               disabled={actionBusy}
-              className="px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+              className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-smooth disabled:opacity-50"
             >
               Cancel
             </button>
@@ -105,7 +105,7 @@ export function SabQueue({
         ) : queuePaused ? (
           <div className="mr-auto text-xs text-amber-200 flex items-center gap-2">
             <span>Queue paused</span>
-            <span className="glass-chip px-2 py-0.5 rounded text-[10px]">Resume to continue</span>
+            <span className="glass-chip px-2 py-0.5 rounded text-2xs">Resume to continue</span>
           </div>
         ) : (
           <div className="mr-auto"></div>
@@ -114,8 +114,8 @@ export function SabQueue({
           type="button"
           onClick={() => setConfirmAction({ type: 'pauseAll' })}
           disabled={actionBusy}
-          className={`text-xs px-2 py-1 rounded disabled:opacity-50 ${
-            queuePaused ? 'bg-amber-500/70 text-white' : 'bg-slate-800/60'
+          className={`text-xs px-3 py-1.5 rounded-lg transition-smooth disabled:opacity-50 hover:scale-105 ${
+            queuePaused ? 'bg-amber-500/70 text-white hover:bg-amber-500' : 'bg-slate-800/60 hover:bg-slate-700/60'
           }`}
           title="Pause all"
           aria-label="Pause all"
@@ -126,8 +126,8 @@ export function SabQueue({
           type="button"
           onClick={onResumeAll}
           disabled={actionBusy}
-          className={`text-xs px-2 py-1 rounded disabled:opacity-50 ${
-            queuePaused ? 'bg-cyan-500/70 text-white' : 'bg-slate-800/60'
+          className={`text-xs px-3 py-1.5 rounded-lg transition-smooth disabled:opacity-50 hover:scale-105 ${
+            queuePaused ? 'bg-cyan-500/70 text-white hover:bg-cyan-400 hover:shadow-glow-cyan' : 'bg-slate-800/60 hover:bg-slate-700/60'
           }`}
           title="Resume all"
           aria-label="Resume all"
@@ -141,7 +141,7 @@ export function SabQueue({
         const isConfirmingPause = confirmAction?.type === 'pause' && confirmAction.jobId === job.id
         const isConfirmingDelete = confirmAction?.type === 'delete' && confirmAction.jobId === job.id
         return (
-          <div key={job.name} className="glass-card rounded-lg p-3">
+          <div key={job.name} className="glass-card rounded-lg p-3 transition-smooth hover:border-slate-300/50">
             <a
               href={buildLibraryUrl({
                 mediaType: job.mediaType,
@@ -149,27 +149,29 @@ export function SabQueue({
                 season: job.season,
                 episode: job.episode,
               })}
-              className="text-sm truncate font-semibold text-slate-100 hover:text-cyan-200 transition-colors"
+              className="text-sm truncate font-semibold text-slate-100 hover:text-cyan-200 transition-colors block"
               title={job.name}
             >
               {job.name}
             </a>
-            <div className="text-xs text-gray-400 mt-1 flex justify-between">
-              <span>{job.status}</span>
+            <div className="text-2xs text-gray-400 mt-1.5 flex justify-between items-center">
+              <span className="capitalize">{job.status}</span>
               <span>{job.eta} remaining</span>
             </div>
-            <div className="w-full bg-slate-700/60 rounded-full h-2.5 mt-2">
+            <div className="w-full bg-slate-700/60 rounded-full h-2.5 mt-2.5 overflow-hidden relative">
               <div
-                className="bg-cyan-500 h-2.5 rounded-full"
+                className="bg-gradient-to-r from-cyan-500 to-cyan-400 h-2.5 rounded-full transition-all duration-300 ease-out relative overflow-hidden"
                 style={{ width: `${percent}%` }}
-              ></div>
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]"></div>
+              </div>
             </div>
-            <div className="text-xs text-gray-400 mt-1 flex justify-between items-center gap-2">
-              <span>{percent}%</span>
+            <div className="text-2xs text-gray-400 mt-1.5 flex justify-between items-center">
+              <span className="font-medium text-cyan-200">{percent}%</span>
               <span className="ml-auto">{job.size_remaining} / {job.size_total} MB</span>
             </div>
             {job.id && (
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2.5 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -184,8 +186,8 @@ export function SabQueue({
                     })
                   }}
                   disabled={actionBusy}
-                  className={`text-xs px-2 py-1 rounded disabled:opacity-50 ${
-                    isPaused ? 'bg-amber-500/70 text-white' : 'bg-slate-800/60'
+                  className={`text-xs px-3 py-1.5 rounded-lg transition-smooth disabled:opacity-50 hover:scale-105 ${
+                    isPaused ? 'bg-amber-500/70 text-white hover:bg-amber-500' : 'bg-slate-800/60 hover:bg-slate-700/60'
                   }`}
                   title={isPaused ? 'Resume' : 'Pause'}
                   aria-label={isPaused ? 'Resume' : 'Pause'}
@@ -202,7 +204,7 @@ export function SabQueue({
                     })
                   }
                   disabled={actionBusy}
-                  className="text-xs px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-smooth disabled:opacity-50 hover:scale-105"
                   title="Delete"
                   aria-label="Delete"
                 >
@@ -211,7 +213,7 @@ export function SabQueue({
               </div>
             )}
             {(isConfirmingPause || isConfirmingDelete) && (
-              <div className="mt-2 text-xs text-amber-200 flex flex-wrap items-center gap-2">
+              <div className="mt-2.5 text-xs text-amber-200 flex flex-wrap items-center gap-2">
                 <span>
                   {isConfirmingDelete ? 'Delete' : 'Pause'} "{job.name}"?
                 </span>
@@ -219,7 +221,7 @@ export function SabQueue({
                   type="button"
                   onClick={handleConfirm}
                   disabled={actionBusy}
-                  className="px-2 py-1 rounded bg-amber-500/80 text-white disabled:opacity-50"
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/80 text-white hover:bg-amber-500 transition-smooth disabled:opacity-50"
                 >
                   Confirm
                 </button>
@@ -227,7 +229,7 @@ export function SabQueue({
                   type="button"
                   onClick={handleCancel}
                   disabled={actionBusy}
-                  className="px-2 py-1 rounded bg-slate-800/60 disabled:opacity-50"
+                  className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-smooth disabled:opacity-50"
                 >
                   Cancel
                 </button>
