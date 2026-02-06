@@ -36,9 +36,11 @@ const statusConfig = {
 } as const
 
 export function StatusBadge({ status }: { status?: DiscoveryResult['status'] | string }) {
-  const config = (status && status in statusConfig)
-    ? statusConfig[status as keyof typeof statusConfig]
-    : statusConfig['not_in_library']
+  const normalizedStatus = (status && status in statusConfig)
+    ? (status as keyof typeof statusConfig)
+    : 'not_in_library'
+
+  const config = statusConfig[normalizedStatus]
 
   return (
     <span
@@ -57,9 +59,9 @@ export function StatusBadge({ status }: { status?: DiscoveryResult['status'] | s
     >
       <span className="text-xs">{config.icon}</span>
       <span className="hidden sm:inline">
-        {status === 'not_in_library' ? 'Available' :
-         status === 'in_library' ? 'Added' :
-         status === 'partial' ? 'Partial' :
+        {normalizedStatus === 'not_in_library' ? 'Available' :
+         normalizedStatus === 'in_library' ? 'Added' :
+         normalizedStatus === 'partial' ? 'Partial' :
          'Downloaded'}
       </span>
     </span>
