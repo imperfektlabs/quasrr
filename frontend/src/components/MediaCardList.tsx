@@ -311,7 +311,7 @@ export function MediaCardList({
       className="glass-card rounded-lg overflow-hidden flex w-full text-left transition-smooth active:scale-[0.98]"
     >
       {/* Poster - Responsive sizing */}
-      <div className="w-20 sm:w-24 md:w-32 lg:w-36 xl:w-40 flex-shrink-0">
+      <div className="w-28 sm:w-32 md:w-32 lg:w-36 xl:w-40 flex-shrink-0">
         <div className="aspect-[2/3] w-full bg-slate-800/60 relative overflow-hidden">
           {item.source === 'discovery' ? (
             <button

@@ -46,11 +46,34 @@ export default function StatusPage() {
         config={config}
       />
 
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
+        {/* Page header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
+            System Status
+          </h1>
+          <div className="flex items-center gap-2">
+            {health?.status === 'ok' ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-sm text-emerald-300">All systems operational</span>
+              </>
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-sm text-amber-300">Checking connections...</span>
+              </>
+            )}
+          </div>
+        </div>
+
         <section id="status" className="scroll-mt-24">
-          <details className="glass-panel rounded-lg" open>
-            <summary className="p-4 cursor-pointer font-semibold">
-              System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
+          <details className="glass-panel rounded-xl border border-slate-700/40" open>
+            <summary className="p-5 cursor-pointer font-semibold text-lg hover:text-cyan-300 transition-colors flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              System Overview
             </summary>
 
             <div className="p-4 pt-0 space-y-4">
