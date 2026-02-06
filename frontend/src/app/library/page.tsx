@@ -357,7 +357,6 @@ function LibraryContent() {
                     </span>
                   </span>
                 )}
-                headerCount={sortedItems.length}
                 headerRight={(
                   <>
                     <span

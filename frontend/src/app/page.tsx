@@ -691,16 +691,7 @@ function HomeContent() {
             const searchPanel = (
               <SearchPanel
                 stickyClass={discoverySearchStickyClass}
-                headerTitle={(
-                  <>
-                    {searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
-                    {searchResults && searchResults.results.length > 0 && (
-                      <span className="text-slate-400 font-normal ml-2">
-                        {searchResults.count.toLocaleString()} {searchResults.count === 1 ? 'result' : 'results'}
-                      </span>
-                    )}
-                  </>
-                )}
+                headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
                 headerRight={searchResults && searchResults.results.length > 0 ? (
                   <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
                     <button
@@ -947,27 +938,15 @@ function HomeContent() {
           {searching && (
             <div className="glass-panel rounded-lg p-8 text-center mb-4">
               <div className="flex flex-col items-center gap-4">
-                <svg
-                  className="w-16 h-16 text-yellow-400"
+                <img
+                  src="/reel.png"
+                  alt="Loading"
+                  className="w-16 h-16 brightness-0 invert"
                   style={{
-                    animation: 'spin 2s linear infinite, zoom 1s ease-in-out infinite alternate'
+                    animation: 'spin 2s linear infinite, zoom 2.5s ease-in-out infinite alternate'
                   }}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                >
-                  <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
-                  <circle cx="12" cy="12" r="2" fill="currentColor" />
-                  <circle cx="12" cy="5" r="1.5" fill="currentColor" />
-                  <circle cx="12" cy="19" r="1.5" fill="currentColor" />
-                  <circle cx="5" cy="12" r="1.5" fill="currentColor" />
-                  <circle cx="19" cy="12" r="1.5" fill="currentColor" />
-                  <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" />
-                  <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" />
-                  <circle cx="16.5" cy="7.5" r="1.5" fill="currentColor" />
-                  <circle cx="7.5" cy="16.5" r="1.5" fill="currentColor" />
-                </svg>
-                <div className="text-yellow-400">Searching titles...</div>
+                />
+                <div className="text-white">Searching titles...</div>
               </div>
               <style jsx>{`
                 @keyframes spin {
@@ -1050,27 +1029,15 @@ function HomeContent() {
         <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
           <div className="glass-panel rounded-lg p-8 text-center max-w-md">
             <div className="flex flex-col items-center gap-4 mb-4">
-              <svg
-                className="w-20 h-20 text-yellow-400"
+              <img
+                src="/reel.png"
+                alt="Loading"
+                className="w-20 h-20 brightness-0 invert"
                 style={{
-                  animation: 'spin 2s linear infinite, zoom 1s ease-in-out infinite alternate'
+                  animation: 'spin 2s linear infinite, zoom 2.5s ease-in-out infinite alternate'
                 }}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
-                <circle cx="12" cy="12" r="2" fill="currentColor" />
-                <circle cx="12" cy="5" r="1.5" fill="currentColor" />
-                <circle cx="12" cy="19" r="1.5" fill="currentColor" />
-                <circle cx="5" cy="12" r="1.5" fill="currentColor" />
-                <circle cx="19" cy="12" r="1.5" fill="currentColor" />
-                <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" />
-                <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" />
-                <circle cx="16.5" cy="7.5" r="1.5" fill="currentColor" />
-                <circle cx="7.5" cy="16.5" r="1.5" fill="currentColor" />
-              </svg>
-              <div className="text-yellow-400 text-lg">Searching indexers...</div>
+              />
+              <div className="text-white text-lg">Searching indexers...</div>
             </div>
             <p className="text-gray-400 text-sm">This may take a moment</p>
             <style jsx>{`
