@@ -35,3 +35,6 @@ export type { AiSuggestResult } from './releases/useAiSuggest'
 
 // UI hooks
 export { useClickOutside } from './ui/useClickOutside'
+
+export { useViewMode } from './ui/useViewMode'
+export type { ViewMode } from './ui/useViewMode'
