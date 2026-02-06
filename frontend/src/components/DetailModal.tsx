@@ -1398,7 +1398,7 @@ export function DetailModal({
             {/* Background poster */}
             {poster ? (
               <>
-                <div className="w-full h-64 md:h-80 lg:h-96 overflow-hidden">
+                <div className="w-full h-48 md:h-56 lg:h-64 overflow-hidden">
                   <img
                     src={poster}
                     alt={displayTitle}
@@ -1410,7 +1410,7 @@ export function DetailModal({
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-transparent to-slate-900/60" />
               </>
             ) : (
-              <div className="w-full h-64 md:h-80 lg:h-96 bg-gradient-to-br from-slate-800/60 to-slate-900/80" />
+              <div className="w-full h-48 md:h-56 lg:h-64 bg-gradient-to-br from-slate-800/60 to-slate-900/80" />
             )}
 
             {/* Close button - top right */}
@@ -1423,11 +1423,11 @@ export function DetailModal({
             </button>
 
             {/* Content overlaid on poster */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 lg:p-8">
-              <div className="grid md:grid-cols-[140px,1fr] gap-4 md:gap-6 items-end">
-                {/* Poster thumbnail (sharp version) */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+              <div className="grid grid-cols-[120px,1fr] md:grid-cols-[160px,1fr] gap-3 md:gap-5 items-end">
+                {/* Poster thumbnail (sharp version) - visible on mobile */}
                 {poster && (
-                  <div className="hidden md:block">
+                  <div>
                     <img
                       src={poster}
                       alt={displayTitle}

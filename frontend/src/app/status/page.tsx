@@ -46,7 +46,7 @@ export default function StatusPage() {
         config={config}
       />
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {/* Page header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
