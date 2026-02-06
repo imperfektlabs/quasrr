@@ -40,17 +40,18 @@ export function SeasonHeaderRow({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={onSearch}
-            disabled={!onSearch || searchDisabled}
-            title="Search for all episodes"
-            aria-label="Search for all episodes"
-            className={`h-7 w-7 inline-flex items-center justify-center rounded-lg transition-all ${
-              (!onSearch || searchDisabled)
-                ? 'bg-slate-800/30 text-slate-500 cursor-not-allowed'
-                : 'bg-cyan-600/80 text-white hover:bg-cyan-500 hover:shadow-md hover:shadow-cyan-500/30 active:scale-95'
-            }`}
+            onClick={onToggle}
+            title={isCollapsed ? "Expand season" : "Collapse season"}
+            aria-label={isCollapsed ? "Expand season" : "Collapse season"}
+            className="h-7 w-7 inline-flex items-center justify-center rounded-lg transition-all bg-cyan-600/80 text-white hover:bg-cyan-500 hover:shadow-md hover:shadow-cyan-500/30 active:scale-95"
           >
-            <SearchIcon className="h-3.5 w-3.5" />
+            {isCollapsed ? (
+              <SearchIcon className="h-3.5 w-3.5" />
+            ) : (
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            )}
           </button>
           <button
             type="button"
@@ -126,10 +127,13 @@ export function EpisodeRow({
         )}
         <button
           type="button"
-          onClick={onSearch}
+          onClick={(e) => {
+            e.stopPropagation()
+            onSearch?.()
+          }}
           disabled={!onSearch || searchDisabled}
-          title="Search for episode"
-          aria-label="Search for episode"
+          title={searchActive ? "Hide releases" : "Search for episode"}
+          aria-label={searchActive ? "Hide releases" : "Search for episode"}
           className={`h-6 w-6 inline-flex items-center justify-center rounded-md transition-all ${
             searchActive
               ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 shadow-sm'
@@ -138,7 +142,13 @@ export function EpisodeRow({
                 : 'bg-slate-700/60 text-slate-300 hover:bg-cyan-600/80 hover:text-white hover:shadow-md hover:shadow-cyan-500/20'
           }`}
         >
-          <SearchIcon className="h-3.5 w-3.5" />
+          {searchActive ? (
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          ) : (
+            <SearchIcon className="h-3.5 w-3.5" />
+          )}
         </button>
         <button
           type="button"
