@@ -1332,7 +1332,7 @@ export function ReleaseView({
           </div>
 
           <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
-            <div className="w-full">
+            <div className="hidden md:block w-full">
               {posterUrl ? (
                 <img
                   src={posterUrl}

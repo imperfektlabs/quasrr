@@ -95,6 +95,7 @@ class DashboardSettingsUpdate(BaseModel):
 class LayoutSettingsUpdate(BaseModel):
     discovery_search_position: Optional[Literal["top", "bottom"]] = None
     library_search_position: Optional[Literal["top", "bottom"]] = None
+    view_mode: Optional[Literal["grid", "list"]] = None
 
 
 class SabnzbdSettingsUpdate(BaseModel):
