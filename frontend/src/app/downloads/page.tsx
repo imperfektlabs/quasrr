@@ -105,7 +105,7 @@ export default function DownloadsPage() {
                       </div>
                       <button
                         onClick={handlePauseAll}
-                        disabled={sabActionBusy || !sabQueue || sabQueue.jobs.length === 0}
+                        disabled={sabActionBusy}
                         className="px-3 py-1.5 rounded-lg bg-amber-600/80 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-1.5"
                         title="Pause all downloads"
                       >

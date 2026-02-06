@@ -863,10 +863,17 @@ export function ReleaseView({
       >
         <div>
           <div className="flex items-start justify-between gap-3 mb-2">
-            <p className="text-xs text-slate-100 leading-snug break-words flex-1">
-              {isAiPick && <span className="mr-1.5 text-cyan-400">✨</span>}
-              {release.title}
-            </p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-slate-100 leading-snug break-words">
+                {isAiPick && <span className="mr-1.5 text-cyan-400">✨</span>}
+                {release.title}
+              </p>
+              {episodeMetaEntry?.title && (
+                <p className="text-2xs text-slate-400 mt-1 italic">
+                  {episodeMetaEntry.title}
+                </p>
+              )}
+            </div>
             {isOnDisk ? (
               <span
                 title="Already on disk"
@@ -1277,26 +1284,21 @@ export function ReleaseView({
               )}
               {releaseAiEnabled && aiSuggestion && (
                 <div className="mt-3 p-3 rounded-lg bg-gradient-to-br from-cyan-500/15 to-purple-500/10 border border-cyan-500/30 backdrop-blur-sm shadow-lg">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <div className="flex-1 space-y-1.5">
-                      <div className="text-sm font-semibold text-cyan-200">
-                        AI Pick: {aiSuggestion.title || 'Suggested release'}
-                      </div>
-                      {aiSuggestion.reason && (
-                        <div className="text-xs text-cyan-300/90 leading-relaxed">
-                          {aiSuggestion.reason}
-                        </div>
-                      )}
-                      {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
-                        <div className="text-xs text-amber-300/90 flex items-start gap-1.5 mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
-                          <span>⚡</span>
-                          <span>{aiSuggestion.warnings.join(' • ')}</span>
-                        </div>
-                      )}
+                  <div className="space-y-1.5">
+                    <div className="text-sm font-semibold text-cyan-200">
+                      AI Pick: {aiSuggestion.title || 'Suggested release'}
                     </div>
+                    {aiSuggestion.reason && (
+                      <div className="text-xs text-cyan-300/90 leading-relaxed">
+                        {aiSuggestion.reason}
+                      </div>
+                    )}
+                    {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
+                      <div className="text-xs text-amber-300/90 flex items-start gap-1.5 mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                        <span>⚡</span>
+                        <span>{aiSuggestion.warnings.join(' • ')}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1308,20 +1310,15 @@ export function ReleaseView({
                   onClick={() => onAiSuggest(aiCandidateReleases)}
                   disabled={!aiSuggestAvailable || aiSuggestBusy}
                   title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-purple-600/70 hover:from-cyan-500/90 hover:to-purple-500/80 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-white shadow-md hover:shadow-lg hover:shadow-cyan-500/20 transition-all active:scale-95 flex items-center gap-1.5"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-purple-600/70 hover:from-cyan-500/90 hover:to-purple-500/80 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-white shadow-md hover:shadow-lg hover:shadow-cyan-500/20 transition-all active:scale-95"
                 >
                   {aiSuggestBusy ? (
                     <>
                       <span className="inline-block animate-spin">⟳</span>
-                      <span>Thinking...</span>
+                      <span className="ml-1.5">Thinking...</span>
                     </>
                   ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      <span>AI Suggest</span>
-                    </>
+                    <span>AI Suggest</span>
                   )}
                 </button>
               )}
