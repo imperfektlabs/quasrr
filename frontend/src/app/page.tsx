@@ -35,7 +35,6 @@ import {
   useReleaseGrab,
   useAiSuggest,
   useClickOutside,
-  useViewMode,
 } from '@/hooks'
 
 // Component imports
@@ -277,8 +276,10 @@ function HomeContent() {
     saveSettings,
   } = useSettings(config, setConfig)
 
-  // View mode (grid/list)
-  const { isGridView, isListView } = useViewMode()
+  // View mode (grid/list) from backend config
+  const viewMode = (config?.layout?.view_mode as 'grid' | 'list') ?? 'grid'
+  const isGridView = viewMode === 'grid'
+  const isListView = viewMode === 'list'
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
   const discoverySearchStickyClass = discoverySearchAtBottom
