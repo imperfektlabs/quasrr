@@ -20,16 +20,12 @@ export function useRandomLibraryPoster(enabled: boolean): string | null {
 
   useEffect(() => {
     if (!enabled) {
-      console.log('[useRandomLibraryPoster] Not enabled')
       return
     }
-
-    console.log('[useRandomLibraryPoster] Fetching library posters...')
 
     const fetchRandomPoster = async () => {
       try {
         const backendUrl = getBackendUrl()
-        console.log('[useRandomLibraryPoster] Backend URL:', backendUrl)
 
         // Fetch both libraries in parallel
         const [sonarrRes, radarrRes] = await Promise.all([
@@ -42,50 +38,39 @@ export function useRandomLibraryPoster(enabled: boolean): string | null {
         // Collect Sonarr library items
         if (sonarrRes?.ok) {
           const sonarrData = await sonarrRes.json()
-          console.log('[useRandomLibraryPoster] Sonarr items:', sonarrData?.length || 0)
           if (Array.isArray(sonarrData)) {
             items.push(...sonarrData)
           }
-        } else {
-          console.log('[useRandomLibraryPoster] Sonarr fetch failed')
         }
 
         // Collect Radarr library items
         if (radarrRes?.ok) {
           const radarrData = await radarrRes.json()
-          console.log('[useRandomLibraryPoster] Radarr items:', radarrData?.length || 0)
           if (Array.isArray(radarrData)) {
             items.push(...radarrData)
           }
-        } else {
-          console.log('[useRandomLibraryPoster] Radarr fetch failed')
         }
-
-        console.log('[useRandomLibraryPoster] Total library items:', items.length)
 
         // Filter items with valid posters
         const itemsWithPosters = items.filter((item) =>
           typeof item.poster === 'string' && item.poster.length > 0
         )
 
-        console.log('[useRandomLibraryPoster] Items with posters:', itemsWithPosters.length)
-
         // Select random poster
         if (itemsWithPosters.length > 0) {
           const randomIndex = Math.floor(Math.random() * itemsWithPosters.length)
           const selectedItem = itemsWithPosters[randomIndex]
-          console.log('[useRandomLibraryPoster] Selected poster:', selectedItem.poster)
           setPoster(selectedItem.poster || null)
-        } else {
-          console.log('[useRandomLibraryPoster] No posters found')
         }
       } catch (error) {
-        console.error('[useRandomLibraryPoster] Failed to fetch:', error)
+        console.error('[useRandomLibraryPoster] Error fetching posters:', error)
         setPoster(null)
       }
     }
 
-    fetchRandomPoster()
+    // Small delay to ensure backend is ready
+    const timer = setTimeout(fetchRandomPoster, 100)
+    return () => clearTimeout(timer)
   }, [enabled])
 
   return poster
