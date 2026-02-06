@@ -20,18 +20,31 @@ export function useRandomLibraryPoster(enabled: boolean): string | null {
 
   useEffect(() => {
     if (!enabled) {
+      console.log('[useRandomLibraryPoster] Hook disabled, enabled=', enabled)
       return
     }
+
+    console.log('[useRandomLibraryPoster] Hook enabled, fetching posters...')
 
     const fetchRandomPoster = async () => {
       try {
         const backendUrl = getBackendUrl()
+        console.log('[useRandomLibraryPoster] Backend URL:', backendUrl)
 
         // Fetch both libraries in parallel
         const [sonarrRes, radarrRes] = await Promise.all([
-          fetch(`${backendUrl}/sonarr/library`).catch(() => null),
-          fetch(`${backendUrl}/radarr/library`).catch(() => null),
+          fetch(`${backendUrl}/sonarr/library`).catch((err) => {
+            console.error('[useRandomLibraryPoster] Sonarr fetch error:', err)
+            return null
+          }),
+          fetch(`${backendUrl}/radarr/library`).catch((err) => {
+            console.error('[useRandomLibraryPoster] Radarr fetch error:', err)
+            return null
+          }),
         ])
+
+        console.log('[useRandomLibraryPoster] Sonarr response:', sonarrRes?.ok, sonarrRes?.status)
+        console.log('[useRandomLibraryPoster] Radarr response:', radarrRes?.ok, radarrRes?.status)
 
         const items: LibraryItem[] = []
 
@@ -39,6 +52,7 @@ export function useRandomLibraryPoster(enabled: boolean): string | null {
         if (sonarrRes?.ok) {
           const sonarrData = await sonarrRes.json()
           if (Array.isArray(sonarrData)) {
+            console.log('[useRandomLibraryPoster] Sonarr items:', sonarrData.length)
             items.push(...sonarrData)
           }
         }
@@ -47,20 +61,47 @@ export function useRandomLibraryPoster(enabled: boolean): string | null {
         if (radarrRes?.ok) {
           const radarrData = await radarrRes.json()
           if (Array.isArray(radarrData)) {
+            console.log('[useRandomLibraryPoster] Radarr items:', radarrData.length)
             items.push(...radarrData)
           }
         }
+
+        console.log('[useRandomLibraryPoster] Total items:', items.length)
 
         // Filter items with valid posters
         const itemsWithPosters = items.filter((item) =>
           typeof item.poster === 'string' && item.poster.length > 0
         )
 
+        console.log('[useRandomLibraryPoster] Items with posters:', itemsWithPosters.length)
+
         // Select random poster
         if (itemsWithPosters.length > 0) {
           const randomIndex = Math.floor(Math.random() * itemsWithPosters.length)
           const selectedItem = itemsWithPosters[randomIndex]
-          setPoster(selectedItem.poster || null)
+          const posterUrl = selectedItem.poster || null
+          console.log('[useRandomLibraryPoster] Selected poster URL:', posterUrl)
+
+          // Log to backend for docker console visibility
+          try {
+            await fetch(`${backendUrl}/log`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                level: 'info',
+                message: `Random poster selected: ${posterUrl}`,
+              }),
+            }).catch(() => {
+              // Silently fail if logging endpoint doesn't exist yet
+            })
+          } catch {
+            // Ignore logging errors
+          }
+
+          setPoster(posterUrl)
+          console.log('[useRandomLibraryPoster] Poster state updated')
+        } else {
+          console.log('[useRandomLibraryPoster] No items with posters found')
         }
       } catch (error) {
         console.error('[useRandomLibraryPoster] Error fetching posters:', error)
