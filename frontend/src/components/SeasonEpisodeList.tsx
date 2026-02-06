@@ -7,8 +7,6 @@ type SeasonHeaderRowProps = {
   countLabel: string
   onToggle: () => void
   isCollapsed: boolean
-  onSearch?: () => void
-  searchDisabled?: boolean
   onDelete?: () => void
   deleteDisabled?: boolean
 }
@@ -18,8 +16,6 @@ export function SeasonHeaderRow({
   countLabel,
   onToggle,
   isCollapsed,
-  onSearch,
-  searchDisabled = false,
   onDelete,
   deleteDisabled = false,
 }: SeasonHeaderRowProps) {
@@ -46,7 +42,9 @@ export function SeasonHeaderRow({
             className="h-7 w-7 inline-flex items-center justify-center rounded-lg transition-all bg-cyan-600/80 text-white hover:bg-cyan-500 hover:shadow-md hover:shadow-cyan-500/30 active:scale-95"
           >
             {isCollapsed ? (
-              <SearchIcon className="h-3.5 w-3.5" />
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             ) : (
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
