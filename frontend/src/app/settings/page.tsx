@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { useBackendApiSetup, useSettings, useClickOutside, useRandomLibraryPoster } from '@/hooks'
+import { useBackendApiSetup, useSettings, useClickOutside } from '@/hooks'
 import { getLocalToolUrl } from '@/utils/backend'
 import { NavigationMenu } from '@/components'
 import { getStreamingLogo } from '@/utils/streaming'
@@ -15,9 +15,6 @@ export default function SettingsPage() {
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
-
-  // Random library poster for background
-  const randomPoster = useRandomLibraryPoster(Boolean(config))
 
   const {
     country: settingsCountry,
@@ -141,22 +138,8 @@ export default function SettingsPage() {
   ]
 
   return (
-    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8 relative overflow-hidden">
-      {/* Background poster with gradient overlays */}
-      {randomPoster && (
-        <>
-          <div className="fixed inset-0 z-0">
-            <img
-              src={randomPoster}
-              alt="Background"
-              className="w-full h-full object-cover object-center blur-3xl opacity-20 scale-110"
-            />
-          </div>
-          <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-900/95" />
-        </>
-      )}
-
-      <div className="relative z-10">
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
+      <div>
         <NavigationMenu
           menuOpen={menuOpen}
           setMenuOpen={setMenuOpen}
@@ -167,14 +150,6 @@ export default function SettingsPage() {
         />
 
         <div className="max-w-5xl mx-auto">
-          {/* Page header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
-              Settings
-            </h1>
-            <p className="text-sm text-slate-400">Configure your Quasrr experience</p>
-          </div>
-
         {!config ? (
           <div className="glass-panel rounded-lg p-6 text-center">
             <div className="text-slate-400 animate-pulse">Loading configuration...</div>
@@ -208,7 +183,7 @@ export default function SettingsPage() {
               </h2>
               <p className="text-xs text-slate-400 mb-4">Select your AI provider for suggestions</p>
 
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 mb-3">
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 mb-3">
                 {aiProviderOptions.map((provider) => {
                   const isAvailable = availableAiProviderSet.has(provider.id)
                   const isSelected = settingsAiProvider === provider.id
