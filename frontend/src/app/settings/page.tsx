@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { useBackendApiSetup, useSettings, useClickOutside } from '@/hooks'
+import { useBackendApiSetup, useSettings, useClickOutside, useRandomLibraryPoster } from '@/hooks'
 import { getLocalToolUrl } from '@/utils/backend'
 import { NavigationMenu } from '@/components'
 import { getStreamingLogo } from '@/utils/streaming'
@@ -15,6 +15,9 @@ export default function SettingsPage() {
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  // Random library poster for background
+  const randomPoster = useRandomLibraryPoster(Boolean(config))
 
   const {
     country: settingsCountry,
@@ -110,17 +113,32 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
-      <NavigationMenu
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        menuButtonRef={menuButtonRef}
-        menuPanelRef={menuPanelRef}
-        currentPage="settings"
-        config={config}
-      />
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8 relative overflow-hidden">
+      {/* Background poster with gradient overlays */}
+      {randomPoster && (
+        <>
+          <div className="fixed inset-0 z-0">
+            <img
+              src={randomPoster}
+              alt="Background"
+              className="w-full h-full object-cover object-center blur-3xl opacity-20 scale-110"
+            />
+          </div>
+          <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-900/95" />
+        </>
+      )}
 
-      <div className="max-w-5xl mx-auto">
+      <div className="relative z-10">
+        <NavigationMenu
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          menuButtonRef={menuButtonRef}
+          menuPanelRef={menuPanelRef}
+          currentPage="settings"
+          config={config}
+        />
+
+        <div className="max-w-5xl mx-auto">
         {!config ? (
           <div className="glass-panel rounded-lg p-4 text-gray-400">
             Loading configuration...
@@ -414,6 +432,7 @@ export default function SettingsPage() {
             </div>
           </section>
         )}
+        </div>
       </div>
     </main>
   )
