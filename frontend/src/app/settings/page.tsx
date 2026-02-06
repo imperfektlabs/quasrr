@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { useBackendApiSetup, useSettings, useClickOutside } from '@/hooks'
+import { useBackendApiSetup, useSettings, useClickOutside, useViewMode } from '@/hooks'
 import { getLocalToolUrl } from '@/utils/backend'
 import { NavigationMenu } from '@/components'
 import { getStreamingLogo } from '@/utils/streaming'
@@ -15,6 +15,8 @@ export default function SettingsPage() {
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  const { viewMode, setViewMode } = useViewMode()
 
   const {
     country: settingsCountry,
@@ -334,6 +336,20 @@ export default function SettingsPage() {
                   >
                     <option value="top">Top</option>
                     <option value="bottom">Bottom</option>
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-gray-400">View Mode</span>
+                  <select
+                    value={viewMode}
+                    onChange={(event) => {
+                      const next = event.target.value as 'grid' | 'list'
+                      setViewMode(next)
+                    }}
+                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                  >
+                    <option value="grid">Grid (Poster-focused)</option>
+                    <option value="list">List (Compact)</option>
                   </select>
                 </label>
               </div>

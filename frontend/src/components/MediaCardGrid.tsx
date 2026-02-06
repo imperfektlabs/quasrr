@@ -21,7 +21,7 @@ type MediaCardProps = {
   onLibraryDelete?: () => void
 }
 
-export function MediaCard({
+export function MediaCardGrid({
   item,
   onClick,
   onShowReleases,
