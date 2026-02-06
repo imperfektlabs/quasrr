@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { useBackendApiSetup, useClickOutside, useRandomLibraryPoster } from '@/hooks'
+import { useBackendApiSetup, useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components'
 import { getLocalToolUrl } from '@/utils/backend'
 
@@ -15,9 +15,6 @@ export default function StatusPage() {
   const [expandedHealth, setExpandedHealth] = useState<Record<string, boolean>>({})
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
-
-  // Random library poster for background
-  const randomPoster = useRandomLibraryPoster(Boolean(config))
 
   const buildAlertUrl = (baseUrl: string | undefined, alertPath: string) => {
     if (!baseUrl) return ''
@@ -38,22 +35,8 @@ export default function StatusPage() {
   }
 
   return (
-    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8 relative overflow-hidden">
-      {/* Background poster with gradient overlays */}
-      {randomPoster && (
-        <>
-          <div className="fixed inset-0 z-0">
-            <img
-              src={randomPoster}
-              alt="Background"
-              className="w-full h-full object-cover object-center blur-3xl opacity-20 scale-110"
-            />
-          </div>
-          <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-900/95" />
-        </>
-      )}
-
-      <div className="relative z-10">
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
+      <div>
         <NavigationMenu
           menuOpen={menuOpen}
           setMenuOpen={setMenuOpen}

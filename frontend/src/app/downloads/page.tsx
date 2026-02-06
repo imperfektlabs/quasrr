@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { useBackendApiSetup, useSabActions, useSabPolling, useClickOutside, useRandomLibraryPoster } from '@/hooks'
+import { useBackendApiSetup, useSabActions, useSabPolling, useClickOutside } from '@/hooks'
 import { NavigationMenu, SabQueue, SabRecent } from '@/components'
 
 export default function DownloadsPage() {
@@ -14,9 +14,6 @@ export default function DownloadsPage() {
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
-
-  // Random library poster for background
-  const randomPoster = useRandomLibraryPoster(Boolean(config))
 
   const {
     queue: sabQueue,
@@ -59,22 +56,8 @@ export default function DownloadsPage() {
   const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
 
   return (
-    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8 relative overflow-hidden">
-      {/* Background poster with gradient overlays */}
-      {randomPoster && (
-        <>
-          <div className="fixed inset-0 z-0">
-            <img
-              src={randomPoster}
-              alt="Background"
-              className="w-full h-full object-cover object-center blur-3xl opacity-20 scale-110"
-            />
-          </div>
-          <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-900/95" />
-        </>
-      )}
-
-      <div className="relative z-10">
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
+      <div>
         <NavigationMenu
           menuOpen={menuOpen}
           setMenuOpen={setMenuOpen}
@@ -91,13 +74,6 @@ export default function DownloadsPage() {
           </div>
         ) : (
           <section id="downloads" className="scroll-mt-24">
-            {/* Page header */}
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
-                Download Activity
-              </h1>
-              <p className="text-slate-400 text-sm">Monitor your active downloads and recent completions</p>
-            </div>
             {!sabConfigured ? (
               <div className="glass-panel rounded-lg p-8 text-center">
                 <div className="max-w-md mx-auto space-y-3">
