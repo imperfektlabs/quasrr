@@ -1059,8 +1059,6 @@ export function ReleaseView({
                       countLabel={getSeasonCountLabel(seasonGroup.season, `${seasonGroup.releases.length} releases`)}
                       onToggle={() => toggleSeason(seasonKey)}
                       isCollapsed={isSeasonCollapsed}
-                      onSearch={() => toggleSeason(seasonKey)}
-                      searchDisabled={false}
                       onDelete={undefined}
                       deleteDisabled
                     />

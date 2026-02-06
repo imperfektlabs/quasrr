@@ -89,7 +89,6 @@ export function DetailModal({
   const [seasonReleaseCache, setSeasonReleaseCache] = useState<Record<number, {
     byEpisode: Record<number, Release[]>
   }>>({})
-  const [seasonSearchBusy, setSeasonSearchBusy] = useState<Set<number>>(new Set())
   const [episodeDeleteBusyIds, setEpisodeDeleteBusyIds] = useState<Set<number>>(new Set())
   const [episodeDeleteStatus, setEpisodeDeleteStatus] = useState<Record<number, string>>({})
   const [episodeDeleteConfirmId, setEpisodeDeleteConfirmId] = useState<number | null>(null)
@@ -106,7 +105,6 @@ export function DetailModal({
   const libraryResultsRef = useRef<HTMLDivElement | null>(null)
   const deleteConfirmRef = useRef<HTMLDivElement | null>(null)
   const autoSearchHandled = useRef(false)
-  const seasonSearchInFlight = useRef<Map<number, Promise<void>>>(new Map())
 
   const libraryReleaseContext = useMemo<ReleaseResponse | null>(() => {
     if (libraryReleaseData) return libraryReleaseData
@@ -251,7 +249,6 @@ export function DetailModal({
     setEpisodeReleaseLoadingKeys(new Set())
     setEpisodeReleaseErrors({})
     setSeasonReleaseCache({})
-    setSeasonSearchBusy(new Set())
     clearLibraryGrab()
     setLibraryGrabFeedback(null)
     autoSearchHandled.current = false
@@ -292,83 +289,6 @@ export function DetailModal({
 
   const buildEpisodeKey = (seasonNumber: number, episodeNumber: number) =>
     `${seasonNumber}:${episodeNumber}`
-
-  const fetchSeasonReleases = async (seasonNumber: number) => {
-    if (!libraryItem || libraryItem.mediaType !== 'tv') {
-      throw new Error('Missing TV library item')
-    }
-
-    const existing = seasonSearchInFlight.current.get(seasonNumber)
-    if (existing) return existing
-
-    const promise = (async () => {
-      setSeasonSearchBusy((prev) => new Set(prev).add(seasonNumber))
-      try {
-        const backendUrl = getBackendUrl()
-        if (!libraryItem.tvdbId) {
-          throw new Error('Missing TVDB ID')
-        }
-        const params = new URLSearchParams({
-          type: 'tv',
-          title: libraryItem.title,
-          tvdb_id: libraryItem.tvdbId.toString(),
-          season: seasonNumber.toString(),
-        })
-
-        const response = await fetch(`${backendUrl}/releases?${params.toString()}`)
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.detail || `HTTP ${response.status}`)
-        }
-        const data = await response.json()
-        const byEpisode: Record<number, Release[]> = {}
-
-        for (const release of data.releases || []) {
-          if (release.full_season) continue
-          const releaseSeason = typeof release.season === 'number' ? release.season : seasonNumber
-          if (releaseSeason !== seasonNumber) continue
-          const episodes = Array.isArray(release.episode) ? release.episode : []
-          if (episodes.length === 0) continue
-          for (const epNumber of episodes) {
-            if (!byEpisode[epNumber]) byEpisode[epNumber] = []
-            byEpisode[epNumber].push(release)
-          }
-        }
-
-        const seasonEpisodes = episodesBySeason[seasonNumber] || []
-        for (const episode of seasonEpisodes) {
-          const epNumber = episode.episodeNumber
-          if (typeof epNumber !== 'number') continue
-          if (!byEpisode[epNumber]) byEpisode[epNumber] = []
-        }
-
-        setSeasonReleaseCache((prev) => ({
-          ...prev,
-          [seasonNumber]: { byEpisode },
-        }))
-        setEpisodeReleaseErrors((prev) => {
-          const next = { ...prev }
-          for (const episode of seasonEpisodes) {
-            const epNumber = episode.episodeNumber
-            if (typeof epNumber !== 'number') continue
-            const key = buildEpisodeKey(seasonNumber, epNumber)
-            delete next[key]
-          }
-          return next
-        })
-      } finally {
-        setSeasonSearchBusy((prev) => {
-          const next = new Set(prev)
-          next.delete(seasonNumber)
-          return next
-        })
-        seasonSearchInFlight.current.delete(seasonNumber)
-      }
-    })()
-
-    seasonSearchInFlight.current.set(seasonNumber, promise)
-    return promise
-  }
 
   const getSizeWarning = (release: Release, mediaType: 'movie' | 'tv'): string | null => {
     const sizeGB = release.size_gb
@@ -708,26 +628,6 @@ export function DetailModal({
       setLibraryActionMessage(null)
     } finally {
       setLibraryActionBusy(false)
-    }
-  }
-
-  const handleSeasonSearch = async (seasonNumber: number) => {
-    if (seasonSearchBusy.has(seasonNumber)) return
-    if (seasonReleaseCache[seasonNumber]) return
-    try {
-      await fetchSeasonReleases(seasonNumber)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Search failed'
-      setEpisodeReleaseErrors((prev) => {
-        const next = { ...prev }
-        for (const episode of episodesBySeason[seasonNumber] || []) {
-          const epNumber = episode.episodeNumber
-          if (typeof epNumber !== 'number') continue
-          const key = buildEpisodeKey(seasonNumber, epNumber)
-          next[key] = message
-        }
-        return next
-      })
     }
   }
 
@@ -1095,8 +995,6 @@ export function DetailModal({
                   })
                 }}
                 isCollapsed={!isExpanded}
-                onSearch={() => handleSeasonSearch(seasonNumber)}
-                searchDisabled={seasonSearchBusy.has(seasonNumber)}
                 onDelete={() => setDeleteConfirmOpen(true)}
               />
               {isExpanded && (
@@ -1437,7 +1335,7 @@ export function DetailModal({
                 )}
 
                 {/* Title & key info */}
-                <div className="space-y-2 md:space-y-3 pb-2">
+                <div className="space-y-2 md:space-y-3 pb-8 md:pb-2">
                   <div>
                     <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-lg">{headerTitle}</h2>
                     {headerSubtitle && (
