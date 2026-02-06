@@ -691,7 +691,48 @@ function HomeContent() {
             const searchPanel = (
               <SearchPanel
                 stickyClass={discoverySearchStickyClass}
-                headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
+                headerTitle={(
+                  <>
+                    {searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
+                    {searchResults && searchResults.results.length > 0 && (
+                      <span className="text-slate-400 font-normal ml-2">
+                        {searchResults.count.toLocaleString()} {searchResults.count === 1 ? 'result' : 'results'}
+                      </span>
+                    )}
+                  </>
+                )}
+                headerRight={searchResults && searchResults.results.length > 0 ? (
+                  <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await saveSettings({ view_mode: 'grid' })
+                      }}
+                      className={`px-2 py-1 rounded transition ${
+                        isGridView ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      title="Grid view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await saveSettings({ view_mode: 'list' })
+                      }}
+                      className={`px-2 py-1 rounded transition ${
+                        isListView ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      title="List view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : undefined}
                 toggle={{
                   onClick: () => {
                     const next = discoverySearchAtBottom ? 'top' : 'bottom'
@@ -905,56 +946,44 @@ function HomeContent() {
 
           {searching && (
             <div className="glass-panel rounded-lg p-8 text-center mb-4">
-              <div className="text-yellow-400 mb-4">Searching titles...</div>
-              <div className="max-w-md mx-auto">
-                <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 animate-pulse rounded-full" style={{ width: '70%' }} />
-                </div>
+              <div className="flex flex-col items-center gap-4">
+                <svg
+                  className="w-16 h-16 text-yellow-400"
+                  style={{
+                    animation: 'spin 2s linear infinite, zoom 1s ease-in-out infinite alternate'
+                  }}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                >
+                  <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
+                  <circle cx="12" cy="12" r="2" fill="currentColor" />
+                  <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+                  <circle cx="12" cy="19" r="1.5" fill="currentColor" />
+                  <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+                  <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+                  <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" />
+                  <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" />
+                  <circle cx="16.5" cy="7.5" r="1.5" fill="currentColor" />
+                  <circle cx="7.5" cy="16.5" r="1.5" fill="currentColor" />
+                </svg>
+                <div className="text-yellow-400">Searching titles...</div>
               </div>
+              <style jsx>{`
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+                @keyframes zoom {
+                  from { transform: scale(0.9) rotate(0deg); }
+                  to { transform: scale(1.1) rotate(360deg); }
+                }
+              `}</style>
             </div>
           )}
 
           {searchResults && (
             <div className="mb-4">
-              {/* View mode toggle */}
-              {searchResults.results.length > 0 && (
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm text-slate-400">
-                    {searchResults.count.toLocaleString()} results
-                  </div>
-                  <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
-                    <button
-                      type="button"
-                      onClick={() => saveSettings({ view_mode: 'grid' })}
-                      className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
-                        isGridView
-                          ? 'bg-cyan-600/80 text-white shadow-md'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                      }`}
-                      title="Grid view"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => saveSettings({ view_mode: 'list' })}
-                      className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
-                        isListView
-                          ? 'bg-cyan-600/80 text-white shadow-md'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                      }`}
-                      title="List view"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {searchResults.results.length === 0 ? (
                 <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
                   No results found
@@ -1020,13 +1049,40 @@ function HomeContent() {
       {loadingReleases && (
         <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
           <div className="glass-panel rounded-lg p-8 text-center max-w-md">
-            <div className="text-yellow-400 text-lg mb-3">Searching indexers...</div>
-            <div className="mb-4">
-              <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 animate-pulse rounded-full" style={{ width: '70%' }} />
-              </div>
+            <div className="flex flex-col items-center gap-4 mb-4">
+              <svg
+                className="w-20 h-20 text-yellow-400"
+                style={{
+                  animation: 'spin 2s linear infinite, zoom 1s ease-in-out infinite alternate'
+                }}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+                <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="19" r="1.5" fill="currentColor" />
+                <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+                <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+                <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" />
+                <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" />
+                <circle cx="16.5" cy="7.5" r="1.5" fill="currentColor" />
+                <circle cx="7.5" cy="16.5" r="1.5" fill="currentColor" />
+              </svg>
+              <div className="text-yellow-400 text-lg">Searching indexers...</div>
             </div>
             <p className="text-gray-400 text-sm">This may take a moment</p>
+            <style jsx>{`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+              @keyframes zoom {
+                from { transform: scale(0.9) rotate(0deg); }
+                to { transform: scale(1.1) rotate(360deg); }
+              }
+            `}</style>
           </div>
         </div>
       )}
