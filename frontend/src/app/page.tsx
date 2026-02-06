@@ -905,7 +905,12 @@ function HomeContent() {
 
           {searching && (
             <div className="glass-panel rounded-lg p-8 text-center mb-4">
-              <div className="text-yellow-400">Searching titles...</div>
+              <div className="text-yellow-400 mb-4">Searching titles...</div>
+              <div className="max-w-md mx-auto">
+                <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 animate-pulse rounded-full" style={{ width: '70%' }} />
+                </div>
+              </div>
             </div>
           )}
 
@@ -1014,9 +1019,14 @@ function HomeContent() {
       {/* Loading overlay for releases */}
       {loadingReleases && (
         <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
-          <div className="glass-panel rounded-lg p-8 text-center">
-            <div className="text-yellow-400 text-lg">Searching indexers...</div>
-            <p className="text-gray-400 text-sm mt-2">This may take a moment</p>
+          <div className="glass-panel rounded-lg p-8 text-center max-w-md">
+            <div className="text-yellow-400 text-lg mb-3">Searching indexers...</div>
+            <div className="mb-4">
+              <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 animate-pulse rounded-full" style={{ width: '70%' }} />
+              </div>
+            </div>
+            <p className="text-gray-400 text-sm">This may take a moment</p>
           </div>
         </div>
       )}

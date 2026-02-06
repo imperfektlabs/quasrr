@@ -1099,16 +1099,6 @@ export function DetailModal({
                 searchDisabled={seasonSearchBusy.has(seasonNumber)}
                 onDelete={() => setDeleteConfirmOpen(true)}
               />
-              {seasonSearchBusy.has(seasonNumber) && (
-                <div className="mt-1.5 mb-2 px-3">
-                  <div className="flex items-center gap-2 text-xs text-cyan-300">
-                    <div className="flex-1 h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 animate-pulse rounded-full" style={{ width: '70%' }} />
-                    </div>
-                    <span className="whitespace-nowrap">Searching indexers...</span>
-                  </div>
-                </div>
-              )}
               {isExpanded && (
                 <div className="mt-2 space-y-1 text-xs text-slate-300">
                   {episodes.length === 0 && (
@@ -1352,15 +1342,8 @@ export function DetailModal({
           ✕
         </button>
         </div>
-        {libraryActionBusy && (
-          <div className="flex items-center gap-2 text-xs text-cyan-300">
-            <div className="flex-1 h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 animate-pulse rounded-full" style={{ width: '70%' }} />
-            </div>
-            <span className="whitespace-nowrap">Searching indexers...</span>
-          </div>
-        )}
-        {!libraryActionBusy && libraryActionError && <div className="text-xs text-amber-300">Search: {libraryActionError}</div>}
+        {libraryActionMessage && <div className="text-xs text-cyan-200">{libraryActionMessage}</div>}
+        {libraryActionError && <div className="text-xs text-amber-300">Search: {libraryActionError}</div>}
         {deleteConfirmOpen && (
           <div ref={deleteConfirmRef} className="rounded-md border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-slate-200 space-y-2">
             <div className="font-semibold text-rose-200">Confirm removal</div>
