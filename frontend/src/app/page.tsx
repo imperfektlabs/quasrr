@@ -35,13 +35,15 @@ import {
   useReleaseGrab,
   useAiSuggest,
   useClickOutside,
+  useViewMode,
 } from '@/hooks'
 
 // Component imports
 import {
   ReleaseView,
   DetailModal,
-  MediaCard,
+  MediaCardGrid,
+  MediaCardList,
   NavigationMenu,
   SearchPanel,
   ProjectorIcon,
@@ -274,6 +276,9 @@ function HomeContent() {
     setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
     saveSettings,
   } = useSettings(config, setConfig)
+
+  // View mode (grid/list)
+  const { isGridView, isListView } = useViewMode()
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
   const discoverySearchStickyClass = discoverySearchAtBottom
@@ -911,22 +916,39 @@ function HomeContent() {
                   No results found
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-                  {searchResults.results.map((result, index) => (
-                    <div
-                      key={result.tmdb_id || result.tvdb_id || index}
-                      className="opacity-0 animate-fade-in"
-                      style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
-                    >
-                      <MediaCard
-                        item={{ source: 'discovery', data: result }}
-                        onClick={() => setSelectedResult(result)}
-                        onShowReleases={handleShowReleases}
-                        onTypeToggle={handleTypeToggle}
-                      />
+                <>
+                  {isGridView && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                      {searchResults.results.map((result, index) => (
+                        <div
+                          key={result.tmdb_id || result.tvdb_id || index}
+                          className="opacity-0 animate-fade-in"
+                          style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
+                        >
+                          <MediaCardGrid
+                            item={{ source: 'discovery', data: result }}
+                            onClick={() => setSelectedResult(result)}
+                            onShowReleases={handleShowReleases}
+                            onTypeToggle={handleTypeToggle}
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                  {isListView && (
+                    <div className="grid gap-2">
+                      {searchResults.results.map((result) => (
+                        <MediaCardList
+                          key={result.tmdb_id || result.tvdb_id}
+                          item={{ source: 'discovery', data: result }}
+                          onClick={() => setSelectedResult(result)}
+                          onShowReleases={handleShowReleases}
+                          onTypeToggle={handleTypeToggle}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
             </div>

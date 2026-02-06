@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
 import { formatSize } from '@/utils/formatting'
-import { useClickOutside } from '@/hooks'
+import { useClickOutside, useViewMode } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
-import { MediaCard } from '@/components/MediaCard'
+import { MediaCardGrid, MediaCardList } from '@/components'
 import { DetailModal } from '@/components/DetailModal'
 import { ArrowDownLineIcon, ArrowUpLineIcon, DriveStackIcon, EyeIcon, ProjectorIcon, TvIcon } from '@/components/Icons'
 import { SearchPanel } from '@/components/SearchPanel'
@@ -129,6 +129,9 @@ function LibraryContent() {
 
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  // View mode (grid/list)
+  const { isGridView, isListView } = useViewMode()
 
   const combinedItems = useMemo<LibraryItem[]>(() => {
     const sonarr = sonarrItems.map((item) => ({ ...item, mediaType: 'tv' as const }))
@@ -539,35 +542,65 @@ function LibraryContent() {
                 )}
 
                 {!loading && !error && sortedItems.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-                    {sortedItems.map((item, index) => (
-                      <div
-                        key={`${item.mediaType}-${item.id}`}
-                        className="opacity-0 animate-fade-in"
-                        style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
-                      >
-                        <MediaCard
-                          item={{ source: 'library', data: item }}
-                          onClick={() => {
-                            setSelectedItem(item)
-                            setAutoSearch(false)
-                            setAutoDeleteOpen(false)
-                          }}
-                          onLibrarySearch={() => {
-                            setSelectedItem(item)
-                            setAutoSearch(true)
-                            setAutoDeleteOpen(false)
-                          }}
-                          onLibraryDelete={() => {
-                            setSelectedItem(item)
-                            setAutoSearch(false)
-                            setAutoDeleteOpen(true)
-                          }}
-                          onTypeToggle={handleTypeToggle}
-                        />
+                  <>
+                    {isGridView && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                        {sortedItems.map((item, index) => (
+                          <div
+                            key={`${item.mediaType}-${item.id}`}
+                            className="opacity-0 animate-fade-in"
+                            style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
+                          >
+                            <MediaCardGrid
+                              item={{ source: 'library', data: item }}
+                              onClick={() => {
+                                setSelectedItem(item)
+                                setAutoSearch(false)
+                                setAutoDeleteOpen(false)
+                              }}
+                              onLibrarySearch={() => {
+                                setSelectedItem(item)
+                                setAutoSearch(true)
+                                setAutoDeleteOpen(false)
+                              }}
+                              onLibraryDelete={() => {
+                                setSelectedItem(item)
+                                setAutoSearch(false)
+                                setAutoDeleteOpen(true)
+                              }}
+                              onTypeToggle={handleTypeToggle}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    {isListView && (
+                      <div className="grid gap-2">
+                        {sortedItems.map((item) => (
+                          <MediaCardList
+                            key={`${item.mediaType}-${item.id}`}
+                            item={{ source: 'library', data: item }}
+                            onClick={() => {
+                              setSelectedItem(item)
+                              setAutoSearch(false)
+                              setAutoDeleteOpen(false)
+                            }}
+                            onLibrarySearch={() => {
+                              setSelectedItem(item)
+                              setAutoSearch(true)
+                              setAutoDeleteOpen(false)
+                            }}
+                            onLibraryDelete={() => {
+                              setSelectedItem(item)
+                              setAutoSearch(false)
+                              setAutoDeleteOpen(true)
+                            }}
+                            onTypeToggle={handleTypeToggle}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )
