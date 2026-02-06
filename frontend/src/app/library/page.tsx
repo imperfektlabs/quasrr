@@ -546,6 +546,71 @@ function LibraryContent() {
 
                 {!loading && !error && sortedItems.length > 0 && (
                   <>
+                    {/* View mode toggle */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm text-slate-400">
+                        {sortedItems.length.toLocaleString()} {sortedItems.length === 1 ? 'item' : 'items'}
+                      </div>
+                      <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const backendUrl = getBackendUrl()
+                              await fetch(`${backendUrl}/config/settings`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  layout: { view_mode: 'grid' },
+                                }),
+                              })
+                              setConfig(prev => prev ? { ...prev, layout: { ...prev.layout, view_mode: 'grid' } } : prev)
+                            } catch (e) {
+                              console.error('Failed to save view mode', e)
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+                            isGridView
+                              ? 'bg-cyan-600/80 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                          }`}
+                          title="Grid view"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const backendUrl = getBackendUrl()
+                              await fetch(`${backendUrl}/config/settings`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  layout: { view_mode: 'list' },
+                                }),
+                              })
+                              setConfig(prev => prev ? { ...prev, layout: { ...prev.layout, view_mode: 'list' } } : prev)
+                            } catch (e) {
+                              console.error('Failed to save view mode', e)
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+                            isListView
+                              ? 'bg-cyan-600/80 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                          }`}
+                          title="List view"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
                     {isGridView && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                         {sortedItems.map((item, index) => (
