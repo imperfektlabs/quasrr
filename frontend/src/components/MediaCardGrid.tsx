@@ -233,6 +233,17 @@ export function MediaCardGrid({
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
               loading="lazy"
             />
+            {/* Media type indicator - always visible in top-right */}
+            <div className="absolute top-2 right-2 z-10">
+              <div className="bg-slate-900/90 backdrop-blur-sm border border-slate-700/60 rounded-md p-1.5 shadow-lg">
+                {mediaType === 'movie' ? (
+                  <ProjectorIcon className="h-3.5 w-3.5 text-cyan-400" />
+                ) : (
+                  <TvIcon className="h-3.5 w-3.5 text-purple-400" />
+                )}
+              </div>
+            </div>
+
             {/* Gradient overlay that appears on hover */}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
 import { formatSize } from '@/utils/formatting'
-import { useClickOutside, useViewMode } from '@/hooks'
+import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
 import { MediaCardGrid, MediaCardList } from '@/components'
 import { DetailModal } from '@/components/DetailModal'
@@ -22,6 +22,7 @@ type ConfigResponse = {
   layout?: {
     discovery_search_position?: 'top' | 'bottom'
     library_search_position?: 'top' | 'bottom'
+    view_mode?: 'grid' | 'list'
   }
 }
 
@@ -130,8 +131,10 @@ function LibraryContent() {
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
-  // View mode (grid/list)
-  const { isGridView, isListView } = useViewMode()
+  // View mode (grid/list) from backend config
+  const viewMode = (config?.layout?.view_mode as 'grid' | 'list') ?? 'grid'
+  const isGridView = viewMode === 'grid'
+  const isListView = viewMode === 'list'
 
   const combinedItems = useMemo<LibraryItem[]>(() => {
     const sonarr = sonarrItems.map((item) => ({ ...item, mediaType: 'tv' as const }))
