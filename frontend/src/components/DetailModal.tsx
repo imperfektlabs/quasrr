@@ -1393,24 +1393,26 @@ export function DetailModal({
           onClick={(e) => e.stopPropagation()}
         >
 
-          {/* HERO SECTION - Full-bleed poster background */}
+          {/* HERO SECTION - Full-bleed poster background with fading overlay */}
           <div className="relative w-full">
             {/* Background poster */}
             {poster ? (
               <>
-                <div className="w-full h-48 md:h-56 lg:h-64 overflow-hidden">
+                <div className="w-full h-56 md:h-68 lg:h-80 overflow-hidden">
                   <img
                     src={poster}
                     alt={displayTitle}
                     className="w-full h-full object-cover object-top blur-sm scale-110"
                   />
                 </div>
-                {/* Gradient overlay for readability */}
+                {/* Gradient overlays for readability - extends beyond hero */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/30" />
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-transparent to-slate-900/60" />
+                {/* Extended gradient that fades down through page content */}
+                <div className="absolute inset-x-0 top-0 h-[150%] bg-gradient-to-b from-transparent via-slate-900/30 to-slate-900 pointer-events-none" />
               </>
             ) : (
-              <div className="w-full h-48 md:h-56 lg:h-64 bg-gradient-to-br from-slate-800/60 to-slate-900/80" />
+              <div className="w-full h-56 md:h-68 lg:h-80 bg-gradient-to-br from-slate-800/60 to-slate-900/80" />
             )}
 
             {/* Close button - top right */}
