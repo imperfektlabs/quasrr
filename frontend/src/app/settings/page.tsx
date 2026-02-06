@@ -53,9 +53,12 @@ export default function SettingsPage() {
   const availableAiProviders = config?.ai.available_providers ?? []
   const availableAiProviderSet = new Set(availableAiProviders)
   const aiProviderOptions = [
-    { id: 'openrouter', label: 'OpenRouter' },
     { id: 'openai', label: 'OpenAI' },
+    { id: 'openrouter', label: 'OpenRouter' },
+    { id: 'gemini', label: 'Gemini' },
     { id: 'anthropic', label: 'Anthropic' },
+    { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'local', label: 'Local' },
   ]
 
   const selectedProviderAvailable = availableAiProviderSet.has(settingsAiProvider)
@@ -68,6 +71,9 @@ export default function SettingsPage() {
     openai: '/logos/ai/openai.svg',
     anthropic: '/logos/ai/anthropic.svg',
     openrouter: '/logos/ai/openrouter.svg',
+    gemini: '/logos/ai/gemini.svg',
+    deepseek: '/logos/ai/deepseek.svg',
+    local: '/logos/ai/local.svg',
   }
 
   const sortedStreamingServices = [...(config?.streaming_services ?? [])]
@@ -202,7 +208,7 @@ export default function SettingsPage() {
               </h2>
               <p className="text-xs text-slate-400 mb-4">Select your AI provider for suggestions</p>
 
-              <div className="grid grid-cols-3 gap-4 mb-3">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 mb-3">
                 {aiProviderOptions.map((provider) => {
                   const isAvailable = availableAiProviderSet.has(provider.id)
                   const isSelected = settingsAiProvider === provider.id
@@ -217,7 +223,7 @@ export default function SettingsPage() {
                       }}
                       title={`${provider.label}${!isAvailable ? ' (not configured)' : ''}`}
                       className={`
-                        group relative aspect-square rounded-xl p-6
+                        group relative aspect-square rounded-lg p-3
                         flex items-center justify-center transition-all
                         ${isSelected && isAvailable
                           ? 'bg-gradient-to-br from-cyan-600/30 to-purple-600/20 border-2 border-cyan-500/60 shadow-lg shadow-cyan-500/20'
@@ -231,14 +237,14 @@ export default function SettingsPage() {
                         <img
                           src={aiProviderIcons[provider.id]}
                           alt={provider.label}
-                          className="w-12 h-12 object-contain"
+                          className="w-10 h-10 object-contain"
                         />
                       ) : (
-                        <div className="text-2xl text-slate-500 font-bold">AI</div>
+                        <div className="text-lg text-slate-500 font-bold">AI</div>
                       )}
                       {isSelected && (
-                        <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center shadow-lg">
-                          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center shadow-lg">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         </div>
@@ -251,6 +257,9 @@ export default function SettingsPage() {
               {selectedProviderModel && (
                 <div className="text-xs text-slate-400 mt-2">
                   Model: <span className="text-slate-200">{selectedProviderModel}</span>
+                  {settingsAiProvider === 'openrouter' && (
+                    <span className="text-2xs text-slate-500 ml-2">(configure in settings.yaml or .env)</span>
+                  )}
                 </div>
               )}
               {!selectedProviderAvailable && settingsAiProvider && (
@@ -275,7 +284,7 @@ export default function SettingsPage() {
               </h2>
               <p className="text-xs text-slate-400 mb-4">Show/hide cards on the homepage dashboard</p>
 
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
                 {integrations.map((integration) => (
                   <button
                     key={integration.id}
@@ -283,7 +292,7 @@ export default function SettingsPage() {
                     onClick={() => integration.onChange(!integration.checked)}
                     title={integration.name}
                     className={`
-                      group relative aspect-square rounded-xl p-6
+                      group relative aspect-square rounded-lg p-3
                       flex items-center justify-center transition-all
                       ${integration.checked
                         ? 'bg-gradient-to-br from-purple-600/30 to-pink-600/20 border-2 border-purple-500/60 shadow-lg shadow-purple-500/20'
@@ -296,17 +305,17 @@ export default function SettingsPage() {
                       target="_blank"
                       rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="w-12 h-12 flex items-center justify-center"
+                      className="w-full h-full flex items-center justify-center"
                     >
                       <img
                         src={integration.icon}
                         alt={integration.name}
-                        className="w-12 h-12 object-contain"
+                        className="w-10 h-10 object-contain"
                       />
                     </a>
                     {integration.checked && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>

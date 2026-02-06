@@ -1405,11 +1405,9 @@ export function DetailModal({
                     className="w-full h-full object-cover object-top blur-sm scale-110"
                   />
                 </div>
-                {/* Gradient overlays for readability - extends beyond hero */}
+                {/* Gradient overlays for readability */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/30" />
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-transparent to-slate-900/60" />
-                {/* Extended gradient that fades down through page content */}
-                <div className="absolute inset-x-0 top-0 h-[150%] bg-gradient-to-b from-transparent via-slate-900/30 to-slate-900 pointer-events-none" />
               </>
             ) : (
               <div className="w-full h-56 md:h-68 lg:h-80 bg-gradient-to-br from-slate-800/60 to-slate-900/80" />
