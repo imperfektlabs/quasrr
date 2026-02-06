@@ -468,3 +468,4 @@ dashboard:
 layout:
   discovery_search_position: top
   library_search_position: top
+  view_mode: grid  # Options: grid (poster-focused) or list (compact)
