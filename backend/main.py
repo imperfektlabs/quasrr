@@ -348,6 +348,33 @@ async def get_tmdb_providers(
     return {"providers": results}
 
 
+@app.get("/tmdb/trending")
+async def get_tmdb_trending(
+    media_type: str = Query("all", description="Media type: all, movie, or tv"),
+    time_window: str = Query("week", description="Time window: day or week"),
+):
+    """Get trending content from TMDB."""
+    tmdb = get_tmdb_client()
+    if not tmdb.is_configured:
+        raise HTTPException(status_code=503, detail="TMDB not configured")
+
+    results = await tmdb.get_trending(media_type, time_window)
+    return {"results": results}
+
+
+@app.get("/tmdb/popular")
+async def get_tmdb_popular(
+    media_type: str = Query("movie", description="Media type: movie or tv"),
+):
+    """Get popular content from TMDB."""
+    tmdb = get_tmdb_client()
+    if not tmdb.is_configured:
+        raise HTTPException(status_code=503, detail="TMDB not configured")
+
+    results = await tmdb.get_popular(media_type)
+    return {"results": results}
+
+
 @app.get("/integrations/status")
 async def get_integrations_status():
     """Get status of all integrations."""
