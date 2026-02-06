@@ -81,6 +81,11 @@ class AIIntentRequest(BaseModel):
     query: str
 
 
+class LogRequest(BaseModel):
+    level: Literal["info", "warning", "error", "debug"] = "info"
+    message: str
+
+
 class StreamingServicesUpdate(BaseModel):
     enabled_ids: list[str]
 
@@ -279,6 +284,20 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.post("/log")
+async def log_message(request: LogRequest):
+    """Log a message to the backend console."""
+    level_map = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+    }
+    log_level = level_map.get(request.level, logging.INFO)
+    logger.log(log_level, f"[Frontend] {request.message}")
+    return {"status": "logged"}
 
 
 @app.get("/config")
