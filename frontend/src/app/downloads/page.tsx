@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { useBackendApiSetup, useSabActions, useSabPolling, useClickOutside } from '@/hooks'
+import { useBackendApiSetup, useSabActions, useSabPolling, useClickOutside, useRandomLibraryPoster } from '@/hooks'
 import { NavigationMenu, SabQueue, SabRecent } from '@/components'
 
 export default function DownloadsPage() {
@@ -14,6 +14,9 @@ export default function DownloadsPage() {
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  // Random library poster for background
+  const randomPoster = useRandomLibraryPoster(Boolean(config))
 
   const {
     queue: sabQueue,
@@ -56,17 +59,32 @@ export default function DownloadsPage() {
   const handleDeleteJob = (jobId: string) => deleteSabJob(jobId)
 
   return (
-    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
-      <NavigationMenu
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        menuButtonRef={menuButtonRef}
-        menuPanelRef={menuPanelRef}
-        currentPage="downloads"
-        config={config}
-      />
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8 relative overflow-hidden">
+      {/* Background poster with gradient overlays */}
+      {randomPoster && (
+        <>
+          <div className="fixed inset-0 z-0">
+            <img
+              src={randomPoster}
+              alt="Background"
+              className="w-full h-full object-cover object-center blur-3xl opacity-20 scale-110"
+            />
+          </div>
+          <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-900/95" />
+        </>
+      )}
 
-      <div className="max-w-5xl mx-auto">
+      <div className="relative z-10">
+        <NavigationMenu
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          menuButtonRef={menuButtonRef}
+          menuPanelRef={menuPanelRef}
+          currentPage="downloads"
+          config={config}
+        />
+
+        <div className="max-w-5xl mx-auto">
         {!config ? (
           <div className="glass-panel rounded-lg p-6 text-center">
             <div className="text-slate-400 animate-pulse">Loading configuration...</div>
@@ -154,6 +172,7 @@ export default function DownloadsPage() {
             )}
           </section>
         )}
+        </div>
       </div>
     </main>
   )

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { useBackendApiSetup, useClickOutside } from '@/hooks'
+import { useBackendApiSetup, useClickOutside, useRandomLibraryPoster } from '@/hooks'
 import { NavigationMenu } from '@/components'
 import { getLocalToolUrl } from '@/utils/backend'
 import { getStreamingLogo } from '@/utils/streaming'
@@ -16,6 +16,9 @@ export default function StatusPage() {
   const [expandedHealth, setExpandedHealth] = useState<Record<string, boolean>>({})
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  // Random library poster for background
+  const randomPoster = useRandomLibraryPoster(Boolean(config))
 
   const buildAlertUrl = (baseUrl: string | undefined, alertPath: string) => {
     if (!baseUrl) return ''
@@ -36,36 +39,51 @@ export default function StatusPage() {
   }
 
   return (
-    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
-      <NavigationMenu
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        menuButtonRef={menuButtonRef}
-        menuPanelRef={menuPanelRef}
-        currentPage="status"
-        config={config}
-      />
-
-      <div className="max-w-5xl mx-auto">
-        {/* Page header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
-            System Status
-          </h1>
-          <div className="flex items-center gap-2">
-            {health?.status === 'ok' ? (
-              <>
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-sm text-emerald-300">All systems operational</span>
-              </>
-            ) : (
-              <>
-                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                <span className="text-sm text-amber-300">Checking connections...</span>
-              </>
-            )}
+    <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8 relative overflow-hidden">
+      {/* Background poster with gradient overlays */}
+      {randomPoster && (
+        <>
+          <div className="fixed inset-0 z-0">
+            <img
+              src={randomPoster}
+              alt="Background"
+              className="w-full h-full object-cover object-center blur-3xl opacity-20 scale-110"
+            />
           </div>
-        </div>
+          <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-900/95" />
+        </>
+      )}
+
+      <div className="relative z-10">
+        <NavigationMenu
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          menuButtonRef={menuButtonRef}
+          menuPanelRef={menuPanelRef}
+          currentPage="status"
+          config={config}
+        />
+
+        <div className="max-w-5xl mx-auto">
+          {/* Page header */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
+              System Status
+            </h1>
+            <div className="flex items-center gap-2">
+              {health?.status === 'ok' ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-sm text-emerald-300">All systems operational</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-sm text-amber-300">Checking connections...</span>
+                </>
+              )}
+            </div>
+          </div>
 
         <section id="status" className="scroll-mt-24">
           <details className="glass-panel rounded-xl border border-slate-700/40" open>
@@ -265,6 +283,7 @@ export default function StatusPage() {
             </div>
           </details>
         </section>
+        </div>
       </div>
     </main>
   )
