@@ -48,6 +48,7 @@ export type ConfigStatus = {
   layout?: {
     discovery_search_position: 'top' | 'bottom'
     library_search_position: 'top' | 'bottom'
+    view_mode?: 'grid' | 'list'
   }
   sabnzbd: {
     recent_group_limit: number
