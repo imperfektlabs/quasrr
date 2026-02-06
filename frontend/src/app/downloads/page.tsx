@@ -66,7 +66,7 @@ export default function DownloadsPage() {
         config={config}
       />
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {!config ? (
           <div className="glass-panel rounded-lg p-6 text-center">
             <div className="text-slate-400 animate-pulse">Loading configuration...</div>
@@ -75,30 +75,9 @@ export default function DownloadsPage() {
           <section id="downloads" className="scroll-mt-24">
             {/* Page header */}
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                  Download Activity
-                </h1>
-                <button
-                  onClick={() => fetchSabData(false)}
-                  disabled={!sabConfigured || sabLoading}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600/80 to-purple-600/70 hover:from-cyan-500/90 hover:to-purple-500/80 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
-                >
-                  {sabLoading ? (
-                    <>
-                      <span className="inline-block animate-spin">⟳</span>
-                      <span>Refreshing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <span>Refresh</span>
-                    </>
-                  )}
-                </button>
-              </div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                Download Activity
+              </h1>
               <p className="text-slate-400 text-sm">Monitor your active downloads and recent completions</p>
             </div>
             {!sabConfigured ? (
@@ -118,12 +97,23 @@ export default function DownloadsPage() {
                       <div>
                         <div className="text-lg font-bold text-slate-100 flex items-center gap-2">
                           <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4 4m0 0l4-4m-4 4V4" />
                           </svg>
                           <span>Active Queue</span>
                         </div>
                         <div className="text-sm text-cyan-300/80 mt-1">{queueSummary}</div>
                       </div>
+                      <button
+                        onClick={handlePauseAll}
+                        disabled={sabActionBusy || !sabQueue || sabQueue.jobs.length === 0}
+                        className="px-3 py-1.5 rounded-lg bg-amber-600/80 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-1.5"
+                        title="Pause all downloads"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span>Pause Queue</span>
+                      </button>
                     </div>
                   </div>
                   <div className="p-4 overflow-hidden">
