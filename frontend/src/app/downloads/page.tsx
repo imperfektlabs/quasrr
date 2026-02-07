@@ -130,8 +130,6 @@ export default function DownloadsPage() {
                       data={sabQueue}
                       error={sabQueueError}
                       onRefresh={fetchSabData}
-                      onPauseAll={handlePauseAll}
-                      onResumeAll={handleResumeAll}
                       onPauseJob={handlePauseJob}
                       onResumeJob={handleResumeJob}
                       onDeleteJob={handleDeleteJob}

@@ -1195,7 +1195,7 @@ export function DetailModal({
         </div>
       </>
     )
-  } else if (mode === 'discovery' && result) {
+  } else if (mode === 'discovery' && result && !releaseData) {
     actionButtons = (
       <div className="mt-4 flex w-full justify-end">
         <button
@@ -1405,6 +1405,25 @@ export function DetailModal({
 
             {/* ACTION BUTTONS - mode-specific */}
             {actionButtons}
+
+            {/* Discovery releases */}
+            {mode === 'discovery' && releaseData && (
+              <div className="space-y-2">
+                {releaseData.message && (
+                  <div className="text-xs text-amber-300">{releaseData.message}</div>
+                )}
+                {releaseData.releases && releaseData.releases.length > 0 && (
+                  <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 w-full max-w-full min-w-0 overflow-x-hidden">
+                    {renderInlineReleaseList(
+                      releaseData.releases,
+                      releaseData.type === 'tv' ? 'tv' : 'movie',
+                      'discovery',
+                      [],
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Library movie releases */}
             {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
