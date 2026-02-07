@@ -1285,9 +1285,9 @@ export function DetailModal({
   // ============================================
   return (
     <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
-      <div className="min-h-screen">
+      <div className="min-h-screen p-4 md:p-6">
         <div
-          className="mx-auto glass-panel rounded-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] m-4 overflow-hidden flex flex-col"
+          className="mx-auto glass-panel rounded-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
 
