@@ -39,7 +39,6 @@ import {
 
 // Component imports
 import {
-  ReleaseView,
   DetailModal,
   MediaCardGrid,
   MediaCardList,
@@ -1105,19 +1104,12 @@ function HomeContent() {
       )}
 
       {/* Release view modal */}
-      {releaseData && !showAiAvailability && (
-        <ReleaseView
-          data={releaseData}
-          result={releaseContext || undefined}
+      {releaseData && !showAiAvailability && releaseContext && (
+        <DetailModal
+          mode="discovery"
+          result={releaseContext}
+          releaseData={releaseData}
           onClose={handleCloseReleaseView}
-          onGrabRelease={handleGrabRelease}
-          onGrabAll={handleGrabAll}
-          grabBusyIds={grabBusyIds}
-          aiEnabled={aiEnabled}
-          aiSuggestion={aiSuggestion}
-          aiSuggestBusy={aiSuggestBusy}
-          aiSuggestError={aiSuggestError}
-          onAiSuggest={handleAiSuggest}
         />
       )}
     </main>
