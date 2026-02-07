@@ -1321,11 +1321,11 @@ export function DetailModal({
             </button>
 
             {/* Content overlaid on poster */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 pb-6 md:pb-8">
+            <div className="absolute top-0 left-0 right-0 p-4 md:p-6">
               <div className="grid grid-cols-[120px,1fr] md:grid-cols-[160px,1fr] gap-3 md:gap-5 items-start">
                 {/* Poster thumbnail (sharp version) - visible on mobile */}
                 {poster && (
-                  <div className="-mb-8 md:-mb-10">
+                  <div>
                     <img
                       src={poster}
                       alt={displayTitle}
