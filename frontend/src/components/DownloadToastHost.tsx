@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 import { useBackendApiSetup, useSabActions, useSabPolling } from '@/hooks'
 import type { SabQueueItem } from '@/types'
@@ -60,6 +61,7 @@ const matchesJob = (toast: DownloadToast, job: SabQueueItem) => {
 }
 
 export function DownloadToastHost() {
+  const router = useRouter()
   const { config } = useBackendApiSetup()
   const sabConfigured = Boolean(config?.integrations.sabnzbd_url)
 
@@ -161,17 +163,22 @@ export function DownloadToastHost() {
         return (
           <div
             key={toast.id}
-            className="glass-panel rounded-lg p-3 w-80 max-w-[calc(100vw-2rem)] shadow-lg border border-slate-700/50"
+            className="glass-panel rounded-lg p-3 w-80 max-w-[calc(100vw-2rem)] shadow-lg border border-slate-700/50 overflow-hidden"
           >
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => router.push('/downloads')}
+                className="min-w-0 flex-1 text-left hover:opacity-80 transition-opacity"
+                title="Go to Download Activity"
+              >
                 <div className="text-sm font-semibold text-slate-100 truncate">
                   {toast.status === 'error' ? 'Grab failed' : titleLine}
                 </div>
                 <div className={`text-xs ${toast.status === 'error' ? 'text-amber-300' : 'text-slate-300'}`}>
                   {toast.message}
                 </div>
-              </div>
+              </button>
               <button
                 type="button"
                 onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}

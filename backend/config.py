@@ -100,6 +100,7 @@ class DashboardConfig(BaseModel):
 class LayoutConfig(BaseModel):
     discovery_search_position: str = "top"
     library_search_position: str = "top"
+    view_mode: str = "grid"
 
 
 class SabnzbdConfig(BaseModel):
