@@ -70,6 +70,12 @@ class AIClient:
         self.model = config.ai.model
         self.openai_api_key = config.ai.openai_api_key
         self.openai_model = config.ai.openai_model
+        self.grok_api_key = config.ai.grok_api_key
+        self.grok_base_url = config.ai.grok_base_url
+        self.grok_model = config.ai.grok_model
+        self.perplexity_api_key = config.ai.perplexity_api_key
+        self.perplexity_base_url = config.ai.perplexity_base_url
+        self.perplexity_model = config.ai.perplexity_model
         self.gemini_api_key = config.ai.gemini_api_key
         self.gemini_model = config.ai.gemini_model
         self.openrouter_api_key = config.ai.openrouter_api_key
@@ -91,6 +97,10 @@ class AIClient:
             return False
         if self.provider == "openai":
             return bool(self._provider_api_key("openai") and self._provider_model("openai"))
+        if self.provider == "grok":
+            return bool(self._provider_api_key("grok") and self._provider_model("grok"))
+        if self.provider == "perplexity":
+            return bool(self._provider_api_key("perplexity") and self._provider_model("perplexity"))
         if self.provider == "gemini":
             return bool(self._provider_api_key("gemini") and self._provider_model("gemini"))
         if self.provider == "openrouter":
@@ -110,6 +120,10 @@ class AIClient:
             return "AI model not configured"
         if self.provider == "openai" and not self._provider_api_key("openai"):
             return "OpenAI API key not configured"
+        if self.provider == "grok" and not self._provider_api_key("grok"):
+            return "Grok API key not configured"
+        if self.provider == "perplexity" and not self._provider_api_key("perplexity"):
+            return "Perplexity API key not configured"
         if self.provider == "gemini" and not self._provider_api_key("gemini"):
             return "Gemini API key not configured"
         if self.provider == "openrouter" and not self._provider_api_key("openrouter"):
@@ -120,13 +134,17 @@ class AIClient:
             return "Anthropic API key not configured"
         if self.provider == "local" and not self.local_endpoint_url:
             return "Local AI endpoint not configured"
-        if self.provider not in {"openai", "gemini", "openrouter", "deepseek", "anthropic", "local"}:
+        if self.provider not in {"openai", "grok", "perplexity", "gemini", "openrouter", "deepseek", "anthropic", "local"}:
             return f"Unsupported AI provider: {self.provider}"
         return None
 
     def _provider_api_key(self, provider: str) -> str | None:
         if provider == "openai":
             return self.openai_api_key
+        if provider == "grok":
+            return self.grok_api_key
+        if provider == "perplexity":
+            return self.perplexity_api_key
         if provider == "gemini":
             return self.gemini_api_key
         if provider == "openrouter":
@@ -142,6 +160,10 @@ class AIClient:
     def _provider_model(self, provider: str) -> str | None:
         if provider == "openai":
             return self.openai_model or self.model
+        if provider == "grok":
+            return self.grok_model or self.model
+        if provider == "perplexity":
+            return self.perplexity_model or self.model
         if provider == "gemini":
             return self.gemini_model or self.model
         if provider == "openrouter":
@@ -322,6 +344,28 @@ class AIClient:
                 self.temperature,
                 self.max_tokens,
             )
+        elif self.provider == "grok":
+            base_url = (self.grok_base_url or "https://api.x.ai/v1").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self._provider_api_key("grok"),
+                self._provider_model("grok") or "",
+                system_prompt,
+                user_prompt,
+                self.temperature,
+                self.max_tokens,
+            )
+        elif self.provider == "perplexity":
+            base_url = (self.perplexity_base_url or "https://api.perplexity.ai").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self._provider_api_key("perplexity"),
+                self._provider_model("perplexity") or "",
+                system_prompt,
+                user_prompt,
+                self.temperature,
+                self.max_tokens,
+            )
         elif self.provider == "gemini":
             data = await self._request_gemini(system_prompt, user_prompt, self.temperature, self.max_tokens)
         elif self.provider == "openrouter":
@@ -425,6 +469,28 @@ class AIClient:
                 "https://api.openai.com/v1/chat/completions",
                 self._provider_api_key("openai"),
                 self._provider_model("openai") or "",
+                system_prompt,
+                user_prompt,
+                0.1,
+                600,
+            )
+        elif self.provider == "grok":
+            base_url = (self.grok_base_url or "https://api.x.ai/v1").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self._provider_api_key("grok"),
+                self._provider_model("grok") or "",
+                system_prompt,
+                user_prompt,
+                0.1,
+                600,
+            )
+        elif self.provider == "perplexity":
+            base_url = (self.perplexity_base_url or "https://api.perplexity.ai").rstrip("/")
+            data = await self._request_openai_chat(
+                f"{base_url}/chat/completions",
+                self._provider_api_key("perplexity"),
+                self._provider_model("perplexity") or "",
                 system_prompt,
                 user_prompt,
                 0.1,
