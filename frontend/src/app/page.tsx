@@ -692,7 +692,7 @@ function HomeContent() {
               <SearchPanel
                 stickyClass={discoverySearchStickyClass}
                 headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
-                headerRight={searchResults && searchResults.results.length > 0 ? (
+                headerRightInline={searchResults && searchResults.results.length > 0 ? (
                   <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
                     <button
                       type="button"
