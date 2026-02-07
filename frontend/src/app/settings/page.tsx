@@ -216,7 +216,7 @@ export default function SettingsPage() {
                         <img
                           src={aiProviderIcons[provider.id]}
                           alt={provider.label}
-                          className="w-10 h-10 object-contain"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
                         <div className="text-lg text-slate-500 font-bold">AI</div>
@@ -289,7 +289,7 @@ export default function SettingsPage() {
                       <img
                         src={integration.icon}
                         alt={integration.name}
-                        className="w-10 h-10 object-contain"
+                        className="w-full h-full object-contain"
                       />
                     </a>
                     {integration.checked && (
@@ -342,7 +342,7 @@ export default function SettingsPage() {
                       <img
                         src={getStreamingLogo(service.id)}
                         alt={service.name}
-                        className="w-10 h-10 object-contain"
+                        className="w-full h-full object-contain"
                       />
                     ) : (
                       <div className="text-xs text-slate-500">?</div>
