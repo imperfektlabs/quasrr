@@ -50,7 +50,7 @@ export type DiscoverySearchResult = {
   searchInputRef: React.RefObject<HTMLInputElement>
 }
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 12
 
 /**
  * Manage discovery search state with URL sync

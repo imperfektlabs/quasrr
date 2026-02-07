@@ -81,6 +81,11 @@ class AIIntentRequest(BaseModel):
     query: str
 
 
+class LogRequest(BaseModel):
+    level: Literal["info", "warning", "error", "debug"] = "info"
+    message: str
+
+
 class StreamingServicesUpdate(BaseModel):
     enabled_ids: list[str]
 
@@ -95,6 +100,7 @@ class DashboardSettingsUpdate(BaseModel):
 class LayoutSettingsUpdate(BaseModel):
     discovery_search_position: Optional[Literal["top", "bottom"]] = None
     library_search_position: Optional[Literal["top", "bottom"]] = None
+    view_mode: Optional[Literal["grid", "list"]] = None
 
 
 class SabnzbdSettingsUpdate(BaseModel):
@@ -280,6 +286,20 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.post("/log")
+async def log_message(request: LogRequest):
+    """Log a message to the backend console."""
+    level_map = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+    }
+    log_level = level_map.get(request.level, logging.INFO)
+    logger.log(log_level, f"[Frontend] {request.message}")
+    return {"status": "logged"}
+
+
 @app.get("/config")
 async def get_configuration():
     """Return current configuration with secrets redacted."""
@@ -345,6 +365,33 @@ async def get_tmdb_providers(
             "logo_url": f"https://image.tmdb.org/t/p/w45{logo_path}" if logo_path else None,
         })
     return {"providers": results}
+
+
+@app.get("/tmdb/trending")
+async def get_tmdb_trending(
+    media_type: str = Query("all", description="Media type: all, movie, or tv"),
+    time_window: str = Query("week", description="Time window: day or week"),
+):
+    """Get trending content from TMDB."""
+    tmdb = get_tmdb_client()
+    if not tmdb.is_configured:
+        raise HTTPException(status_code=503, detail="TMDB not configured")
+
+    results = await tmdb.get_trending(media_type, time_window)
+    return {"results": results}
+
+
+@app.get("/tmdb/popular")
+async def get_tmdb_popular(
+    media_type: str = Query("movie", description="Media type: movie or tv"),
+):
+    """Get popular content from TMDB."""
+    tmdb = get_tmdb_client()
+    if not tmdb.is_configured:
+        raise HTTPException(status_code=503, detail="TMDB not configured")
+
+    results = await tmdb.get_popular(media_type)
+    return {"results": results}
 
 
 @app.get("/integrations/status")

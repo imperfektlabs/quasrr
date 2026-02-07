@@ -35,6 +35,8 @@ export default function SettingsPage() {
     setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
     librarySearchPosition: settingsLibrarySearchPosition,
     setLibrarySearchPosition: setSettingsLibrarySearchPosition,
+    viewMode,
+    setViewMode,
     saving: settingsSaving,
     error: settingsError,
     saved: settingsSaved,
@@ -47,58 +49,32 @@ export default function SettingsPage() {
 
   const availableAiProviders = config?.ai.available_providers ?? []
   const availableAiProviderSet = new Set(availableAiProviders)
-
   const aiProviderOptions = [
     { id: 'openai', label: 'OpenAI' },
-    { id: 'gemini', label: 'Gemini' },
     { id: 'openrouter', label: 'OpenRouter' },
-    { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'gemini', label: 'Gemini' },
     { id: 'anthropic', label: 'Anthropic' },
+    { id: 'deepseek', label: 'DeepSeek' },
     { id: 'local', label: 'Local' },
-  ].sort((a, b) => a.label.localeCompare(b.label))
+  ]
 
-  const purchaseProviderIds = new Set(['apple_tv_store', 'amazon_video', 'google_play_movies', 'youtube'])
-  const streamingServices = [...(config?.streaming_services ?? [])]
-  const sortedStreamingServices = streamingServices
-    .filter((service) => !purchaseProviderIds.has(service.id))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .concat(
-      streamingServices
-        .filter((service) => purchaseProviderIds.has(service.id))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    )
-
-  const toolLinks = {
-    sonarr: config?.integrations?.sonarr_url || getLocalToolUrl(8989),
-    radarr: config?.integrations?.radarr_url || getLocalToolUrl(7878),
-    sabnzbd: config?.integrations?.sabnzbd_url || getLocalToolUrl(8080),
-    plex: config?.integrations?.plex_url || getLocalToolUrl(32400, '/web'),
-  }
-
-  const selectedProviderAvailable = settingsAiProvider
-    ? availableAiProviderSet.has(settingsAiProvider)
-    : false
-
-  const selectedProviderModel = (() => {
-    const ai = config?.ai
-    if (!ai) return null
-    if (settingsAiProvider === 'openai') return ai.openai_model || ai.model
-    if (settingsAiProvider === 'gemini') return ai.gemini_model || ai.model
-    if (settingsAiProvider === 'openrouter') return ai.openrouter_model || ai.model
-    if (settingsAiProvider === 'deepseek') return ai.deepseek_model || ai.model
-    if (settingsAiProvider === 'anthropic') return ai.anthropic_model || ai.model
-    if (settingsAiProvider === 'local') return ai.model
-    return ai.model
-  })()
+  const selectedProviderAvailable = availableAiProviderSet.has(settingsAiProvider)
+  const selectedProviderOption = aiProviderOptions.find((p) => p.id === settingsAiProvider)
+  const selectedProviderModel = selectedProviderOption && config?.ai
+    ? (config.ai[`${settingsAiProvider}_model` as keyof typeof config.ai] as string | undefined) || null
+    : null
 
   const aiProviderIcons: Record<string, string> = {
-    openai: '/logos/ais/openai.svg',
-    gemini: '/logos/ais/gemini.svg',
-    openrouter: '/logos/ais/openrouter.svg',
-    deepseek: '/logos/ais/deepseek.svg',
-    anthropic: '/logos/ais/claude.svg',
-    local: '/logos/ais/ollama.svg',
+    openai: '/logos/ai/openai.svg',
+    anthropic: '/logos/ai/anthropic.svg',
+    openrouter: '/logos/ai/openrouter.svg',
+    gemini: '/logos/ai/gemini.svg',
+    deepseek: '/logos/ai/deepseek.svg',
+    local: '/logos/ai/local.svg',
   }
+
+  const sortedStreamingServices = [...(config?.streaming_services ?? [])]
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   const toolIcons: Record<string, string> = {
     sonarr: '/logos/tools/sonarr.svg',
@@ -107,207 +83,321 @@ export default function SettingsPage() {
     plex: '/logos/tools/plex.svg',
   }
 
+  const toolLinks: Record<string, string> = {
+    sonarr: config?.integrations.sonarr_url || getLocalToolUrl(8989),
+    radarr: config?.integrations.radarr_url || getLocalToolUrl(7878),
+    sabnzbd: config?.integrations.sabnzbd_url || getLocalToolUrl(8080),
+    plex: config?.integrations.plex_url || getLocalToolUrl(32400, '/web'),
+  }
+
+  const integrations = [
+    {
+      id: 'sonarr',
+      name: 'Sonarr',
+      icon: toolIcons.sonarr,
+      link: toolLinks.sonarr,
+      checked: settingsShowSonarr,
+      onChange: (checked: boolean) => {
+        setSettingsShowSonarr(checked)
+        void saveDashboardSettings({ show_sonarr: checked })
+      },
+    },
+    {
+      id: 'radarr',
+      name: 'Radarr',
+      icon: toolIcons.radarr,
+      link: toolLinks.radarr,
+      checked: settingsShowRadarr,
+      onChange: (checked: boolean) => {
+        setSettingsShowRadarr(checked)
+        void saveDashboardSettings({ show_radarr: checked })
+      },
+    },
+    {
+      id: 'sabnzbd',
+      name: 'SABnzbd',
+      icon: toolIcons.sabnzbd,
+      link: toolLinks.sabnzbd,
+      checked: settingsShowSabnzbd,
+      onChange: (checked: boolean) => {
+        setSettingsShowSabnzbd(checked)
+        void saveDashboardSettings({ show_sabnzbd: checked })
+      },
+    },
+    {
+      id: 'plex',
+      name: 'Plex',
+      icon: toolIcons.plex,
+      link: toolLinks.plex,
+      checked: settingsShowPlex,
+      onChange: (checked: boolean) => {
+        setSettingsShowPlex(checked)
+        void saveDashboardSettings({ show_plex: checked })
+      },
+    },
+  ]
+
   return (
     <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
-      <NavigationMenu
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        menuButtonRef={menuButtonRef}
-        menuPanelRef={menuPanelRef}
-        currentPage="settings"
-        config={config}
-      />
+      <div>
+        <NavigationMenu
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          menuButtonRef={menuButtonRef}
+          menuPanelRef={menuPanelRef}
+          currentPage="settings"
+          config={config}
+        />
 
-      <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto">
         {!config ? (
-          <div className="glass-panel rounded-lg p-4 text-gray-400">
-            Loading configuration...
+          <div className="glass-panel rounded-lg p-6 text-center">
+            <div className="text-slate-400 animate-pulse">Loading configuration...</div>
           </div>
         ) : (
-          <section id="settings" className="scroll-mt-24 mt-4 glass-panel rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-300 mb-2">Settings</h3>
-            <p className="text-xs text-gray-400 mb-3">
-              Non-secret settings only. Env vars still override these values.
-            </p>
+          <div className="space-y-6">
+            {/* Feedback messages */}
             {settingsError && (
-              <div className="text-xs text-red-400 mb-2">Error: {settingsError}</div>
+              <div className="glass-panel rounded-lg p-3 bg-rose-500/10 border border-rose-500/30">
+                <p className="text-sm text-rose-300">Error: {settingsError}</p>
+              </div>
             )}
             {settingsSaved && (
-              <div className="text-xs text-cyan-300 mb-2">Settings saved.</div>
+              <div className="glass-panel rounded-lg p-3 bg-cyan-500/10 border border-cyan-500/30">
+                <p className="text-sm text-cyan-300">Settings saved successfully</p>
+              </div>
             )}
             {settingsSaving && (
-              <div className="text-xs text-amber-300 mb-2">Saving settings...</div>
+              <div className="glass-panel rounded-lg p-3 bg-amber-500/10 border border-amber-500/30">
+                <p className="text-sm text-amber-300">Saving settings...</p>
+              </div>
             )}
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
-              <label className="grid gap-1">
-                <span className="text-xs text-gray-400">Country</span>
-                <input
-                  type="text"
-                  value={settingsCountry}
-                  onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
-                  onBlur={() => {
-                    void saveSettings()
-                  }}
-                  className="h-9 w-full bg-slate-900/60 border border-slate-700/60 rounded px-2 text-sm leading-none"
-                />
-              </label>
-              <div className="grid gap-1">
-                <span className="text-xs text-gray-400">AI Provider</span>
-                <div className="grid gap-2">
-                  {aiProviderOptions.map((provider) => {
-                    const isAvailable = availableAiProviderSet.has(provider.id)
-                    const isChecked = settingsAiProvider === provider.id
-                    return (
-                      <label
-                        key={provider.id}
-                        className={`flex items-center gap-2 ${isAvailable ? '' : 'text-gray-500'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={!isAvailable}
-                          onChange={(event) => {
-                            if (!event.target.checked) {
-                              return
-                            }
-                            setSettingsAiProvider(provider.id)
-                            void saveSettings({ ai_provider: provider.id })
-                          }}
+
+            {/* AI Providers */}
+            <section className="glass-panel rounded-xl border border-slate-700/40 p-6">
+              <h2 className="text-lg font-bold text-slate-100 mb-1 flex items-center gap-2">
+                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI Provider
+              </h2>
+              <p className="text-xs text-slate-400 mb-4">Select your AI provider for suggestions</p>
+
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 mb-3">
+                {aiProviderOptions.map((provider) => {
+                  const isAvailable = availableAiProviderSet.has(provider.id)
+                  const isSelected = settingsAiProvider === provider.id
+                  return (
+                    <button
+                      key={provider.id}
+                      type="button"
+                      disabled={!isAvailable}
+                      onClick={() => {
+                        setSettingsAiProvider(provider.id)
+                        void saveSettings({ ai_provider: provider.id })
+                      }}
+                      title={`${provider.label}${!isAvailable ? ' (not configured)' : ''}`}
+                      className={`
+                        group relative aspect-square rounded-lg p-3
+                        flex items-center justify-center transition-all
+                        ${isSelected && isAvailable
+                          ? 'bg-gradient-to-br from-cyan-600/30 to-purple-600/20 border-2 border-cyan-500/60 shadow-lg shadow-cyan-500/20'
+                          : isAvailable
+                            ? 'bg-slate-800/40 border-2 border-slate-700/60 hover:border-cyan-500/40 hover:bg-slate-700/40'
+                            : 'bg-slate-900/40 border-2 border-slate-800/40 opacity-40 cursor-not-allowed'
+                        }
+                      `}
+                    >
+                      {aiProviderIcons[provider.id] ? (
+                        <img
+                          src={aiProviderIcons[provider.id]}
+                          alt={provider.label}
+                          className="w-10 h-10 object-contain"
                         />
-                        <span className="h-6 w-6 inline-flex items-center justify-center">
-                          {aiProviderIcons[provider.id] ? (
-                            <img
-                              src={aiProviderIcons[provider.id]}
-                              alt={provider.label}
-                              className="h-4 w-4 object-contain"
-                            />
-                          ) : (
-                            <span className="text-[10px] text-slate-500">AI</span>
-                          )}
-                        </span>
-                        <span>{provider.label}</span>
-                      </label>
-                    )
-                  })}
-                  {availableAiProviderSet.size === 0 && (
-                    <span className="text-xs text-gray-500">No AI providers configured in .env</span>
+                      ) : (
+                        <div className="text-lg text-slate-500 font-bold">AI</div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center shadow-lg">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {selectedProviderModel && (
+                <div className="text-xs text-slate-400 mt-2">
+                  Model: <span className="text-slate-200">{selectedProviderModel}</span>
+                  {settingsAiProvider === 'openrouter' && (
+                    <span className="text-2xs text-slate-500 ml-2">(configure in settings.yaml or .env)</span>
                   )}
                 </div>
-              </div>
-            </div>
-            {selectedProviderModel && (
-              <div className="mt-2 text-xs text-gray-400">
-                AI model: <span className="text-gray-200">{selectedProviderModel}</span>
-              </div>
-            )}
-            {!selectedProviderAvailable && settingsAiProvider && (
-              <div className="mt-1 text-xs text-red-400">
-                Selected provider is not configured in .env.
-              </div>
-            )}
+              )}
+              {!selectedProviderAvailable && settingsAiProvider && (
+                <div className="mt-2 text-xs text-rose-400">
+                  Selected provider is not configured in .env
+                </div>
+              )}
+              {availableAiProviderSet.size === 0 && (
+                <div className="text-xs text-slate-500 mt-2">
+                  No AI providers configured in .env
+                </div>
+              )}
+            </section>
 
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Dashboard Cards</h4>
-              <p className="text-xs text-gray-500 mb-2">
-                If no cards are selected, the dashboard is hidden from the front page.
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowSonarr}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowSonarr(next)
-                      void saveDashboardSettings({ show_sonarr: next })
-                    }}
-                  />
-                  <a
-                    href={toolLinks.sonarr}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
-                  >
-                    <span className="h-6 w-6 inline-flex items-center justify-center">
-                      <img src={toolIcons.sonarr} alt="Sonarr" className="h-4 w-4 object-contain" />
-                    </span>
-                    <span>Sonarr</span>
-                  </a>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowRadarr}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowRadarr(next)
-                      void saveDashboardSettings({ show_radarr: next })
-                    }}
-                  />
-                  <a
-                    href={toolLinks.radarr}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
-                  >
-                    <span className="h-6 w-6 inline-flex items-center justify-center">
-                      <img src={toolIcons.radarr} alt="Radarr" className="h-4 w-4 object-contain" />
-                    </span>
-                    <span>Radarr</span>
-                  </a>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowSabnzbd}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowSabnzbd(next)
-                      void saveDashboardSettings({ show_sabnzbd: next })
-                    }}
-                  />
-                  <a
-                    href={toolLinks.sabnzbd}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
-                  >
-                    <span className="h-6 w-6 inline-flex items-center justify-center">
-                      <img src={toolIcons.sabnzbd} alt="SABnzbd" className="h-4 w-4 object-contain" />
-                    </span>
-                    <span>SABnzbd</span>
-                  </a>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={settingsShowPlex}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                      setSettingsShowPlex(next)
-                      void saveDashboardSettings({ show_plex: next })
-                    }}
-                  />
-                  <a
-                    href={toolLinks.plex}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 hover:text-cyan-200 transition-colors"
-                  >
-                    <span className="h-6 w-6 inline-flex items-center justify-center">
-                      <img src={toolIcons.plex} alt="Plex" className="h-4 w-4 object-contain" />
-                    </span>
-                    <span>Plex</span>
-                  </a>
-                </label>
-              </div>
-            </div>
+            {/* Dashboard Integrations */}
+            <section className="glass-panel rounded-xl border border-slate-700/40 p-6">
+              <h2 className="text-lg font-bold text-slate-100 mb-1 flex items-center gap-2">
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                </svg>
+                Dashboard Cards
+              </h2>
+              <p className="text-xs text-slate-400 mb-4">Show/hide cards on the homepage dashboard</p>
 
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Layout</h4>
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
-                <label className="grid gap-1">
-                  <span className="text-xs text-gray-400">Discovery search panel</span>
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+                {integrations.map((integration) => (
+                  <button
+                    key={integration.id}
+                    type="button"
+                    onClick={() => integration.onChange(!integration.checked)}
+                    title={integration.name}
+                    className={`
+                      group relative aspect-square rounded-lg p-3
+                      flex items-center justify-center transition-all
+                      ${integration.checked
+                        ? 'bg-gradient-to-br from-purple-600/30 to-pink-600/20 border-2 border-purple-500/60 shadow-lg shadow-purple-500/20'
+                        : 'bg-slate-800/40 border-2 border-slate-700/60 hover:border-purple-500/40 hover:bg-slate-700/40'
+                      }
+                    `}
+                  >
+                    <a
+                      href={integration.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full h-full flex items-center justify-center"
+                    >
+                      <img
+                        src={integration.icon}
+                        alt={integration.name}
+                        className="w-10 h-10 object-contain"
+                      />
+                    </a>
+                    {integration.checked && (
+                      <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* Streaming Services */}
+            <section className="glass-panel rounded-xl border border-slate-700/40 p-6">
+              <h2 className="text-lg font-bold text-slate-100 mb-1 flex items-center gap-2">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                </svg>
+                Streaming Services
+              </h2>
+              <p className="text-xs text-slate-400 mb-4">Select your subscribed streaming platforms</p>
+
+              {streamingUpdateError && (
+                <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                  <p className="text-xs text-rose-300">Error: {streamingUpdateError}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+                {sortedStreamingServices.map((service) => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    disabled={streamingUpdateBusy}
+                    onClick={() => handleStreamingToggle(service.id, !service.enabled)}
+                    title={service.name}
+                    className={`
+                      group relative aspect-square rounded-lg p-3
+                      flex items-center justify-center transition-all
+                      ${service.enabled
+                        ? 'bg-gradient-to-br from-emerald-600/30 to-teal-600/20 border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/20'
+                        : 'bg-slate-800/40 border-2 border-slate-700/60 hover:border-emerald-500/40 hover:bg-slate-700/40'
+                      }
+                      ${streamingUpdateBusy ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                  >
+                    {getStreamingLogo(service.id) ? (
+                      <img
+                        src={getStreamingLogo(service.id)}
+                        alt={service.name}
+                        className="w-10 h-10 object-contain"
+                      />
+                    ) : (
+                      <div className="text-xs text-slate-500">?</div>
+                    )}
+                    {service.enabled && (
+                      <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* General Settings */}
+            <section className="glass-panel rounded-xl border border-slate-700/40 p-6">
+              <h2 className="text-lg font-bold text-slate-100 mb-1 flex items-center gap-2">
+                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                General
+              </h2>
+              <p className="text-xs text-slate-400 mb-4">Basic configuration options</p>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Country Code</span>
+                  <input
+                    type="text"
+                    value={settingsCountry}
+                    onChange={(event) => setSettingsCountry(event.target.value.toUpperCase())}
+                    onBlur={() => void saveSettings()}
+                    placeholder="US"
+                    maxLength={2}
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">View Mode</span>
+                  <select
+                    value={viewMode}
+                    onChange={(event) => {
+                      const next = event.target.value as 'grid' | 'list'
+                      setViewMode(next)
+                      void saveSettings({ view_mode: next })
+                    }}
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                  >
+                    <option value="grid">Grid (Poster-focused)</option>
+                    <option value="list">List (Compact)</option>
+                  </select>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Discovery Search Position</span>
                   <select
                     value={settingsDiscoverySearchPosition}
                     onChange={(event) => {
@@ -315,14 +405,15 @@ export default function SettingsPage() {
                       setSettingsDiscoverySearchPosition(next)
                       void saveSettings({ discovery_search_position: next })
                     }}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                   >
                     <option value="top">Top</option>
                     <option value="bottom">Bottom</option>
                   </select>
                 </label>
-                <label className="grid gap-1">
-                  <span className="text-xs text-gray-400">Library search panel</span>
+
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Library Search Position</span>
                   <select
                     value={settingsLibrarySearchPosition}
                     onChange={(event) => {
@@ -330,20 +421,15 @@ export default function SettingsPage() {
                       setSettingsLibrarySearchPosition(next)
                       void saveSettings({ library_search_position: next })
                     }}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                   >
                     <option value="top">Top</option>
                     <option value="bottom">Bottom</option>
                   </select>
                 </label>
-              </div>
-            </div>
 
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Downloads</h4>
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
-                <label className="grid gap-1">
-                  <span className="text-xs text-gray-400">Recent download groups</span>
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Recent Download Groups</span>
                   <input
                     type="number"
                     min={1}
@@ -351,52 +437,21 @@ export default function SettingsPage() {
                     value={settingsSabRecentLimit}
                     onChange={(event) => {
                       const value = Number(event.target.value)
-                      if (Number.isNaN(value)) return
-                      setSettingsSabRecentLimit(value)
+                      if (!Number.isNaN(value)) setSettingsSabRecentLimit(value)
                     }}
                     onBlur={() => {
                       const value = Math.max(1, Math.min(20, settingsSabRecentLimit || 10))
                       setSettingsSabRecentLimit(value)
                       void saveSettings({ sab_recent_group_limit: value })
                     }}
-                    className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-2 text-sm"
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                   />
                 </label>
               </div>
-            </div>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">Streaming Services</h4>
-              {streamingUpdateError && (
-                <div className="text-xs text-red-400 mb-2">Error: {streamingUpdateError}</div>
-              )}
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {sortedStreamingServices.map((service) => (
-                  <label key={service.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={service.enabled}
-                      disabled={streamingUpdateBusy}
-                      onChange={(event) => handleStreamingToggle(service.id, event.target.checked)}
-                    />
-                    <span className="h-6 w-6 inline-flex items-center justify-center">
-                      {getStreamingLogo(service.id) ? (
-                        <img
-                          src={getStreamingLogo(service.id)}
-                          alt={service.name}
-                          className="h-4 w-4 object-contain"
-                        />
-                      ) : (
-                        <span className="text-[10px] text-slate-500">?</span>
-                      )}
-                    </span>
-                    <span>{service.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </section>
+            </section>
+          </div>
         )}
+        </div>
       </div>
     </main>
   )

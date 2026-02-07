@@ -394,7 +394,8 @@ class AIClient:
 
     async def parse_intent(self, query: str, context: dict) -> dict:
         """Parse a natural language query into a structured intent."""
-        logger.info("AI intent request: provider=%s, query=%s", self.provider, query[:100])
+        model = self._provider_model(self.provider) or "unknown"
+        logger.info("AI intent request: provider=%s, model=%s, query=%s", self.provider, model, query[:100])
         if config_error := self.configuration_error():
             logger.warning("AI configuration error: %s", config_error)
             return {"status": "error", "message": config_error}

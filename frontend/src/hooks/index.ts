@@ -35,3 +35,4 @@ export type { AiSuggestResult } from './releases/useAiSuggest'
 
 // UI hooks
 export { useClickOutside } from './ui/useClickOutside'
+export { useRandomLibraryPoster } from './ui/useRandomLibraryPoster'

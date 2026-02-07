@@ -26,6 +26,8 @@ export type SettingsResult = {
   setDiscoverySearchPosition: (next: 'top' | 'bottom') => void
   librarySearchPosition: 'top' | 'bottom'
   setLibrarySearchPosition: (next: 'top' | 'bottom') => void
+  viewMode: 'grid' | 'list'
+  setViewMode: (next: 'grid' | 'list') => void
   saving: boolean
   error: string | null
   saved: boolean
@@ -45,6 +47,7 @@ export type SettingsResult = {
     sab_recent_group_limit: number
     discovery_search_position: 'top' | 'bottom'
     library_search_position: 'top' | 'bottom'
+    view_mode: 'grid' | 'list'
   }>) => Promise<void>
 }
 
@@ -66,6 +69,7 @@ export function useSettings(
   const [sabRecentLimit, setSabRecentLimit] = useState(10)
   const [discoverySearchPosition, setDiscoverySearchPosition] = useState<'top' | 'bottom'>('top')
   const [librarySearchPosition, setLibrarySearchPosition] = useState<'top' | 'bottom'>('top')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -85,6 +89,7 @@ export function useSettings(
       setSabRecentLimit(config.sabnzbd?.recent_group_limit ?? 10)
       setDiscoverySearchPosition(config.layout?.discovery_search_position ?? 'top')
       setLibrarySearchPosition(config.layout?.library_search_position ?? 'top')
+      setViewMode((config.layout?.view_mode as 'grid' | 'list') ?? 'grid')
     }
   }, [config])
 
@@ -182,6 +187,7 @@ export function useSettings(
     sab_recent_group_limit: number
     discovery_search_position: 'top' | 'bottom'
     library_search_position: 'top' | 'bottom'
+    view_mode: 'grid' | 'list'
   }>) => {
     setSaving(true)
     setError(null)
@@ -192,6 +198,7 @@ export function useSettings(
     const nextSabRecentLimit = next?.sab_recent_group_limit ?? sabRecentLimit
     const nextDiscoverySearchPosition = next?.discovery_search_position ?? discoverySearchPosition
     const nextLibrarySearchPosition = next?.library_search_position ?? librarySearchPosition
+    const nextViewMode = next?.view_mode ?? viewMode
 
     try {
       const backendUrl = getBackendUrl()
@@ -204,6 +211,7 @@ export function useSettings(
           layout: {
             discovery_search_position: nextDiscoverySearchPosition,
             library_search_position: nextLibrarySearchPosition,
+            view_mode: nextViewMode,
           },
           sabnzbd: {
             recent_group_limit: nextSabRecentLimit,
@@ -249,6 +257,8 @@ export function useSettings(
     setDiscoverySearchPosition,
     librarySearchPosition,
     setLibrarySearchPosition,
+    viewMode,
+    setViewMode,
     saving,
     error,
     saved,

@@ -89,7 +89,6 @@ export function DetailModal({
   const [seasonReleaseCache, setSeasonReleaseCache] = useState<Record<number, {
     byEpisode: Record<number, Release[]>
   }>>({})
-  const [seasonSearchBusy, setSeasonSearchBusy] = useState<Set<number>>(new Set())
   const [episodeDeleteBusyIds, setEpisodeDeleteBusyIds] = useState<Set<number>>(new Set())
   const [episodeDeleteStatus, setEpisodeDeleteStatus] = useState<Record<number, string>>({})
   const [episodeDeleteConfirmId, setEpisodeDeleteConfirmId] = useState<number | null>(null)
@@ -106,7 +105,6 @@ export function DetailModal({
   const libraryResultsRef = useRef<HTMLDivElement | null>(null)
   const deleteConfirmRef = useRef<HTMLDivElement | null>(null)
   const autoSearchHandled = useRef(false)
-  const seasonSearchInFlight = useRef<Map<number, Promise<void>>>(new Map())
 
   const libraryReleaseContext = useMemo<ReleaseResponse | null>(() => {
     if (libraryReleaseData) return libraryReleaseData
@@ -251,7 +249,6 @@ export function DetailModal({
     setEpisodeReleaseLoadingKeys(new Set())
     setEpisodeReleaseErrors({})
     setSeasonReleaseCache({})
-    setSeasonSearchBusy(new Set())
     clearLibraryGrab()
     setLibraryGrabFeedback(null)
     autoSearchHandled.current = false
@@ -292,83 +289,6 @@ export function DetailModal({
 
   const buildEpisodeKey = (seasonNumber: number, episodeNumber: number) =>
     `${seasonNumber}:${episodeNumber}`
-
-  const fetchSeasonReleases = async (seasonNumber: number) => {
-    if (!libraryItem || libraryItem.mediaType !== 'tv') {
-      throw new Error('Missing TV library item')
-    }
-
-    const existing = seasonSearchInFlight.current.get(seasonNumber)
-    if (existing) return existing
-
-    const promise = (async () => {
-      setSeasonSearchBusy((prev) => new Set(prev).add(seasonNumber))
-      try {
-        const backendUrl = getBackendUrl()
-        if (!libraryItem.tvdbId) {
-          throw new Error('Missing TVDB ID')
-        }
-        const params = new URLSearchParams({
-          type: 'tv',
-          title: libraryItem.title,
-          tvdb_id: libraryItem.tvdbId.toString(),
-          season: seasonNumber.toString(),
-        })
-
-        const response = await fetch(`${backendUrl}/releases?${params.toString()}`)
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.detail || `HTTP ${response.status}`)
-        }
-        const data = await response.json()
-        const byEpisode: Record<number, Release[]> = {}
-
-        for (const release of data.releases || []) {
-          if (release.full_season) continue
-          const releaseSeason = typeof release.season === 'number' ? release.season : seasonNumber
-          if (releaseSeason !== seasonNumber) continue
-          const episodes = Array.isArray(release.episode) ? release.episode : []
-          if (episodes.length === 0) continue
-          for (const epNumber of episodes) {
-            if (!byEpisode[epNumber]) byEpisode[epNumber] = []
-            byEpisode[epNumber].push(release)
-          }
-        }
-
-        const seasonEpisodes = episodesBySeason[seasonNumber] || []
-        for (const episode of seasonEpisodes) {
-          const epNumber = episode.episodeNumber
-          if (typeof epNumber !== 'number') continue
-          if (!byEpisode[epNumber]) byEpisode[epNumber] = []
-        }
-
-        setSeasonReleaseCache((prev) => ({
-          ...prev,
-          [seasonNumber]: { byEpisode },
-        }))
-        setEpisodeReleaseErrors((prev) => {
-          const next = { ...prev }
-          for (const episode of seasonEpisodes) {
-            const epNumber = episode.episodeNumber
-            if (typeof epNumber !== 'number') continue
-            const key = buildEpisodeKey(seasonNumber, epNumber)
-            delete next[key]
-          }
-          return next
-        })
-      } finally {
-        setSeasonSearchBusy((prev) => {
-          const next = new Set(prev)
-          next.delete(seasonNumber)
-          return next
-        })
-        seasonSearchInFlight.current.delete(seasonNumber)
-      }
-    })()
-
-    seasonSearchInFlight.current.set(seasonNumber, promise)
-    return promise
-  }
 
   const getSizeWarning = (release: Release, mediaType: 'movie' | 'tv'): string | null => {
     const sizeGB = release.size_gb
@@ -708,26 +628,6 @@ export function DetailModal({
       setLibraryActionMessage(null)
     } finally {
       setLibraryActionBusy(false)
-    }
-  }
-
-  const handleSeasonSearch = async (seasonNumber: number) => {
-    if (seasonSearchBusy.has(seasonNumber)) return
-    if (seasonReleaseCache[seasonNumber]) return
-    try {
-      await fetchSeasonReleases(seasonNumber)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Search failed'
-      setEpisodeReleaseErrors((prev) => {
-        const next = { ...prev }
-        for (const episode of episodesBySeason[seasonNumber] || []) {
-          const epNumber = episode.episodeNumber
-          if (typeof epNumber !== 'number') continue
-          const key = buildEpisodeKey(seasonNumber, epNumber)
-          next[key] = message
-        }
-        return next
-      })
     }
   }
 
@@ -1095,8 +995,6 @@ export function DetailModal({
                   })
                 }}
                 isCollapsed={!isExpanded}
-                onSearch={() => handleSeasonSearch(seasonNumber)}
-                searchDisabled={seasonSearchBusy.has(seasonNumber)}
                 onDelete={() => setDeleteConfirmOpen(true)}
               />
               {isExpanded && (
@@ -1297,7 +1195,7 @@ export function DetailModal({
         </div>
       </>
     )
-  } else if (mode === 'discovery' && result) {
+  } else if (mode === 'discovery' && result && !releaseData) {
     actionButtons = (
       <div className="mt-4 flex w-full justify-end">
         <button
@@ -1387,116 +1285,168 @@ export function DetailModal({
   // ============================================
   return (
     <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
-      <div className="min-h-screen p-4">
+      <div className="min-h-screen p-4 md:p-6">
         <div
-          className="mx-auto glass-panel rounded-lg p-4 md:p-6 max-w-3xl w-full max-h-[calc(100vh-2rem)] min-h-[calc(100vh-2rem)] overflow-y-auto flex flex-col"
+          className="mx-auto glass-panel rounded-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col relative"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Close button - top right */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 md:top-6 right-4 md:right-6 z-20 text-slate-300 hover:text-white text-3xl w-10 h-10 rounded-full bg-slate-900/60 backdrop-blur-sm hover:bg-slate-800/80 transition-all flex items-center justify-center"
+            aria-label="Close modal"
+          >
+            ×
+          </button>
 
-          {/* HEADER - identical for all modes */}
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h2 className="text-xl font-bold">{headerTitle}</h2>
-              <p className="text-gray-400 text-sm">{headerSubtitle}</p>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl px-2">X</button>
-          </div>
-
-          {/* MAIN CONTENT - unified grid layout */}
-          <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
-            {/* Poster column */}
-            <div className="w-full">
-              {poster ? (
-                <img src={poster} alt={displayTitle} className="w-full rounded-lg object-cover" />
-              ) : (
-                <div className="w-full h-56 rounded-lg bg-slate-800/60 flex items-center justify-center text-gray-500 text-xs">
-                  No poster
+          {/* HEADER SECTION - Poster and title */}
+          <div className="relative w-full bg-gradient-to-br from-slate-800/60 to-slate-900/80">
+            {/* Optional background poster (blurred) */}
+            {poster && (
+              <>
+                <div className="absolute inset-0 overflow-hidden">
+                  <img
+                    src={poster}
+                    alt=""
+                    className="w-full h-full object-cover object-top blur-sm scale-110 opacity-40"
+                  />
                 </div>
-              )}
-            </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/30" />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-transparent to-slate-900/60" />
+              </>
+            )}
 
-            {/* Content column */}
-            <div className="space-y-3">
-              {/* Title (for AI mode where header title is different) */}
-              {mode === 'ai' && (
-                <div className="text-slate-200 text-lg font-semibold">{displayTitle}</div>
-              )}
-
-              {/* Metadata line */}
-              {metadata && <div className="text-gray-400 text-xs">{metadata}</div>}
-
-              {/* Status badge + chips */}
-              <div className="flex flex-wrap gap-2">
-                {status !== 'not_in_library' && libraryLink && (mode === 'ai' || mode === 'discovery') ? (
-                  <a
-                    href={libraryLink}
-                    className="inline-flex"
-                    title="View in library"
-                    aria-label="View in library"
-                  >
-                    <StatusBadge status={status} />
-                  </a>
-                ) : (
-                  <StatusBadge status={status} />
+            {/* Content */}
+            <div className="relative p-4 md:p-6">
+              <div className="grid grid-cols-[120px,1fr] md:grid-cols-[160px,1fr] gap-3 md:gap-5 items-start">
+                {/* Poster thumbnail (sharp version) */}
+                {poster && (
+                  <div>
+                    <img
+                      src={poster}
+                      alt={displayTitle}
+                      className="w-full rounded-lg shadow-2xl shadow-black/60 ring-1 ring-white/10"
+                    />
+                  </div>
                 )}
-                {chips}
+
+                {/* Title & key info */}
+                <div className="space-y-2 md:space-y-3">
+                  <div>
+                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-lg">{headerTitle}</h2>
+                    {headerSubtitle && (
+                      <p className="text-slate-300 text-sm md:text-base mt-1 drop-shadow">{headerSubtitle}</p>
+                    )}
+                    {mode === 'ai' && displayTitle !== headerTitle && (
+                      <div className="text-slate-200 text-lg font-semibold mt-2 drop-shadow">{displayTitle}</div>
+                    )}
+                  </div>
+
+                  {/* Metadata */}
+                  {metadata && <div className="text-slate-300 text-xs md:text-sm drop-shadow">{metadata}</div>}
+
+                  {/* Status badge + chips */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {status !== 'not_in_library' && libraryLink && (mode === 'ai' || mode === 'discovery') ? (
+                      <a
+                        href={libraryLink}
+                        className="inline-flex"
+                        title="View in library"
+                        aria-label="View in library"
+                      >
+                        <StatusBadge status={status} />
+                      </a>
+                    ) : (
+                      <StatusBadge status={status} />
+                    )}
+                    {chips}
+                  </div>
+
+                  {/* Ratings */}
+                  {ratings}
+                </div>
               </div>
-
-              {/* Genres (discovery only) */}
-              {genres}
-
-              {/* Ratings (discovery only) */}
-              {ratings}
-
-              {/* Overview */}
-              {overview && <p className="text-gray-300 text-sm leading-relaxed line-clamp-4">{overview}</p>}
-
-              {/* AI-specific messages */}
-              {mode === 'ai' && releaseData?.message && <div className="text-xs text-amber-300">{releaseData.message}</div>}
-              {mode === 'ai' && intent?.notes && <p className="text-gray-300 text-xs line-clamp-2">{intent.notes}</p>}
-              {mode === 'ai' && plan?.recommendation === 'watch' && (
-                <div className="text-amber-300 text-xs">Recommendation: stream instead of downloading.</div>
-              )}
-              {mode === 'ai' && error && <div className="text-red-400 text-xs">AI: {error}</div>}
-
-              {/* Streaming options (AI and discovery) */}
-              {streamingSection}
-
-              {/* Season selector (discovery TV only) */}
-              {seasonSelector}
             </div>
           </div>
 
-          {/* EPISODE LIST - library TV only, full width below the grid */}
-          {episodeList}
+          {/* CONTENT SECTION - Scrollable details below hero */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-gradient-to-b from-slate-900 to-slate-900/95">
+            {/* Genres */}
+            {genres}
 
-          {/* ACTION BUTTONS - mode-specific */}
-          {actionButtons}
+            {/* Overview */}
+            {overview && (
+              <div>
+                <h3 className="text-sm font-semibold text-slate-400 mb-2">Overview</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">{overview}</p>
+              </div>
+            )}
 
-          {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
-            <div ref={libraryResultsRef} className="mt-4 space-y-2">
-              {libraryReleaseLoading && !libraryActionMessage && (
-                <div className="text-xs text-slate-300">Searching...</div>
-              )}
-              {libraryReleaseError && (
-                <div className="text-xs text-amber-300">Search: {libraryReleaseError}</div>
-              )}
-              {libraryReleaseData && (
-                <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 w-full max-w-full min-w-0 overflow-x-hidden">
-                  {renderInlineReleaseList(
-                    libraryReleaseData.releases || [],
-                    'movie',
-                    'movie',
-                    [
-                      libraryItem?.movieFileSceneName,
-                      libraryItem?.movieFileRelativePath,
-                      libraryItem?.movieFilePath,
-                    ],
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+            {/* AI-specific messages */}
+            {mode === 'ai' && releaseData?.message && <div className="text-xs text-amber-300">{releaseData.message}</div>}
+            {mode === 'ai' && intent?.notes && <p className="text-slate-300 text-xs">{intent.notes}</p>}
+            {mode === 'ai' && plan?.recommendation === 'watch' && (
+              <div className="text-amber-300 text-xs">Recommendation: stream instead of downloading.</div>
+            )}
+            {mode === 'ai' && error && <div className="text-red-400 text-xs">AI: {error}</div>}
+
+            {/* Streaming options (AI and discovery) */}
+            {streamingSection}
+
+            {/* Season selector (discovery TV only) */}
+            {seasonSelector}
+
+            {/* EPISODE LIST - library TV only */}
+            {episodeList}
+
+            {/* ACTION BUTTONS - mode-specific */}
+            {actionButtons}
+
+            {/* Discovery releases */}
+            {mode === 'discovery' && releaseData && (
+              <div className="space-y-2">
+                {releaseData.message && (
+                  <div className="text-xs text-amber-300">{releaseData.message}</div>
+                )}
+                {releaseData.releases && releaseData.releases.length > 0 && (
+                  <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 w-full max-w-full min-w-0 overflow-x-hidden">
+                    {renderInlineReleaseList(
+                      releaseData.releases,
+                      releaseData.type === 'tv' ? 'tv' : 'movie',
+                      'discovery',
+                      [],
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Library movie releases */}
+            {mode === 'library' && libraryItem?.mediaType !== 'tv' && (libraryReleaseLoading || libraryReleaseError || libraryReleaseData) && (
+              <div ref={libraryResultsRef} className="space-y-2">
+                {libraryReleaseLoading && !libraryActionMessage && (
+                  <div className="text-xs text-slate-300">Searching...</div>
+                )}
+                {libraryReleaseError && (
+                  <div className="text-xs text-amber-300">Search: {libraryReleaseError}</div>
+                )}
+                {libraryReleaseData && (
+                  <div className="rounded-md border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-xs text-slate-200 w-full max-w-full min-w-0 overflow-x-hidden">
+                    {renderInlineReleaseList(
+                      libraryReleaseData.releases || [],
+                      'movie',
+                      'movie',
+                      [
+                        libraryItem?.movieFileSceneName,
+                        libraryItem?.movieFileRelativePath,
+                        libraryItem?.movieFilePath,
+                      ],
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
