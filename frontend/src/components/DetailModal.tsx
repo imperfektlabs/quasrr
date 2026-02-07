@@ -1287,7 +1287,7 @@ export function DetailModal({
     <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
       <div className="min-h-screen">
         <div
-          className="mx-auto glass-panel rounded-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] my-4 overflow-hidden flex flex-col"
+          className="mx-auto glass-panel rounded-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] m-4 overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
 
@@ -1314,7 +1314,7 @@ export function DetailModal({
             {/* Close button - top right */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 z-20 text-slate-300 hover:text-white text-3xl w-10 h-10 rounded-full bg-slate-900/60 backdrop-blur-sm hover:bg-slate-800/80 transition-all flex items-center justify-center"
+              className="absolute top-4 md:top-6 right-4 md:right-6 z-20 text-slate-300 hover:text-white text-3xl w-10 h-10 rounded-full bg-slate-900/60 backdrop-blur-sm hover:bg-slate-800/80 transition-all flex items-center justify-center"
               aria-label="Close modal"
             >
               ×
