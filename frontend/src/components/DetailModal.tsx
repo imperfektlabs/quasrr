@@ -1287,43 +1287,39 @@ export function DetailModal({
     <div className="fixed inset-0 glass-modal z-50 overflow-auto" onClick={onClose}>
       <div className="min-h-screen p-4 md:p-6">
         <div
-          className="mx-auto glass-panel rounded-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+          className="mx-auto glass-panel rounded-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col relative"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Close button - top right */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 md:top-6 right-4 md:right-6 z-20 text-slate-300 hover:text-white text-3xl w-10 h-10 rounded-full bg-slate-900/60 backdrop-blur-sm hover:bg-slate-800/80 transition-all flex items-center justify-center"
+            aria-label="Close modal"
+          >
+            ×
+          </button>
 
-          {/* HERO SECTION - Full-bleed poster background with fading overlay */}
-          <div className="relative w-full">
-            {/* Background poster */}
-            {poster ? (
+          {/* HEADER SECTION - Poster and title */}
+          <div className="relative w-full bg-gradient-to-br from-slate-800/60 to-slate-900/80">
+            {/* Optional background poster (blurred) */}
+            {poster && (
               <>
-                <div className="w-full h-52 md:h-64 lg:h-72 overflow-hidden">
+                <div className="absolute inset-0 overflow-hidden">
                   <img
                     src={poster}
-                    alt={displayTitle}
-                    className="w-full h-full object-cover object-top blur-sm scale-110"
+                    alt=""
+                    className="w-full h-full object-cover object-top blur-sm scale-110 opacity-40"
                   />
                 </div>
-                {/* Gradient overlays for readability */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/30" />
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-transparent to-slate-900/60" />
               </>
-            ) : (
-              <div className="w-full h-52 md:h-64 lg:h-72 bg-gradient-to-br from-slate-800/60 to-slate-900/80" />
             )}
 
-            {/* Close button - top right */}
-            <button
-              onClick={onClose}
-              className="absolute top-4 md:top-6 right-4 md:right-6 z-20 text-slate-300 hover:text-white text-3xl w-10 h-10 rounded-full bg-slate-900/60 backdrop-blur-sm hover:bg-slate-800/80 transition-all flex items-center justify-center"
-              aria-label="Close modal"
-            >
-              ×
-            </button>
-
-            {/* Content overlaid on poster */}
-            <div className="absolute top-0 left-0 right-0 p-4 md:p-6">
+            {/* Content */}
+            <div className="relative p-4 md:p-6">
               <div className="grid grid-cols-[120px,1fr] md:grid-cols-[160px,1fr] gap-3 md:gap-5 items-start">
-                {/* Poster thumbnail (sharp version) - visible on mobile */}
+                {/* Poster thumbnail (sharp version) */}
                 {poster && (
                   <div>
                     <img
