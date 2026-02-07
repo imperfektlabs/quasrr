@@ -1322,7 +1322,7 @@ export function DetailModal({
 
             {/* Content overlaid on poster */}
             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 pb-6 md:pb-8">
-              <div className="grid grid-cols-[120px,1fr] md:grid-cols-[160px,1fr] gap-3 md:gap-5 items-end">
+              <div className="grid grid-cols-[120px,1fr] md:grid-cols-[160px,1fr] gap-3 md:gap-5 items-start">
                 {/* Poster thumbnail (sharp version) - visible on mobile */}
                 {poster && (
                   <div className="-mb-8 md:-mb-10">
@@ -1335,7 +1335,7 @@ export function DetailModal({
                 )}
 
                 {/* Title & key info */}
-                <div className="space-y-2 md:space-y-3 pb-8 md:pb-2">
+                <div className="space-y-2 md:space-y-3">
                   <div>
                     <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-lg">{headerTitle}</h2>
                     {headerSubtitle && (
