@@ -20,6 +20,8 @@ export type ConfigStatus = {
     api_key: string | null
     available_providers?: string[]
     openai_model?: string | null
+    grok_model?: string | null
+    perplexity_model?: string | null
     gemini_model?: string | null
     openrouter_model?: string | null
     deepseek_model?: string | null

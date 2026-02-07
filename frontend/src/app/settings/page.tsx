@@ -51,6 +51,8 @@ export default function SettingsPage() {
   const availableAiProviderSet = new Set(availableAiProviders)
   const aiProviderOptions = [
     { id: 'openai', label: 'OpenAI' },
+    { id: 'grok', label: 'Grok' },
+    { id: 'perplexity', label: 'Perplexity' },
     { id: 'openrouter', label: 'OpenRouter' },
     { id: 'gemini', label: 'Gemini' },
     { id: 'anthropic', label: 'Anthropic' },
@@ -66,6 +68,8 @@ export default function SettingsPage() {
 
   const aiProviderIcons: Record<string, string> = {
     openai: '/logos/ai/openai.svg',
+    grok: '/logos/ai/grok.png',
+    perplexity: '/logos/ai/perplexity.svg',
     anthropic: '/logos/ai/anthropic.svg',
     openrouter: '/logos/ai/openrouter.svg',
     gemini: '/logos/ai/gemini.svg',
