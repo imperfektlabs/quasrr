@@ -7,7 +7,7 @@ import { getBackendUrl } from '@/utils/backend'
 import { formatSize } from '@/utils/formatting'
 import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
-import { MediaCard } from '@/components/MediaCard'
+import { MediaCardGrid, MediaCardList } from '@/components'
 import { DetailModal } from '@/components/DetailModal'
 import { ArrowDownLineIcon, ArrowUpLineIcon, DriveStackIcon, EyeIcon, ProjectorIcon, TvIcon } from '@/components/Icons'
 import { SearchPanel } from '@/components/SearchPanel'
@@ -22,6 +22,7 @@ type ConfigResponse = {
   layout?: {
     discovery_search_position?: 'top' | 'bottom'
     library_search_position?: 'top' | 'bottom'
+    view_mode?: 'grid' | 'list'
   }
 }
 
@@ -129,6 +130,11 @@ function LibraryContent() {
 
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
+
+  // View mode (grid/list) from backend config
+  const viewMode = (config?.layout?.view_mode as 'grid' | 'list') ?? 'grid'
+  const isGridView = viewMode === 'grid'
+  const isListView = viewMode === 'list'
 
   const combinedItems = useMemo<LibraryItem[]>(() => {
     const sonarr = sonarrItems.map((item) => ({ ...item, mediaType: 'tv' as const }))
@@ -343,8 +349,14 @@ function LibraryContent() {
             const searchPanel = (
               <SearchPanel
                 stickyClass={librarySearchStickyClass}
-                headerTitle={mediaTypeFilter === 'all' ? 'Library' : (mediaTypeFilter === 'movies' ? 'Movies' : 'Series')}
-                headerCount={sortedItems.length}
+                headerTitle={(
+                  <span>
+                    {mediaTypeFilter === 'all' ? 'Library' : (mediaTypeFilter === 'movies' ? 'Movies' : 'Series')}
+                    <span className="text-slate-400 font-normal ml-2">
+                      {sortedItems.length.toLocaleString()} {sortedItems.length === 1 ? 'item' : 'items'}
+                    </span>
+                  </span>
+                )}
                 headerRight={(
                   <>
                     <span
@@ -406,6 +418,62 @@ function LibraryContent() {
                       </span>
                     </button>
                   </>
+                )}
+                headerRightInline={(
+                  <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const backendUrl = getBackendUrl()
+                          await fetch(`${backendUrl}/config/settings`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ layout: { view_mode: 'grid' } }),
+                          })
+                          setConfig(prev => prev ? { ...prev, layout: { ...prev.layout, view_mode: 'grid' } } : prev)
+                        } catch (e) {
+                          console.error('Failed to save view mode', e)
+                        }
+                      }}
+                      className={`px-2 py-1 rounded transition ${
+                        isGridView
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      title="Grid view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const backendUrl = getBackendUrl()
+                          await fetch(`${backendUrl}/config/settings`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ layout: { view_mode: 'list' } }),
+                          })
+                          setConfig(prev => prev ? { ...prev, layout: { ...prev.layout, view_mode: 'list' } } : prev)
+                        } catch (e) {
+                          console.error('Failed to save view mode', e)
+                        }
+                      }}
+                      className={`px-2 py-1 rounded transition ${
+                        isListView
+                          ? 'bg-cyan-500/80 text-white'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      title="List view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
                 toggle={{
                   onClick: () => {
@@ -539,30 +607,65 @@ function LibraryContent() {
                 )}
 
                 {!loading && !error && sortedItems.length > 0 && (
-                  <div className="grid gap-2">
-                    {sortedItems.map((item) => (
-                      <MediaCard
-                        key={`${item.mediaType}-${item.id}`}
-                        item={{ source: 'library', data: item }}
-                        onClick={() => {
-                          setSelectedItem(item)
-                          setAutoSearch(false)
-                          setAutoDeleteOpen(false)
-                        }}
-                        onLibrarySearch={() => {
-                          setSelectedItem(item)
-                          setAutoSearch(true)
-                          setAutoDeleteOpen(false)
-                        }}
-                        onLibraryDelete={() => {
-                          setSelectedItem(item)
-                          setAutoSearch(false)
-                          setAutoDeleteOpen(true)
-                        }}
-                        onTypeToggle={handleTypeToggle}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    {isGridView && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                        {sortedItems.map((item, index) => (
+                          <div
+                            key={`${item.mediaType}-${item.id}`}
+                            className="opacity-0 animate-fade-in"
+                            style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
+                          >
+                            <MediaCardGrid
+                              item={{ source: 'library', data: item }}
+                              onClick={() => {
+                                setSelectedItem(item)
+                                setAutoSearch(false)
+                                setAutoDeleteOpen(false)
+                              }}
+                              onLibrarySearch={() => {
+                                setSelectedItem(item)
+                                setAutoSearch(true)
+                                setAutoDeleteOpen(false)
+                              }}
+                              onLibraryDelete={() => {
+                                setSelectedItem(item)
+                                setAutoSearch(false)
+                                setAutoDeleteOpen(true)
+                              }}
+                              onTypeToggle={handleTypeToggle}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isListView && (
+                      <div className="grid gap-2">
+                        {sortedItems.map((item) => (
+                          <MediaCardList
+                            key={`${item.mediaType}-${item.id}`}
+                            item={{ source: 'library', data: item }}
+                            onClick={() => {
+                              setSelectedItem(item)
+                              setAutoSearch(false)
+                              setAutoDeleteOpen(false)
+                            }}
+                            onLibrarySearch={() => {
+                              setSelectedItem(item)
+                              setAutoSearch(true)
+                              setAutoDeleteOpen(false)
+                            }}
+                            onLibraryDelete={() => {
+                              setSelectedItem(item)
+                              setAutoSearch(false)
+                              setAutoDeleteOpen(true)
+                            }}
+                            onTypeToggle={handleTypeToggle}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )

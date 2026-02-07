@@ -5,7 +5,6 @@ import { useRef, useState } from 'react'
 import { useBackendApiSetup, useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components'
 import { getLocalToolUrl } from '@/utils/backend'
-import { getStreamingLogo } from '@/utils/streaming'
 
 export default function StatusPage() {
   const { health, config, integrationsStatus, error, loading } = useBackendApiSetup()
@@ -37,20 +36,31 @@ export default function StatusPage() {
 
   return (
     <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
-      <NavigationMenu
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        menuButtonRef={menuButtonRef}
-        menuPanelRef={menuPanelRef}
-        currentPage="status"
-        config={config}
-      />
+      <div>
+        <NavigationMenu
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          menuButtonRef={menuButtonRef}
+          menuPanelRef={menuPanelRef}
+          currentPage="status"
+          config={config}
+        />
 
-      <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto">
         <section id="status" className="scroll-mt-24">
-          <details className="glass-panel rounded-lg" open>
-            <summary className="p-4 cursor-pointer font-semibold">
-              System Status {health?.status === 'ok' && <span className="text-green-400 text-sm ml-2">Connected</span>}
+          <details className="glass-panel rounded-xl border border-slate-700/40" open>
+            <summary className="p-5 cursor-pointer font-semibold text-lg hover:text-cyan-300 transition-colors flex items-center gap-3">
+              {health?.status === 'ok' ? (
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              ) : (
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              )}
+              <span>System Status</span>
+              {health?.status === 'ok' ? (
+                <span className="text-sm text-emerald-300 font-normal ml-auto">All systems operational</span>
+              ) : (
+                <span className="text-sm text-amber-300 font-normal ml-auto">Checking connections...</span>
+              )}
             </summary>
 
             <div className="p-4 pt-0 space-y-4">
@@ -209,39 +219,12 @@ export default function StatusPage() {
                       </div>
                     </div>
                   </div>
-
-                  <div className="border-t border-slate-800/60 my-4" />
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-400 mb-2">Streaming Services</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {config.streaming_services.filter((service) => service.enabled).length === 0 && (
-                        <span className="text-xs text-gray-500">None enabled</span>
-                      )}
-                      {config.streaming_services.filter((service) => service.enabled).map((service) => (
-                        <span
-                          key={service.id}
-                          className="inline-flex items-center gap-2 text-xs"
-                        >
-                          {getStreamingLogo(service.id) ? (
-                            <img
-                              src={getStreamingLogo(service.id)}
-                              alt={service.name}
-                              className="h-4 w-4 object-contain"
-                            />
-                          ) : (
-                            <span className="text-gray-500 text-xs">?</span>
-                          )}
-                          <span>{service.name}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
                 </>
               )}
             </div>
           </details>
         </section>
+        </div>
       </div>
     </main>
   )
