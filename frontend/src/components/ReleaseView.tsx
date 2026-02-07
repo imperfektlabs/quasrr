@@ -855,99 +855,115 @@ export function ReleaseView({
       <div
         key={release.guid || `${groupKey}-${index}`}
         data-release-guid={release.guid || undefined}
-        className={`px-3 py-2 text-xs hover:bg-slate-800/40 ${
-          isAiPick ? 'ring-1 ring-cyan-400/60 bg-cyan-900/10' : ''
+        className={`px-3 py-2.5 text-xs transition-all hover:bg-slate-800/50 rounded-md ${
+          isAiPick ? 'ring-2 ring-cyan-400/70 bg-gradient-to-r from-cyan-900/20 to-purple-900/10 shadow-md shadow-cyan-500/10' : ''
         } ${
-          isRequested ? 'ring-1 ring-fuchsia-400/60 bg-fuchsia-900/10' : ''
+          isRequested ? 'ring-2 ring-fuchsia-400/70 bg-gradient-to-r from-fuchsia-900/20 to-pink-900/10 shadow-md shadow-fuchsia-500/10' : ''
         }`}
       >
         <div>
-          <p className="text-xs text-slate-100 leading-snug break-words">
-            {release.title}
-          </p>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-slate-100 leading-snug break-words">
+                {isAiPick && <span className="mr-1.5 text-cyan-400">✨</span>}
+                {release.title}
+              </p>
+              {episodeMetaEntry?.title && (
+                <p className="text-2xs text-slate-400 mt-1 italic">
+                  {episodeMetaEntry.title}
+                </p>
+              )}
+            </div>
+            {isOnDisk ? (
+              <span
+                title="Already on disk"
+                aria-label="Already on disk"
+                className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40 flex-shrink-0"
+              >
+                <DriveStackIcon className="h-4 w-4" />
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={!canGrab || isGrabBusy}
+                onClick={() => onGrabRelease(release)}
+                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg transition-all flex-shrink-0 ${
+                  !canGrab || isGrabBusy
+                    ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
+                    : 'bg-gradient-to-br from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-white shadow-md hover:shadow-lg hover:shadow-cyan-500/30 active:scale-95'
+                }`}
+                title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
+                aria-label="Grab release"
+              >
+                {isGrabBusy ? (
+                  <span className="text-xs animate-pulse">⟳</span>
+                ) : (
+                  <DownloadIcon className="h-4 w-4" />
+                )}
+              </button>
+            )}
+          </div>
 
-          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300">
-            <div className="flex flex-wrap items-center gap-2">
-              <span>{release.size_formatted}</span>
-              <span className="text-cyan-300">{release.quality}</span>
-              <span className="text-slate-400">{release.age}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-200 font-medium">
+                {release.size_formatted}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-cyan-600/30 text-cyan-200 border border-cyan-500/30 font-medium">
+                {release.quality}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-800/60 text-slate-400">
+                {release.age}
+              </span>
               {episodeLabel && (
-                <span className="text-slate-300">{episodeLabel}</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-700/50 text-slate-300">
+                  {episodeLabel}
+                </span>
               )}
               {episodeAirDate && (
-                <span className="text-slate-400">{episodeAirDate}</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-800/60 text-slate-400 text-2xs">
+                  {episodeAirDate}
+                </span>
               )}
               {release.full_season && (
-                <span className="bg-violet-900/60 text-violet-200 px-1.5 rounded">
+                <span className="px-2 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/30 font-medium">
                   Full Season
                 </span>
               )}
-              <span className={`px-1.5 rounded ${
+              <span className={`px-2 py-0.5 rounded-md font-medium ${
                 release.protocol === 'usenet'
-                  ? 'bg-purple-900/60 text-purple-200'
-                  : 'bg-orange-900/60 text-orange-200'
+                  ? 'bg-purple-600/30 text-purple-200 border border-purple-500/30'
+                  : 'bg-orange-600/30 text-orange-200 border border-orange-500/30'
               }`}>
                 {release.protocol}
               </span>
               {recommendation && !warning && !rejectionText && (
                 <span
                   title={recommendation.text}
-                  className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-cyan-400 text-cyan-300 text-[11px]"
+                  className="inline-flex items-center justify-center h-5 px-2 rounded-full bg-emerald-600/25 border border-emerald-400/40 text-emerald-300 text-[10px] font-semibold"
                 >
-                  OK
+                  ✓ OK
                 </span>
               )}
               {(warning || rejectionText) && (
                 <span
                   title={warning || rejectionText || ''}
-                  className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-red-400 text-red-300 text-[11px]"
+                  className="inline-flex items-center justify-center h-5 px-2 rounded-full bg-rose-600/25 border border-rose-400/40 text-rose-300 text-[10px] font-semibold"
                 >
-                  !
+                  ⚠
                 </span>
               )}
-            </div>
-            <div className="flex items-center gap-2 justify-end">
               {releaseGroup && data.type === 'tv' && (
                 <button
                   type="button"
                   onClick={() => setGroupFocus(releaseGroup)}
-                  className="px-2 py-1 rounded bg-slate-800/60 text-slate-200 text-[11px]"
+                  className="px-2 py-0.5 rounded-md bg-slate-700/70 text-slate-200 text-[11px] hover:bg-slate-600/80 transition-colors"
                 >
-                  Show Group
-                </button>
-              )}
-              {isOnDisk ? (
-                <span
-                  title="On disk"
-                  aria-label="On disk"
-                  className="h-7 w-7 inline-flex items-center justify-center text-cyan-200"
-                >
-                  <DriveStackIcon className="h-4 w-4" />
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!canGrab || isGrabBusy}
-                  onClick={() => onGrabRelease(release)}
-                  className={`h-7 w-7 inline-flex items-center justify-center rounded text-[11px] ${
-                    !canGrab || isGrabBusy
-                      ? 'bg-slate-700/60 text-slate-300 cursor-not-allowed'
-                      : 'bg-cyan-600/90 hover:bg-cyan-500 text-white'
-                  }`}
-                  title={!canGrab ? 'Missing release identifiers' : 'Send to download client'}
-                  aria-label="Grab release"
-                >
-                  {isGrabBusy ? (
-                    <span className="text-[10px]">...</span>
-                  ) : (
-                    <DownloadIcon className="h-4 w-4" />
-                  )}
+                  Group
                 </button>
               )}
             </div>
           </div>
-
-          {/* Warnings surfaced via icon tooltip */}
         </div>
       </div>
     )
@@ -1043,8 +1059,6 @@ export function ReleaseView({
                       countLabel={getSeasonCountLabel(seasonGroup.season, `${seasonGroup.releases.length} releases`)}
                       onToggle={() => toggleSeason(seasonKey)}
                       isCollapsed={isSeasonCollapsed}
-                      onSearch={() => toggleSeason(seasonKey)}
-                      searchDisabled={false}
                       onDelete={undefined}
                       deleteDisabled
                     />
@@ -1259,19 +1273,31 @@ export function ReleaseView({
                     : data.season && ` | Season ${data.season}`}
               </p>
               {releaseAiEnabled && aiSuggestError && (
-                <p className="mt-2 text-xs text-red-400">AI: {aiSuggestError}</p>
+                <div className="mt-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                  <p className="text-xs text-rose-300 flex items-start gap-2">
+                    <span className="text-base">⚠️</span>
+                    <span>{aiSuggestError}</span>
+                  </p>
+                </div>
               )}
               {releaseAiEnabled && aiSuggestion && (
-                <div className="mt-2 text-xs text-cyan-300">
-                  <div>AI pick: {aiSuggestion.title || 'Suggested release'}</div>
-                  {aiSuggestion.reason && (
-                    <div className="text-cyan-200/80">{aiSuggestion.reason}</div>
-                  )}
-                  {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
-                    <div className="text-amber-200/80">
-                      {aiSuggestion.warnings.join(' • ')}
+                <div className="mt-3 p-3 rounded-lg bg-gradient-to-br from-cyan-500/15 to-purple-500/10 border border-cyan-500/30 backdrop-blur-sm shadow-lg">
+                  <div className="space-y-1.5">
+                    <div className="text-sm font-semibold text-cyan-200">
+                      AI Pick: {aiSuggestion.title || 'Suggested release'}
                     </div>
-                  )}
+                    {aiSuggestion.reason && (
+                      <div className="text-xs text-cyan-300/90 leading-relaxed">
+                        {aiSuggestion.reason}
+                      </div>
+                    )}
+                    {aiSuggestion.warnings && aiSuggestion.warnings.length > 0 && (
+                      <div className="text-xs text-amber-300/90 flex items-start gap-1.5 mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                        <span>⚡</span>
+                        <span>{aiSuggestion.warnings.join(' • ')}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1282,9 +1308,16 @@ export function ReleaseView({
                   onClick={() => onAiSuggest(aiCandidateReleases)}
                   disabled={!aiSuggestAvailable || aiSuggestBusy}
                   title={!aiSuggestAvailable ? 'Expand a single episode group to enable AI' : undefined}
-                  className="text-xs px-2 py-1 rounded bg-cyan-700/70 hover:bg-cyan-600/80 disabled:opacity-50"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-purple-600/70 hover:from-cyan-500/90 hover:to-purple-500/80 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-white shadow-md hover:shadow-lg hover:shadow-cyan-500/20 transition-all active:scale-95"
                 >
-                  {aiSuggestBusy ? 'Thinking...' : 'AI Suggest'}
+                  {aiSuggestBusy ? (
+                    <>
+                      <span className="inline-block animate-spin">⟳</span>
+                      <span className="ml-1.5">Thinking...</span>
+                    </>
+                  ) : (
+                    <span>AI Suggest</span>
+                  )}
                 </button>
               )}
               <button
@@ -1298,7 +1331,7 @@ export function ReleaseView({
           </div>
 
           <div className="mt-4 grid md:grid-cols-[160px,1fr] gap-4">
-            <div className="w-full">
+            <div className="hidden md:block w-full">
               {posterUrl ? (
                 <img
                   src={posterUrl}

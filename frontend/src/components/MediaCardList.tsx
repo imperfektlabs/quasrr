@@ -12,7 +12,7 @@ type MediaItem =
   | { source: 'discovery'; data: DiscoveryResult }
   | { source: 'library'; data: (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' }) }
 
-type MediaCardProps = {
+type MediaCardListProps = {
   item: MediaItem
   onClick?: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
@@ -21,14 +21,14 @@ type MediaCardProps = {
   onLibraryDelete?: () => void
 }
 
-export function MediaCard({
+export function MediaCardList({
   item,
   onClick,
   onShowReleases,
   onTypeToggle,
   onLibrarySearch,
   onLibraryDelete,
-}: MediaCardProps) {
+}: MediaCardListProps) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
 
   const renderRatings = (
@@ -49,7 +49,7 @@ export function MediaCard({
         return normalizedA - normalizedB
       })
     return (
-      <div className="flex flex-wrap justify-start md:justify-end gap-1.5 sm:gap-2">
+      <div className="flex flex-wrap justify-start md:justify-end gap-1.5">
         {sortedRatings
           .slice(0, 3)
           .map((rating, idx) => (
@@ -108,7 +108,7 @@ export function MediaCard({
 
     // Discovery metadata: year only
     metadata = result.year ? (
-      <div className="text-xs text-gray-400 mt-0.5">
+      <div className="text-2xs text-gray-400 mt-0.5 leading-relaxed">
         {result.year}
         {result.type === 'movie' && result.runtime && ` • ${result.runtime} min`}
         {result.type === 'tv' && result.seasons && ` • ${result.seasons} season${result.seasons !== 1 ? 's' : ''}`}
@@ -141,7 +141,7 @@ export function MediaCard({
             event.stopPropagation()
             onTypeToggle?.(result.type)
           }}
-          className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70 inline-flex items-center justify-center"
+          className="glass-badge text-2xs px-1.5 py-0.5 rounded transition-smooth hover:shadow-glow-cyan inline-flex items-center justify-center"
           title={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
           aria-label={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
         >
@@ -152,7 +152,7 @@ export function MediaCard({
           )}
           <span className="sr-only">{result.type === 'movie' ? 'Movie' : 'TV'}</span>
         </button>
-        {result.type === 'tv' && result.seasons && result.seasons > 0 && (
+        {result.type === 'tv' && result.seasons && result.seasons > 1 && (
           <select
             value={selectedSeason}
             onChange={(event) => {
@@ -160,13 +160,13 @@ export function MediaCard({
               setSelectedSeason(value === 'all' ? 'all' : Number(value))
             }}
             onClick={(event) => event.stopPropagation()}
-            className="bg-slate-900/60 border border-slate-700/60 rounded px-2 py-1 text-[11px]"
+            className="glass-badge text-2xs px-1.5 py-0.5 rounded cursor-pointer border-0 transition-smooth hover:shadow-glow-cyan"
             title="Season"
           >
-            <option value="all">All seasons</option>
+            <option value="all">All</option>
             {Array.from({ length: result.seasons }, (_, index) => index + 1).map((season) => (
               <option key={season} value={season}>
-                Season {season}
+                S{season}
               </option>
             ))}
           </select>
@@ -189,7 +189,7 @@ export function MediaCard({
 
         <button
           onClick={handleReleasesClick}
-          className="bg-cyan-500/80 hover:bg-cyan-400 text-white h-7 w-7 sm:h-8 sm:w-8 rounded inline-flex items-center justify-center transition-colors ml-auto md:ml-0"
+          className="bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white h-8 w-8 sm:h-9 sm:w-9 rounded-lg inline-flex items-center justify-center transition-smooth active:scale-95 ml-auto md:ml-0"
           aria-label="Find releases"
         >
           <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -224,7 +224,7 @@ export function MediaCard({
       })
       : (libItem.year ? `${libItem.year}` : '')
     metadata = libraryYearLabel ? (
-      <div className="text-xs text-gray-400 mt-0.5">
+      <div className="text-2xs text-gray-400 mt-0.5 leading-relaxed">
         {libraryYearLabel}
       </div>
     ) : null
@@ -238,7 +238,7 @@ export function MediaCard({
             event.stopPropagation()
             onTypeToggle?.(libItem.mediaType === 'movies' ? 'movie' : 'tv')
           }}
-          className="glass-chip text-xs px-2 py-1 rounded transition hover:border-slate-200/70 inline-flex items-center justify-center"
+          className="glass-badge text-2xs px-1.5 py-0.5 rounded transition-smooth hover:shadow-glow-cyan inline-flex items-center justify-center"
           title={`Filter to ${libItem.mediaType === 'movies' ? 'movies' : 'TV shows'}`}
           aria-label={`Filter to ${libItem.mediaType === 'movies' ? 'movies' : 'TV shows'}`}
         >
@@ -250,11 +250,11 @@ export function MediaCard({
           <span className="sr-only">{libItem.mediaType === 'movies' ? 'Movie' : 'TV'}</span>
         </button>
         {libItem.mediaType === 'tv' && (
-          <span className="glass-chip text-xs px-2 py-1 rounded">
+          <span className="glass-badge text-2xs px-1.5 py-0.5 rounded">
             {libItem.episodeFileCount || 0}/{libItem.totalEpisodeCount ?? libItem.episodeCount ?? 0} eps
           </span>
         )}
-        <span className="glass-chip text-xs px-2 py-1 rounded">{formatSize(libItem.sizeOnDisk)}</span>
+        <span className="glass-badge text-2xs px-1.5 py-0.5 rounded">{formatSize(libItem.sizeOnDisk)}</span>
       </div>
     )
 
@@ -277,7 +277,7 @@ export function MediaCard({
                 event.stopPropagation()
                 onLibrarySearch?.()
               }}
-              className="h-7 w-7 sm:h-8 sm:w-8 rounded bg-cyan-500/80 text-white hover:bg-cyan-400 inline-flex items-center justify-center transition-colors"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-cyan-500/90 text-white hover:bg-cyan-400 hover:shadow-glow-cyan inline-flex items-center justify-center transition-smooth active:scale-95"
               title="Search All"
               aria-label="Search All"
             >
@@ -290,7 +290,7 @@ export function MediaCard({
               event.stopPropagation()
               onLibraryDelete?.()
             }}
-            className="h-7 w-7 sm:h-8 sm:w-8 rounded bg-rose-500/70 text-white hover:bg-rose-500/80 inline-flex items-center justify-center transition-colors"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-rose-500/80 text-white hover:bg-rose-500 transition-smooth active:scale-95"
             title="Remove title from library"
             aria-label="Remove title from library"
           >
@@ -301,34 +301,34 @@ export function MediaCard({
     )
   }
 
-  // Unified card layout - same structure for both discovery and library
+  // Horizontal card layout - optimized for mobile
   const CardWrapper = 'div'
   const wrapperProps = {}
 
   return (
     <CardWrapper
       {...wrapperProps}
-      className="glass-card rounded-lg overflow-hidden flex w-full text-left transition hover:border-slate-400/40"
+      className="glass-card rounded-lg overflow-hidden flex w-full text-left transition-smooth active:scale-[0.98]"
     >
-      {/* Poster */}
-      <div className="w-[7.5rem] md:w-[10rem] flex-shrink-0">
-        <div className="aspect-[2/3] w-full bg-slate-800/60">
+      {/* Poster - Responsive sizing */}
+      <div className="w-28 sm:w-32 md:w-32 lg:w-36 xl:w-40 flex-shrink-0">
+        <div className="aspect-[2/3] w-full bg-slate-800/60 relative overflow-hidden">
           {item.source === 'discovery' ? (
             <button
               type="button"
               onClick={onClick}
-              className="w-full h-full"
+              className="w-full h-full relative overflow-hidden"
               title="Open details"
             >
               {poster ? (
                 <img
                   src={poster}
                   alt={title}
-                  className="w-full h-full object-contain block"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-2 text-center">
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xs p-2 text-center">
                   No poster
                 </div>
               )}
@@ -337,18 +337,18 @@ export function MediaCard({
             <button
               type="button"
               onClick={onClick}
-              className="w-full h-full"
+              className="w-full h-full relative overflow-hidden"
               title="Open details"
             >
               {poster ? (
                 <img
                   src={poster}
                   alt={title}
-                  className="w-full h-full object-contain block"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs p-2 text-center">
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xs p-2 text-center">
                   No poster
                 </div>
               )}
@@ -358,28 +358,28 @@ export function MediaCard({
       </div>
 
       {/* Content - unified grid layout */}
-      <div className="flex-1 p-2 sm:p-3 grid grid-cols-1 md:grid-cols-[1fr,140px] gap-2 md:gap-3 min-w-0">
+      <div className="flex-1 p-2.5 sm:p-3 grid grid-cols-1 md:grid-cols-[1fr,150px] gap-2 md:gap-3 min-w-0">
         {/* Left column: Title, metadata, badges, overview */}
-        <div className="min-w-0">
-          <div className="mb-1">
-            <h3 className="font-semibold text-sm sm:text-base leading-tight truncate">
+        <div className="min-w-0 flex flex-col">
+          <div className="mb-1.5">
+            <h3 className="font-semibold text-sm sm:text-base leading-tight truncate text-slate-50">
               {title}
             </h3>
             {metadata}
           </div>
 
-          <div className="mb-2">
+          <div className="mb-1.5">
             {statusBadge}
           </div>
 
           {overview && (
-            <p className="text-gray-400 text-[11px] sm:text-xs line-clamp-2 sm:line-clamp-3">
+            <p className="text-gray-400 text-2xs sm:text-xs line-clamp-2 sm:line-clamp-3 leading-relaxed hidden sm:block">
               {overview}
             </p>
           )}
         </div>
 
-        {/* Right column: Ratings and action button (discovery only) */}
+        {/* Right column: Ratings and action button */}
         {actionButton}
       </div>
     </CardWrapper>

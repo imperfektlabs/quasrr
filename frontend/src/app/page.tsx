@@ -39,9 +39,9 @@ import {
 
 // Component imports
 import {
-  ReleaseView,
   DetailModal,
-  MediaCard,
+  MediaCardGrid,
+  MediaCardList,
   NavigationMenu,
   SearchPanel,
   ProjectorIcon,
@@ -274,6 +274,11 @@ function HomeContent() {
     setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
     saveSettings,
   } = useSettings(config, setConfig)
+
+  // View mode (grid/list) from backend config
+  const viewMode = (config?.layout?.view_mode as 'grid' | 'list') ?? 'grid'
+  const isGridView = viewMode === 'grid'
+  const isListView = viewMode === 'list'
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
   const discoverySearchStickyClass = discoverySearchAtBottom
@@ -686,6 +691,38 @@ function HomeContent() {
               <SearchPanel
                 stickyClass={discoverySearchStickyClass}
                 headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
+                headerRightInline={searchResults && searchResults.results.length > 0 ? (
+                  <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await saveSettings({ view_mode: 'grid' })
+                      }}
+                      className={`px-2 py-1 rounded transition ${
+                        isGridView ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      title="Grid view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await saveSettings({ view_mode: 'list' })
+                      }}
+                      className={`px-2 py-1 rounded transition ${
+                        isListView ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      title="List view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : undefined}
                 toggle={{
                   onClick: () => {
                     const next = discoverySearchAtBottom ? 'top' : 'bottom'
@@ -899,29 +936,70 @@ function HomeContent() {
 
           {searching && (
             <div className="glass-panel rounded-lg p-8 text-center mb-4">
-              <div className="text-yellow-400">Searching titles...</div>
+              <div className="flex flex-col items-center gap-4">
+                <img
+                  src="/reel.png"
+                  alt="Loading"
+                  className="w-16 h-16 brightness-0 invert"
+                  style={{
+                    animation: 'spin 2s linear infinite, zoom 2.5s ease-in-out infinite alternate'
+                  }}
+                />
+                <div className="text-white">Searching titles...</div>
+              </div>
+              <style jsx>{`
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+                @keyframes zoom {
+                  from { transform: scale(0.9) rotate(0deg); }
+                  to { transform: scale(1.1) rotate(360deg); }
+                }
+              `}</style>
             </div>
           )}
 
           {searchResults && (
             <div className="mb-4">
-
               {searchResults.results.length === 0 ? (
                 <div className="glass-panel rounded-lg p-6 text-center text-gray-400">
                   No results found
                 </div>
               ) : (
-                <div className="grid gap-3">
-                  {searchResults.results.map((result, index) => (
-                    <MediaCard
-                      key={result.tmdb_id || result.tvdb_id || index}
-                      item={{ source: 'discovery', data: result }}
-                      onClick={() => setSelectedResult(result)}
-                      onShowReleases={handleShowReleases}
-                      onTypeToggle={handleTypeToggle}
-                    />
-                  ))}
-                </div>
+                <>
+                  {isGridView && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                      {searchResults.results.map((result, index) => (
+                        <div
+                          key={result.tmdb_id || result.tvdb_id || index}
+                          className="opacity-0 animate-fade-in"
+                          style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
+                        >
+                          <MediaCardGrid
+                            item={{ source: 'discovery', data: result }}
+                            onClick={() => setSelectedResult(result)}
+                            onShowReleases={handleShowReleases}
+                            onTypeToggle={handleTypeToggle}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {isListView && (
+                    <div className="grid gap-2">
+                      {searchResults.results.map((result) => (
+                        <MediaCardList
+                          key={result.tmdb_id || result.tvdb_id}
+                          item={{ source: 'discovery', data: result }}
+                          onClick={() => setSelectedResult(result)}
+                          onShowReleases={handleShowReleases}
+                          onTypeToggle={handleTypeToggle}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
             </div>
@@ -948,9 +1026,29 @@ function HomeContent() {
       {/* Loading overlay for releases */}
       {loadingReleases && (
         <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
-          <div className="glass-panel rounded-lg p-8 text-center">
-            <div className="text-yellow-400 text-lg">Searching indexers...</div>
-            <p className="text-gray-400 text-sm mt-2">This may take a moment</p>
+          <div className="glass-panel rounded-lg p-8 text-center max-w-md">
+            <div className="flex flex-col items-center gap-4 mb-4">
+              <img
+                src="/reel.png"
+                alt="Loading"
+                className="w-20 h-20 brightness-0 invert"
+                style={{
+                  animation: 'spin 2s linear infinite, zoom 2.5s ease-in-out infinite alternate'
+                }}
+              />
+              <div className="text-white text-lg">Searching indexers...</div>
+            </div>
+            <p className="text-gray-400 text-sm">This may take a moment</p>
+            <style jsx>{`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+              @keyframes zoom {
+                from { transform: scale(0.9) rotate(0deg); }
+                to { transform: scale(1.1) rotate(360deg); }
+              }
+            `}</style>
           </div>
         </div>
       )}
@@ -1006,19 +1104,12 @@ function HomeContent() {
       )}
 
       {/* Release view modal */}
-      {releaseData && !showAiAvailability && (
-        <ReleaseView
-          data={releaseData}
-          result={releaseContext || undefined}
+      {releaseData && !showAiAvailability && releaseContext && (
+        <DetailModal
+          mode="discovery"
+          result={releaseContext}
+          releaseData={releaseData}
           onClose={handleCloseReleaseView}
-          onGrabRelease={handleGrabRelease}
-          onGrabAll={handleGrabAll}
-          grabBusyIds={grabBusyIds}
-          aiEnabled={aiEnabled}
-          aiSuggestion={aiSuggestion}
-          aiSuggestBusy={aiSuggestBusy}
-          aiSuggestError={aiSuggestError}
-          onAiSuggest={handleAiSuggest}
         />
       )}
     </main>

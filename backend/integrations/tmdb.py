@@ -85,6 +85,46 @@ class TMDBClient:
             "buy": region_data.get("buy", []) or [],
         }
 
+    async def get_trending(self, media_type: str = "all", time_window: str = "week") -> list[dict]:
+        """Get trending movies/TV shows from TMDB."""
+        if not self.is_configured:
+            return []
+        if media_type not in ("all", "movie", "tv"):
+            media_type = "all"
+        if time_window not in ("day", "week"):
+            time_window = "week"
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/trending/{media_type}/{time_window}",
+                    params={"api_key": self.api_key},
+                )
+                response.raise_for_status()
+                return response.json().get("results", []) or []
+        except Exception as exc:
+            logger.error(f"TMDB trending error: {exc}")
+            return []
+
+    async def get_popular(self, media_type: str = "movie") -> list[dict]:
+        """Get popular movies or TV shows from TMDB."""
+        if not self.is_configured:
+            return []
+        if media_type not in ("movie", "tv"):
+            media_type = "movie"
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/{media_type}/popular",
+                    params={"api_key": self.api_key},
+                )
+                response.raise_for_status()
+                return response.json().get("results", []) or []
+        except Exception as exc:
+            logger.error(f"TMDB popular error: {exc}")
+            return []
+
     async def get_tv_details(self, tmdb_id: int) -> dict:
         if not self.is_configured:
             return {}
