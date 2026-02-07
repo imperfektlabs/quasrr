@@ -68,6 +68,12 @@ class AIConfig(BaseModel):
     model: str = "gpt-4o-mini"  # Fallback model for any provider
     openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4o-mini"
+    grok_api_key: Optional[str] = None
+    grok_base_url: Optional[str] = None
+    grok_model: str = "grok-2-latest"
+    perplexity_api_key: Optional[str] = None
+    perplexity_base_url: Optional[str] = None
+    perplexity_model: str = "sonar"
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-1.5-flash"
     openrouter_api_key: Optional[str] = None
@@ -201,6 +207,18 @@ def load_env_overrides() -> dict:
         overrides.setdefault("ai", {})["openai_api_key"] = openai_api_key
     if openai_model := _clean_env(os.getenv("OPENAI_MODEL")):
         overrides.setdefault("ai", {})["openai_model"] = openai_model
+    if grok_api_key := _clean_env(os.getenv("GROK_API_KEY")):
+        overrides.setdefault("ai", {})["grok_api_key"] = grok_api_key
+    if grok_base_url := _clean_env(os.getenv("GROK_BASE_URL")):
+        overrides.setdefault("ai", {})["grok_base_url"] = grok_base_url
+    if grok_model := _clean_env(os.getenv("GROK_MODEL")):
+        overrides.setdefault("ai", {})["grok_model"] = grok_model
+    if perplexity_api_key := _clean_env(os.getenv("PERPLEXITY_API_KEY")):
+        overrides.setdefault("ai", {})["perplexity_api_key"] = perplexity_api_key
+    if perplexity_base_url := _clean_env(os.getenv("PERPLEXITY_BASE_URL")):
+        overrides.setdefault("ai", {})["perplexity_base_url"] = perplexity_base_url
+    if perplexity_model := _clean_env(os.getenv("PERPLEXITY_MODEL")):
+        overrides.setdefault("ai", {})["perplexity_model"] = perplexity_model
     if gemini_api_key := _clean_env(os.getenv("GEMINI_API_KEY")):
         overrides.setdefault("ai", {})["gemini_api_key"] = gemini_api_key
     if gemini_model := _clean_env(os.getenv("GEMINI_MODEL")):
@@ -289,6 +307,10 @@ def redact_secrets(config: Config) -> dict:
     # Redact API keys
     if data.get("ai", {}).get("openai_api_key"):
         data["ai"]["openai_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("grok_api_key"):
+        data["ai"]["grok_api_key"] = "***REDACTED***"
+    if data.get("ai", {}).get("perplexity_api_key"):
+        data["ai"]["perplexity_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("gemini_api_key"):
         data["ai"]["gemini_api_key"] = "***REDACTED***"
     if data.get("ai", {}).get("openrouter_api_key"):
@@ -327,6 +349,10 @@ def get_available_ai_providers(config: Config) -> list[str]:
     providers = []
     if has_value(config.ai.openai_api_key):
         providers.append("openai")
+    if has_value(config.ai.grok_api_key):
+        providers.append("grok")
+    if has_value(config.ai.perplexity_api_key):
+        providers.append("perplexity")
     if has_value(config.ai.anthropic_api_key):
         providers.append("anthropic")
     if has_value(config.ai.gemini_api_key):
