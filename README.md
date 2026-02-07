@@ -44,12 +44,14 @@ Quasrr is built around these core principles:
 - Multi-select filters (downloaded/missing/monitored) and sortable results
 - Inline search panel with optional top/bottom positioning
 - Media cards with status badges, rating links, and per-title actions
+- Grid/list view toggle for library browsing
 
 ✅ **AI-Assisted Search**
 - Natural language parsing with intent modal
 - Episode date support (for daily shows)
 - Search by ID (TMDB/TVDB/IMDB)
 - Background AI search with clean fallback behavior
+- Chip-style UI with film reel animation during search
 
 ✅ **Streaming Availability**
 - Country-aware provider detection (TMDB)
@@ -61,12 +63,14 @@ Quasrr is built around these core principles:
 - Grouped TV releases (per-episode) and per-season search
 - Grab single releases or multi-select groups
 - Per-episode download tracking and season progress
+- Expanded discovery search results (12 items)
 
 ✅ **Download Management (SABnzbd)**
 - Queue + recent history with grouping
 - Pause/resume/delete individual jobs
 - Pause/resume entire queue
 - Recent download history with deep links into Library
+- Improved pause/resume toggle UI
 
 ✅ **Library Actions**
 - Per-episode delete (Sonarr episode file delete)
@@ -83,6 +87,12 @@ Quasrr is built around these core principles:
 - Nebula-inspired theme with glass panels
 - Mobile-first layout and touch-friendly actions
 - Dashboard cards with tool shortcuts and status styling
+- Unified DetailModal for consistent media viewing across all pages
+- Improved modal spacing and layout on mobile and desktop
+- Enhanced progress bar visibility and placement
+- Random library poster backgrounds with smooth fade transitions
+- Cleaner page layouts with simplified backgrounds
+- Responsive modal positioning with top alignment
 
 ---
 
@@ -301,7 +311,7 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 - Radarr instance (Movies)
 - SABnzbd instance (Downloads)
 - TMDB API key
-- AI provider API key (OpenAI, Anthropic, or Ollama)
+- AI provider API key (OpenAI, Anthropic, Ollama, etc.)
 
 ### Quick Start
 
@@ -331,15 +341,8 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 5. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
+   - API Docs: http://localhost:8000/docs    ---- TBD
 
-### NAS Deployment (via SSH)
-
-```bash
-# From the docs/scripts/ directory
-./nas.sh quasrr up-build    # Build and start containers
-./smoke.sh quasrr --path /  # Wait for HTTP readiness
-```
 
 ### Health Checks
 
@@ -388,17 +391,10 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 ### Known Technical Debt
 
-1. **No authentication**: Relies on network isolation (Tailscale or LAN)
+1. **No authentication**: Relies on network isolation
 2. **No automated tests**: Manual testing only
 3. **No state management library**: Uses React state and hooks
 
-### Development Workflow
-
-1. Make changes locally
-2. Commit to git
-3. Deploy to NAS via `docs/scripts/nas.sh quasrr up-build`
-4. Smoke test via `docs/scripts/smoke.sh quasrr --path /`
-5. Manual browser verification
 
 ### API Endpoints (Selected)
 
@@ -447,7 +443,7 @@ Releases are automatically deprioritized if they match these patterns:
 - Files >3GB for TV episodes (unnecessary for 720p)
 - HEVC/x265 encodes (compatibility concerns on some devices)
 
-AI suggestions use these preferences to rank releases.
+AI suggestions use these preferences to rank releases. (if enabled)
 
 ---
 
