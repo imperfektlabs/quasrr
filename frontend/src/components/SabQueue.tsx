@@ -5,8 +5,6 @@ export function SabQueue({
   data,
   error,
   onRefresh,
-  onPauseAll,
-  onResumeAll,
   onPauseJob,
   onResumeJob,
   onDeleteJob,
@@ -15,15 +13,13 @@ export function SabQueue({
   data: SabQueueResponse | null
   error: string | null
   onRefresh: () => void
-  onPauseAll: () => void
-  onResumeAll: () => void
   onPauseJob: (jobId: string) => void
   onResumeJob: (jobId: string) => void
   onDeleteJob: (jobId: string) => void
   actionBusy: boolean
 }) {
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'pauseAll' | 'pause' | 'delete'
+    type: 'pause' | 'delete'
     jobId?: string
     jobName?: string
   } | null>(null)
@@ -51,9 +47,6 @@ export function SabQueue({
 
   const handleConfirm = () => {
     if (!confirmAction) return
-    if (confirmAction.type === 'pauseAll') {
-      onPauseAll()
-    }
     if (confirmAction.type === 'pause' && confirmAction.jobId) {
       onPauseJob(confirmAction.jobId)
     }
@@ -77,64 +70,8 @@ export function SabQueue({
     return <div className="text-gray-400 text-sm">Nothing downloading</div>
   }
 
-  const queuePaused = Boolean(data.paused)
-
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-end gap-2">
-        {confirmAction?.type === 'pauseAll' ? (
-          <div className="flex items-center gap-2 mr-auto text-xs text-amber-200">
-            <span>Pause all downloads?</span>
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={actionBusy}
-              className="px-2.5 py-1 rounded-lg bg-amber-500/80 text-white hover:bg-amber-500 transition-smooth disabled:opacity-50"
-            >
-              Confirm
-            </button>
-            <button
-              type="button"
-              onClick={handleCancel}
-              disabled={actionBusy}
-              className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-smooth disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : queuePaused ? (
-          <div className="mr-auto text-xs text-amber-200 flex items-center gap-2">
-            <span>Queue paused</span>
-            <span className="glass-chip px-2 py-0.5 rounded text-2xs">Resume to continue</span>
-          </div>
-        ) : (
-          <div className="mr-auto"></div>
-        )}
-        <button
-          type="button"
-          onClick={() => setConfirmAction({ type: 'pauseAll' })}
-          disabled={actionBusy}
-          className={`text-xs px-3 py-1.5 rounded-lg transition-smooth disabled:opacity-50 hover:scale-105 ${
-            queuePaused ? 'bg-amber-500/70 text-white hover:bg-amber-500' : 'bg-slate-800/60 hover:bg-slate-700/60'
-          }`}
-          title="Pause all"
-          aria-label="Pause all"
-        >
-          ||
-        </button>
-        <button
-          type="button"
-          onClick={onResumeAll}
-          disabled={actionBusy}
-          className={`text-xs px-3 py-1.5 rounded-lg transition-smooth disabled:opacity-50 hover:scale-105 ${
-            queuePaused ? 'bg-cyan-500/70 text-white hover:bg-cyan-400 hover:shadow-glow-cyan' : 'bg-slate-800/60 hover:bg-slate-700/60'
-          }`}
-          title="Resume all"
-          aria-label="Resume all"
-        >
-          {'>'}
-        </button>
-      </div>
       {data.jobs.map((job) => {
         const percent = Number(job.percentage) || 0
         const isPaused = job.status?.toLowerCase().includes('pause')
