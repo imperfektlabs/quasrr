@@ -47,24 +47,13 @@ export default function SettingsPage() {
     saveSettings,
   } = useSettings(config, setConfig)
 
-  const availableAiProviders = config?.ai.available_providers ?? []
-  const availableAiProviderSet = new Set(availableAiProviders)
-  const aiProviderOptions = [
-    { id: 'openai', label: 'OpenAI' },
-    { id: 'grok', label: 'Grok' },
-    { id: 'perplexity', label: 'Perplexity' },
-    { id: 'openrouter', label: 'OpenRouter' },
-    { id: 'gemini', label: 'Gemini' },
-    { id: 'anthropic', label: 'Anthropic' },
-    { id: 'deepseek', label: 'DeepSeek' },
-    { id: 'local', label: 'Local' },
-  ]
+  const aiProviderOptions = [...(config?.ai.providers ?? [])]
+    .sort((a, b) => a.label.localeCompare(b.label))
 
-  const selectedProviderAvailable = availableAiProviderSet.has(settingsAiProvider)
   const selectedProviderOption = aiProviderOptions.find((p) => p.id === settingsAiProvider)
-  const selectedProviderModel = selectedProviderOption && config?.ai
-    ? (config.ai[`${settingsAiProvider}_model` as keyof typeof config.ai] as string | undefined) || null
-    : null
+  const selectedProviderAvailable = selectedProviderOption?.available ?? false
+  const selectedProviderModel = selectedProviderOption?.model || null
+  const selectedProviderBaseUrl = selectedProviderOption?.base_url || null
 
   const aiProviderIcons: Record<string, string> = {
     openai: '/logos/ai/openai.svg',
@@ -189,7 +178,7 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 mb-3">
                 {aiProviderOptions.map((provider) => {
-                  const isAvailable = availableAiProviderSet.has(provider.id)
+                  const isAvailable = provider.available
                   const isSelected = settingsAiProvider === provider.id
                   return (
                     <button
@@ -200,7 +189,7 @@ export default function SettingsPage() {
                         setSettingsAiProvider(provider.id)
                         void saveSettings({ ai_provider: provider.id })
                       }}
-                      title={`${provider.label}${!isAvailable ? ' (not configured)' : ''}`}
+                      title={`${provider.label}${!isAvailable ? ' (Not configured)' : ''}`}
                       className={`
                         group relative aspect-square rounded-lg p-3
                         flex items-center justify-center transition-all
@@ -208,7 +197,7 @@ export default function SettingsPage() {
                           ? 'bg-gradient-to-br from-cyan-600/30 to-purple-600/20 border-2 border-cyan-500/60 shadow-lg shadow-cyan-500/20'
                           : isAvailable
                             ? 'bg-slate-800/40 border-2 border-slate-700/60 hover:border-cyan-500/40 hover:bg-slate-700/40'
-                            : 'bg-slate-900/40 border-2 border-slate-800/40 opacity-40 cursor-not-allowed'
+                            : 'bg-slate-800/40 border-2 border-slate-700/60 opacity-45 cursor-not-allowed'
                         }
                       `}
                     >
@@ -233,22 +222,19 @@ export default function SettingsPage() {
                 })}
               </div>
 
-              {selectedProviderModel && (
-                <div className="text-xs text-slate-400 mt-2">
-                  Model: <span className="text-slate-200">{selectedProviderModel}</span>
-                  {settingsAiProvider === 'openrouter' && (
-                    <span className="text-2xs text-slate-500 ml-2">(configure in settings.yaml or .env)</span>
-                  )}
+              {selectedProviderOption && (
+                <div className="text-xs text-slate-400 mt-2 space-y-1">
+                  <div>
+                    Model: <span className="text-slate-200">{selectedProviderModel ?? ''}</span>
+                  </div>
+                  <div>
+                    Base URL: <span className="text-slate-200">{selectedProviderBaseUrl ?? ''}</span>
+                  </div>
                 </div>
               )}
               {!selectedProviderAvailable && settingsAiProvider && (
                 <div className="mt-2 text-xs text-rose-400">
-                  Selected provider is not configured in .env
-                </div>
-              )}
-              {availableAiProviderSet.size === 0 && (
-                <div className="text-xs text-slate-500 mt-2">
-                  No AI providers configured in .env
+                  Selected provider is not configured in `.env`
                 </div>
               )}
             </section>
@@ -279,18 +265,24 @@ export default function SettingsPage() {
                       }
                     `}
                   >
+                    <img
+                      src={integration.icon}
+                      alt={integration.name}
+                      className="w-full h-full object-contain"
+                    />
+
                     <a
                       href={integration.link}
                       target="_blank"
                       rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full h-full flex items-center justify-center"
+                      title={`Open ${integration.name}`}
+                      className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-md bg-slate-700/50 border border-slate-500/50 text-slate-200 hover:text-cyan-300 hover:border-cyan-400/60 flex items-center justify-center transition-colors"
                     >
-                      <img
-                        src={integration.icon}
-                        alt={integration.name}
-                        className="w-full h-full object-contain"
-                      />
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 4h4M4 8V6a2 2 0 012-2h2m8 0h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2m-8 0H6a2 2 0 01-2-2v-2" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 14L20 4m0 0h-6m6 0v6" />
+                      </svg>
                     </a>
                     {integration.checked && (
                       <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
