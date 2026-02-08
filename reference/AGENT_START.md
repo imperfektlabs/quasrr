@@ -63,7 +63,15 @@ After the summary, **stop** and wait for further instructions.
 ## Testing Instructions (but only if asked)
 I will normally just bring this up myself and test.
 
-To test the build on the NAS:
+Simplest (standard docker commands)
+```
+docker compose down
+docker compose up --build
+```
+
+
+
+Fully scripted test on the NAS, shouldn't really need:
 
 
    ```
