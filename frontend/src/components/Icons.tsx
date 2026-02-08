@@ -157,3 +157,12 @@ export const SearchIcon = ({ className }: IconProps) => (
     <line x1="16.5" y1="16.5" x2="21" y2="21" />
   </svg>
 )
+
+export const ReelIcon = ({ className }: IconProps) => (
+  <img
+    src="/reel.png"
+    alt=""
+    aria-hidden="true"
+    className={className}
+  />
+)

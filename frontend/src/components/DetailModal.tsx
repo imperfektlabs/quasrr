@@ -25,7 +25,7 @@ import { getStreamingLogoForProvider } from '@/utils/streaming'
 import type { Rating } from '@/types'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
-import { DownloadIcon, SearchIcon, DriveStackIcon } from './Icons'
+import { DownloadIcon, SearchIcon, DriveStackIcon, ReelIcon } from './Icons'
 import { SeasonHeaderRow, EpisodeRow } from './SeasonEpisodeList'
 
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
@@ -1084,6 +1084,7 @@ export function DetailModal({
                             statusTitle={qualityTitle}
                             onSearch={() => handleEpisodeSearch(ep.id, ep.seasonNumber, ep.episodeNumber)}
                             searchDisabled={!canSearchEpisode || isSearching}
+                            searchLoading={isSearching}
                             searchActive={hasCachedReleases}
                             onDelete={() => {
                               if (!canDeleteEpisode) return
@@ -1202,6 +1203,7 @@ export function DetailModal({
           type="button"
           onClick={() => {
             if (!onShowReleases) return
+            if (busy) return
             if (result.type === 'tv' && selectedSeason !== 'all') {
               onShowReleases(result, selectedSeason)
             } else {
@@ -1209,10 +1211,15 @@ export function DetailModal({
             }
             onClose()
           }}
+          disabled={busy}
           className="bg-cyan-500/80 hover:bg-cyan-400 text-white h-8 w-8 rounded inline-flex items-center justify-center transition-colors"
           aria-label="Find releases"
         >
-          <SearchIcon className="h-4 w-4" />
+          {busy ? (
+            <ReelIcon className="h-4 w-4 animate-spin" />
+          ) : (
+            <SearchIcon className="h-4 w-4" />
+          )}
         </button>
       </div>
     )
@@ -1228,7 +1235,11 @@ export function DetailModal({
             aria-label="Search All"
           className="h-8 w-8 inline-flex items-center justify-center bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-cyan-900/40 disabled:cursor-not-allowed text-white rounded text-xs font-medium transition-colors"
         >
-          <SearchIcon className="h-4 w-4" />
+          {libraryActionBusy ? (
+            <ReelIcon className="h-4 w-4 animate-spin" />
+          ) : (
+            <SearchIcon className="h-4 w-4" />
+          )}
         </button>
         <button
           type="button"

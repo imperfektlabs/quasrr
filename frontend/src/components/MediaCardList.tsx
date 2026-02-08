@@ -5,7 +5,7 @@ import type { DiscoveryResult, SonarrLibraryItem, RadarrLibraryItem } from '@/ty
 import { formatSeriesYearSpan, formatSize, getRatingLink } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
-import { ProjectorIcon, TvIcon, SearchIcon } from './Icons'
+import { ProjectorIcon, TvIcon, SearchIcon, ReelIcon } from './Icons'
 
 // Discriminated union for all media item types
 type MediaItem =
@@ -16,8 +16,10 @@ type MediaCardListProps = {
   item: MediaItem
   onClick?: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
+  discoverySearchBusy?: boolean
   onTypeToggle?: (type: DiscoveryResult['type']) => void
   onLibrarySearch?: () => void
+  librarySearchBusy?: boolean
   onLibraryDelete?: () => void
 }
 
@@ -25,8 +27,10 @@ export function MediaCardList({
   item,
   onClick,
   onShowReleases,
+  discoverySearchBusy = false,
   onTypeToggle,
   onLibrarySearch,
+  librarySearchBusy = false,
   onLibraryDelete,
 }: MediaCardListProps) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -189,10 +193,15 @@ export function MediaCardList({
 
         <button
           onClick={handleReleasesClick}
+          disabled={discoverySearchBusy}
           className="bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white h-8 w-8 sm:h-9 sm:w-9 rounded-lg inline-flex items-center justify-center transition-smooth active:scale-95 ml-auto md:ml-0"
           aria-label="Find releases"
         >
-          <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          {discoverySearchBusy ? (
+            <ReelIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+          ) : (
+            <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          )}
         </button>
       </div>
     )
@@ -277,11 +286,16 @@ export function MediaCardList({
                 event.stopPropagation()
                 onLibrarySearch?.()
               }}
+              disabled={librarySearchBusy}
               className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-cyan-500/90 text-white hover:bg-cyan-400 hover:shadow-glow-cyan inline-flex items-center justify-center transition-smooth active:scale-95"
               title="Search All"
               aria-label="Search All"
             >
-              <SearchIcon className="h-3.5 w-3.5" />
+              {librarySearchBusy ? (
+                <ReelIcon className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <SearchIcon className="h-3.5 w-3.5" />
+              )}
             </button>
           )}
           <button

@@ -5,7 +5,7 @@ import type { DiscoveryResult, SonarrLibraryItem, RadarrLibraryItem } from '@/ty
 import { formatSeriesYearSpan, formatSize, getRatingLink } from '@/utils/formatting'
 import { StatusBadge } from './StatusBadge'
 import { RatingBadge } from './RatingBadge'
-import { ProjectorIcon, TvIcon, SearchIcon } from './Icons'
+import { ProjectorIcon, TvIcon, SearchIcon, ReelIcon } from './Icons'
 
 // Discriminated union for all media item types
 type MediaItem =
@@ -16,8 +16,10 @@ type MediaCardProps = {
   item: MediaItem
   onClick?: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
+  discoverySearchBusy?: boolean
   onTypeToggle?: (type: DiscoveryResult['type']) => void
   onLibrarySearch?: () => void
+  librarySearchBusy?: boolean
   onLibraryDelete?: () => void
 }
 
@@ -25,8 +27,10 @@ export function MediaCardGrid({
   item,
   onClick,
   onShowReleases,
+  discoverySearchBusy = false,
   onTypeToggle,
   onLibrarySearch,
+  librarySearchBusy = false,
   onLibraryDelete,
 }: MediaCardProps) {
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -122,10 +126,15 @@ export function MediaCardGrid({
     actionButtons = (
       <button
         onClick={handleReleasesClick}
+        disabled={discoverySearchBusy}
         className="w-full bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
         aria-label="Find releases"
       >
-        <SearchIcon className="h-4 w-4" />
+        {discoverySearchBusy ? (
+          <ReelIcon className="h-4 w-4 animate-spin" />
+        ) : (
+          <SearchIcon className="h-4 w-4" />
+        )}
         <span className="text-sm font-medium">Find Releases</span>
       </button>
     )
@@ -186,9 +195,14 @@ export function MediaCardGrid({
         {libItem.mediaType === 'movies' && (
           <button
             onClick={(e) => { e.stopPropagation(); onLibrarySearch?.() }}
+            disabled={librarySearchBusy}
             className="flex-1 bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
           >
-            <SearchIcon className="h-4 w-4" />
+            {librarySearchBusy ? (
+              <ReelIcon className="h-4 w-4 animate-spin" />
+            ) : (
+              <SearchIcon className="h-4 w-4" />
+            )}
             <span className="text-sm font-medium">Search</span>
           </button>
         )}
