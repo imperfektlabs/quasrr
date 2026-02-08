@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
+import { hideRouteTransitionOverlay } from '@/utils/transitionOverlay'
 import { formatSize } from '@/utils/formatting'
 import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
@@ -341,6 +342,20 @@ function LibraryContent() {
         }
       }
   }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter, router])
+
+  useEffect(() => {
+    if (selectedItem) {
+      hideRouteTransitionOverlay()
+    }
+  }, [selectedItem])
+
+  useEffect(() => {
+    if (loading) return
+    const timeout = window.setTimeout(() => {
+      hideRouteTransitionOverlay()
+    }, 900)
+    return () => window.clearTimeout(timeout)
+  }, [loading])
 
   return (
     <main className="min-h-screen pt-16 px-4 pb-8 md:px-8">
