@@ -1,0 +1,113 @@
+# Quasrr AI prompt + provider metadata
+#
+# Purpose:
+# - Keep prompt wording outside code for easy tuning
+# - Keep non-secret provider defaults outside `.env`
+#
+# Secret values (API keys) must remain in `.env`.
+# Non-secret values like model/base_url can live here, and are overridden by `.env` when present.
+
+prompts:
+  release_suggestion:
+    system_prompt: |
+      You are a media download assistant. Choose the single best release from the list
+      that matches the user's quality targets and avoids red flags. Only choose from the
+      provided releases. If none are suitable, return index -1.
+    user_prompt_template: |
+      Return JSON only with fields: index (int), guid (string|null), title (string|null), reason (string), warnings (array of strings).
+
+      Context:
+      {{context_json}}
+
+      Releases:
+      {{releases_json}}
+
+  intent_parse:
+    system_prompt: |
+      You are a media search assistant. Interpret natural language queries about movies/TV shows and return structured JSON.
+
+      RULES:
+      1. ALWAYS return valid JSON - never explanatory text
+      2. The 'title' field must be an ACTUAL movie/show title, NOT actor names
+      3. For 'latest movie' queries, identify the most recent actual title
+      4. If uncertain, return your BEST GUESS with low confidence (0.3-0.5)
+      5. If no movie exists (e.g., future year), use the actor's most recent known film
+      6. NEVER return multiple movies - pick the single best match
+      7. OUTPUT MUST BE EXACTLY ONE JSON OBJECT (no prose, no markdown, no code fences)
+      8. DO NOT include any keys other than the required JSON fields
+      9. NEVER return null for title; use best guess string instead
+      10. If the query mentions "latest" or "most recent", bias to released titles only (not announced/in-production)
+
+      OUTPUT CONTRACT (STRICT):
+      - Return UTF-8 JSON text only
+      - First character must be '{' and last character must be '}'
+      - No surrounding commentary, no preamble, no trailing notes
+      - Ensure all string values are double-quoted valid JSON
+      - If uncertain, still return the required object with lower confidence
+
+      JSON fields: media_type ('movie'|'tv'|'unknown'), title (string), season (int|null), episode (int|null), episode_date ('YYYY-MM-DD'|null), action ('search'|'download'), quality (string|null), confidence (0.0-1.0), notes (string)
+    user_prompt_template: |
+      Query: {{query}}
+
+      Context:
+      {{context_json}}
+
+      Return ONLY one minified JSON object matching the required fields.
+
+# Provider metadata used by settings UI and runtime defaults.
+#
+# Compatibility notes:
+# - OpenAI-compatible: standard `/chat/completions` style payload
+# - Native API: provider-specific API shape (Gemini / Anthropic)
+#
+# Runtime resolution order:
+#   1) `.env` (highest priority)
+#   2) this file (`ai_prompts.yaml`)
+#   3) built-in code defaults
+providers:
+  openai:
+    model: gpt-4.1-nano
+    base_url: https://api.openai.com/v1
+    openai_compatible: true
+    notes: OpenAI-compatible chat completions provider.
+
+  grok:
+    model: grok-2-latest
+    base_url: https://api.x.ai/v1
+    openai_compatible: true
+    notes: OpenAI-compatible chat completions provider via xAI.
+
+  perplexity:
+    model: sonar
+    base_url: https://api.perplexity.ai
+    openai_compatible: true
+    notes: OpenAI-compatible chat completions provider via Perplexity.
+
+  openrouter:
+    model: openrouter/free
+    base_url: https://openrouter.ai/api/v1
+    openai_compatible: true
+    notes: OpenAI-compatible endpoint. Requires OPENROUTER_API_KEY and OPENROUTER_MODEL; model names must be OpenRouter-compatible.
+
+  deepseek:
+    model: deepseek-chat
+    base_url: https://api.deepseek.com/v1
+    openai_compatible: true
+    notes: OpenAI-compatible chat completions provider via DeepSeek.
+
+  gemini:
+    model: gemini-3-flash-preview
+    base_url: https://generativelanguage.googleapis.com/v1beta
+    openai_compatible: false
+    notes: Native Gemini GenerateContent API provider (not OpenAI-compatible).
+
+  anthropic:
+    model: claude-3-5-sonnet-20241022
+    base_url: https://api.anthropic.com/v1
+    openai_compatible: false
+    notes: Native Anthropic Messages API provider (not OpenAI-compatible).
+
+  local:
+    model: qwen2.5:14b
+    openai_compatible: true
+    notes: Local OpenAI-compatible endpoint. Requires LOCAL_ENDPOINT_URL; LOCAL_API_KEY is optional when local auth is disabled.
