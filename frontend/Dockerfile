@@ -14,6 +14,7 @@ COPY --chown=node:node . .
 
 RUN chown -R node:node /app && \
     mkdir -p /app/.next /app/.next/cache /app/.next/static /app/.next/standalone /app/.next/server/app && \
+    find /app/src/app -mindepth 1 -type d | sed 's#^/app/src/app/##' | xargs -I{} mkdir -p "/app/.next/server/app/{}" && \
     chown -R node:node /app/.next
 
 ENV NEXT_TELEMETRY_DISABLED=1

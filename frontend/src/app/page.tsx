@@ -1,26 +1,21 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 // Type imports
 import type {
   DiscoveryResult,
   SearchSortField,
-  Release,
   AIIntentPlan,
   DashboardSummary,
 } from '@/types'
 
 // Utility imports
 import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
+import { showRouteTransitionOverlay, hideRouteTransitionOverlay } from '@/utils/transitionOverlay'
 import {
   normalizeIdQuery,
-  getReleaseKey,
-  sortReleasesForAi,
-  formatTimestamp,
-  formatRating,
-  formatRatingSource,
-  getRatingLink,
   formatSize,
 } from '@/utils/formatting'
 
@@ -31,9 +26,6 @@ import {
   useDiscoverySearch,
   useAiIntentSearch,
   useSabPolling,
-  useReleaseData,
-  useReleaseGrab,
-  useAiSuggest,
   useClickOutside,
 } from '@/hooks'
 
@@ -49,9 +41,12 @@ import {
   ArrowUpLineIcon,
   ArrowDownLineIcon,
   SearchIcon,
+  ReelIcon,
 } from '@/components'
 
 function HomeContent() {
+  const router = useRouter()
+
   // Backend API setup (health, config, integrations)
   const { config, setConfig, integrationsStatus } = useBackendApiSetup()
 
@@ -78,7 +73,9 @@ function HomeContent() {
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
   const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
-  const [releaseContext, setReleaseContext] = useState<DiscoveryResult | null>(null)
+  const [libraryFlowBusy, setLibraryFlowBusy] = useState(false)
+  const [libraryFlowError, setLibraryFlowError] = useState<string | null>(null)
+  const [activeDiscoverySearchKey, setActiveDiscoverySearchKey] = useState<string | null>(null)
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
@@ -87,7 +84,6 @@ function HomeContent() {
   const {
     searchQuery,
     setSearchQuery,
-    activeQuery,
     filterType,
     setFilterType,
     sortField,
@@ -103,7 +99,6 @@ function HomeContent() {
     selectedResult,
     setSelectedResult,
     submitSearch,
-    handleSearch,
     searchInputRef,
   } = useDiscoverySearch()
 
@@ -195,31 +190,6 @@ function HomeContent() {
       setShowAiAvailability(true)
       // Also update the background search to use the show title (not the episode-specific query)
       submitSearch(intent.title)
-
-      // For TV shows with episode_date, pre-fetch release data to get episode info
-      if (intent.media_type === 'tv' && intent.episode_date && intent.title) {
-        ;(async () => {
-          try {
-            const backendUrl = getBackendUrl()
-            const lookupUrl = `${backendUrl}/lookup?type=${intent.media_type}&query=${encodeURIComponent(intent.title)}`
-            const lookupRes = await fetch(lookupUrl)
-            if (lookupRes.ok) {
-              const lookupData = await lookupRes.json()
-              const topResult = Array.isArray(lookupData.results) ? lookupData.results[0] : null
-              if (topResult) {
-                const resultWithType = {
-                  ...topResult,
-                  type: intent.media_type as 'movie' | 'tv'
-                }
-                // Fetch releases to get episode info
-                await fetchReleases(resultWithType, intent.season || undefined, intent.episode || undefined, intent.episode_date || undefined)
-              }
-            }
-          } catch (err) {
-            console.error('[AI Intent Effect] Error pre-fetching episode data:', err)
-          }
-        })()
-      }
     } else {
       // Low confidence or unknown media type - just search with the AI title
       console.log('[AI Intent Effect] Low confidence or unknown, searching for:', intent.title)
@@ -237,36 +207,7 @@ function HomeContent() {
 
   const {
     queue: sabQueue,
-    refetch: fetchSabData,
   } = useSabPolling(sabPollingEnabled, 2000, config?.sabnzbd?.recent_group_limit ?? 10)
-
-  // Release data
-  const {
-    releaseData,
-    loading: loadingReleases,
-    error: releaseError,
-    fetchReleases,
-    clear: clearReleaseData,
-    clearError: clearReleaseError,
-  } = useReleaseData()
-
-  // Release grab
-  const {
-    busyIds: grabBusyIds,
-    setFeedback: setGrabFeedback,
-    grab: grabRelease,
-    grabAll: grabAllReleases,
-    clear: clearGrabState,
-  } = useReleaseGrab(releaseData, sabConfigured, fetchSabData)
-
-  // AI suggestions
-  const {
-    suggestion: aiSuggestion,
-    busy: aiSuggestBusy,
-    error: aiSuggestError,
-    suggest: getAiSuggestion,
-    clear: clearAiSuggestion,
-  } = useAiSuggest(releaseData)
 
   // Settings
   const {
@@ -290,42 +231,88 @@ function HomeContent() {
     // Note: setSearchQuery, setActiveQuery, setPage, setSelectedResult are managed by useDiscoverySearch
     // These would need to be exposed as a "reset" method from the hook for proper implementation
     // For now, we'll work around it by direct navigation
-    clearReleaseData()
     clearAiIntent()
-    clearAiSuggestion()
-    clearGrabState()
     window.location.href = '/' // Force full reset via navigation
   }
 
-  // Note: All duplicate useEffect hooks and API functions removed - now handled by custom hooks
-  // runSearch, fetchSabData, backend setup, URL sync, localStorage, etc. are all in hooks
+  const handleFindReleases = async (
+    result: DiscoveryResult,
+    season?: number,
+    _episode?: number,
+    _episodeDate?: string,
+  ) => {
+    const searchKey = result.type === 'movie'
+      ? `movie:${result.tmdb_id ?? result.title}`
+      : `tv:${result.tvdb_id ?? result.title}`
+    setLibraryFlowError(null)
+    setActiveDiscoverySearchKey(searchKey)
+    setLibraryFlowBusy(true)
+    showRouteTransitionOverlay({
+      title: 'Opening library title...',
+      subtitle: 'Adding to library if needed',
+    })
+    let navigating = false
+    try {
+      const shouldEnsure = result.status === 'not_in_library'
 
-  const handleShowReleases = async (result: DiscoveryResult, season?: number, episode?: number, episodeDate?: string) => {
-    // Clear previous state
-    setGrabFeedback(null)
-    clearAiSuggestion()
-    setReleaseContext(result)
+      if (shouldEnsure) {
+        const backendUrl = getBackendUrl()
+        const payload: Record<string, unknown> = {
+          type: result.type,
+          title: result.title,
+        }
 
-    // Fetch releases using the hook
-    await fetchReleases(result, season, episode, episodeDate)
-  }
+        if (result.type === 'movie') {
+          if (!result.tmdb_id) {
+            throw new Error('Missing TMDB ID for movie')
+          }
+          payload.tmdb_id = result.tmdb_id
+        } else {
+          if (!result.tvdb_id) {
+            throw new Error('Missing TVDB ID for TV series')
+          }
+          payload.tvdb_id = result.tvdb_id
+        }
 
-  const handleCloseReleaseView = () => {
-    clearReleaseData()
-    setReleaseContext(null)
-  }
+        const ensureRes = await fetch(`${backendUrl}/library/ensure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!ensureRes.ok) {
+          const errorData = await ensureRes.json().catch(() => ({}))
+          throw new Error(errorData.detail || 'Failed to add title to library')
+        }
+      }
 
+      const params = new URLSearchParams()
+      if (result.type === 'movie') {
+        if (!result.tmdb_id) {
+          throw new Error('Missing TMDB ID for movie')
+        }
+        params.set('tmdb', String(result.tmdb_id))
+        params.set('action', 'search')
+      } else {
+        if (!result.tvdb_id) {
+          throw new Error('Missing TVDB ID for TV series')
+        }
+        params.set('tvdb', String(result.tvdb_id))
+        if (typeof season === 'number' && Number.isFinite(season) && season > 0) {
+          params.set('season', String(season))
+        }
+      }
 
-  const handleGrabRelease = async (release: Release) => {
-    await grabRelease(release)
-  }
-
-  const handleGrabAll = async (releases: Release[]) => {
-    await grabAllReleases(releases)
-  }
-
-  const handleAiSuggest = async (releasesForAi: Release[]) => {
-    await getAiSuggestion(releasesForAi)
+      navigating = true
+      router.push(`/library?${params.toString()}`)
+    } catch (err) {
+      setLibraryFlowError(err instanceof Error ? err.message : 'Failed to open library title')
+    } finally {
+      if (!navigating) {
+        hideRouteTransitionOverlay()
+        setActiveDiscoverySearchKey(null)
+      }
+      setLibraryFlowBusy(false)
+    }
   }
 
   const handleSubmitSearch = async (
@@ -365,9 +352,10 @@ function HomeContent() {
     executeAiIntent(query)
   }
 
-  // Handler for when user confirms AI suggestion (goes directly to releases)
+  // Handler for when user confirms AI suggestion (routes to library detail flow)
   const handleAiConfirm = async (plan: AIIntentPlan) => {
     setShowAiAvailability(false)
+    setLibraryFlowError(null)
 
     const intent = plan.intent
     if (!intent.title) return
@@ -409,20 +397,18 @@ function HomeContent() {
       }
 
       console.log('[handleAiConfirm] Top result title:', topResult.title)
-      console.log('[handleAiConfirm] Fetching releases for season:', intent.season ?? 'none')
 
       // Ensure the result has the correct type and status fields
       const resultWithType = {
         ...topResult,
         type: mediaType as 'movie' | 'tv',
-        status: topResult.status || 'not_in_library' as const,
+        status: aiModalResult?.status || topResult.status || 'not_in_library' as const,
       }
 
       console.log('[handleAiConfirm] Result type set:', resultWithType.type)
 
-      // Now fetch releases with the full result
-      // For TV shows, pass season, episode, and episode_date if we have them
-      await handleShowReleases(
+      // Route through the same discovery flow: ensure library, then deeplink to library detail.
+      await handleFindReleases(
         resultWithType,
         intent.season || undefined,
         intent.episode || undefined,
@@ -834,7 +820,11 @@ function HomeContent() {
                   className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1.5 rounded text-xs font-semibold transition-colors inline-flex items-center justify-center"
                   aria-label="Search"
                 >
-                  {submittingSearch || searching || aiIntentBusy ? '...' : <SearchIcon className="h-4 w-4" />}
+                  {submittingSearch || searching || aiIntentBusy ? (
+                    <ReelIcon className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <SearchIcon className="h-4 w-4" />
+                  )}
                 </button>
               </div>
 
@@ -979,7 +969,14 @@ function HomeContent() {
                           <MediaCardGrid
                             item={{ source: 'discovery', data: result }}
                             onClick={() => setSelectedResult(result)}
-                            onShowReleases={handleShowReleases}
+                            onShowReleases={handleFindReleases}
+                            discoverySearchBusy={
+                              activeDiscoverySearchKey === (
+                                result.type === 'movie'
+                                  ? `movie:${result.tmdb_id ?? result.title}`
+                                  : `tv:${result.tvdb_id ?? result.title}`
+                              )
+                            }
                             onTypeToggle={handleTypeToggle}
                           />
                         </div>
@@ -993,7 +990,14 @@ function HomeContent() {
                           key={result.tmdb_id || result.tvdb_id}
                           item={{ source: 'discovery', data: result }}
                           onClick={() => setSelectedResult(result)}
-                          onShowReleases={handleShowReleases}
+                          onShowReleases={handleFindReleases}
+                          discoverySearchBusy={
+                            activeDiscoverySearchKey === (
+                              result.type === 'movie'
+                                ? `movie:${result.tmdb_id ?? result.title}`
+                                : `tv:${result.tvdb_id ?? result.title}`
+                            )
+                          }
                           onTypeToggle={handleTypeToggle}
                         />
                       ))}
@@ -1023,44 +1027,14 @@ function HomeContent() {
 
       </div>
 
-      {/* Loading overlay for releases */}
-      {loadingReleases && (
-        <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
-          <div className="glass-panel rounded-lg p-8 text-center max-w-md">
-            <div className="flex flex-col items-center gap-4 mb-4">
-              <img
-                src="/reel.png"
-                alt="Loading"
-                className="w-20 h-20 brightness-0 invert"
-                style={{
-                  animation: 'spin 2s linear infinite, zoom 2.5s ease-in-out infinite alternate'
-                }}
-              />
-              <div className="text-white text-lg">Searching indexers...</div>
-            </div>
-            <p className="text-gray-400 text-sm">This may take a moment</p>
-            <style jsx>{`
-              @keyframes spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-              }
-              @keyframes zoom {
-                from { transform: scale(0.9) rotate(0deg); }
-                to { transform: scale(1.1) rotate(360deg); }
-              }
-            `}</style>
-          </div>
-        </div>
-      )}
-
-      {/* Release error */}
-      {releaseError && (
+      {/* Library flow error */}
+      {libraryFlowError && (
         <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center p-4">
           <div className="glass-panel rounded-lg p-6 max-w-md">
             <h3 className="text-red-400 font-semibold mb-2">Error</h3>
-            <p className="text-gray-300 mb-4">{releaseError}</p>
+            <p className="text-gray-300 mb-4">{libraryFlowError}</p>
             <button
-              onClick={clearReleaseError}
+              onClick={() => setLibraryFlowError(null)}
               className="bg-slate-700/60 hover:bg-slate-600/60 px-4 py-2 rounded"
             >
               Close
@@ -1075,7 +1049,14 @@ function HomeContent() {
           mode="discovery"
           result={selectedResult}
           onClose={() => setSelectedResult(null)}
-          onShowReleases={handleShowReleases}
+          onShowReleases={handleFindReleases}
+          busy={
+            activeDiscoverySearchKey === (
+              selectedResult.type === 'movie'
+                ? `movie:${selectedResult.tmdb_id ?? selectedResult.title}`
+                : `tv:${selectedResult.tvdb_id ?? selectedResult.title}`
+            )
+          }
         />
       )}
 
@@ -1085,8 +1066,7 @@ function HomeContent() {
           mode="ai"
           plan={aiIntentPlan}
           aiResult={aiModalResult || undefined}
-          releaseData={releaseData}
-          busy={aiIntentBusy || aiModalSearchBusy}
+          busy={aiIntentBusy || aiModalSearchBusy || libraryFlowBusy}
           onConfirm={handleAiConfirm}
           onSearch={async (query) => {
             setAiModalSearchBusy(true)
@@ -1100,16 +1080,6 @@ function HomeContent() {
             setShowAiAvailability(false)
             setAiModalSearchBusy(false)
           }}
-        />
-      )}
-
-      {/* Release view modal */}
-      {releaseData && !showAiAvailability && releaseContext && (
-        <DetailModal
-          mode="discovery"
-          result={releaseContext}
-          releaseData={releaseData}
-          onClose={handleCloseReleaseView}
         />
       )}
     </main>
