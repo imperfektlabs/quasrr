@@ -1001,7 +1001,7 @@ function HomeContent() {
 
       {/* Loading overlay for library routing */}
       {libraryFlowBusy && showLibraryFlowOverlay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90">
+        <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
           <div className="glass-panel rounded-lg p-8 text-center max-w-md">
             <div className="flex flex-col items-center gap-4 mb-4">
               <img
