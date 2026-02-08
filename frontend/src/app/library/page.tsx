@@ -302,6 +302,7 @@ function LibraryContent() {
     const q = (searchParams.get('q') || '').toLowerCase()
     const tvdb = Number(searchParams.get('tvdb') || '')
     const tmdb = Number(searchParams.get('tmdb') || '')
+    const action = (searchParams.get('action') || '').toLowerCase()
     const season = Number(searchParams.get('season') || '')
     const wantedSeason = Number.isFinite(season) && season > 0 ? season : null
 
@@ -326,11 +327,20 @@ function LibraryContent() {
         setSelectedItem(match)
         if (match.mediaType === 'tv') {
           setAutoExpandSeason(wantedSeason)
+          setAutoSearch(false)
         } else {
           setAutoExpandSeason(null)
+          setAutoSearch(action === 'search')
+        }
+
+        if (action === 'search') {
+          const params = new URLSearchParams(searchParams.toString())
+          params.delete('action')
+          const next = params.toString() ? `/library?${params.toString()}` : '/library'
+          router.replace(next)
         }
       }
-  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter])
+  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter, router])
 
   return (
     <main className="min-h-screen pt-16 px-4 pb-8 md:px-8">
