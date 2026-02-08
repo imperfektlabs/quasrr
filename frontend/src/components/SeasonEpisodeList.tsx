@@ -1,6 +1,6 @@
 'use client'
 
-import { SearchIcon } from './Icons'
+import { SearchIcon, ReelIcon } from './Icons'
 
 type SeasonHeaderRowProps = {
   label: string
@@ -79,6 +79,7 @@ type EpisodeRowProps = {
   statusTitle?: string
   onSearch?: () => void
   searchDisabled?: boolean
+  searchLoading?: boolean
   searchActive?: boolean
   onDelete?: () => void
   deleteDisabled?: boolean
@@ -93,6 +94,7 @@ export function EpisodeRow({
   statusTitle,
   onSearch,
   searchDisabled = false,
+  searchLoading = false,
   searchActive = false,
   onDelete,
   deleteDisabled = false,
@@ -144,6 +146,8 @@ export function EpisodeRow({
             <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
             </svg>
+          ) : searchLoading ? (
+            <ReelIcon className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <SearchIcon className="h-3.5 w-3.5" />
           )}
