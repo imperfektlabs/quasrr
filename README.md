@@ -252,7 +252,43 @@ AI_API_KEY=your_api_key_here
 USER_COUNTRY=CA
 USER_LANGUAGE=en
 LOG_LEVEL=INFO
+
+# --- Dynamic AI Provider Pattern ---
+# Any provider can be added with:
+# <PROVIDER>_API_KEY=...
+# <PROVIDER>_MODEL=...
+# <PROVIDER>_BASE_URL=...   # only for OpenAI-compatible/custom endpoints
+#
+# Examples:
+# OPENAI_API_KEY=...
+# OPENAI_MODEL=gpt-4.1-nano
+#
+# OPENROUTER_API_KEY=...
+# OPENROUTER_MODEL=openrouter/auto
+# OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+#
+# LOCAL_ENDPOINT_URL=http://your-local-llm:11434/v1
+# LOCAL_API_KEY=optional
 ```
+
+### AI Prompt + Provider Metadata (`ai_prompts.yaml`)
+
+- Prompts are externalized in [`ai_prompts.yaml`](quasrr/ai_prompts.yaml).
+- Non-secret provider defaults (model/base URL/notes) are defined there.
+- API keys remain in `.env`.
+
+Resolution order:
+
+1. `.env` (highest)
+2. [`ai_prompts.yaml`](quasrr/ai_prompts.yaml)
+3. code defaults
+
+Provider differences:
+
+- **OpenAI-compatible providers** (OpenAI, Grok, Perplexity, OpenRouter, DeepSeek, Local-compatible endpoints): use `/chat/completions` style API.
+- **OpenRouter**: OpenAI-compatible transport, but model IDs must be OpenRouter namespace/model identifiers.
+- **Local**: requires `LOCAL_ENDPOINT_URL`; `LOCAL_API_KEY` is optional depending on local server auth.
+- **Anthropic/Gemini**: native APIs (not OpenAI-compatible), handled separately in backend integration.
 
 ### User Settings (config/settings.yaml)
 
