@@ -821,7 +821,7 @@ function HomeContent() {
                   aria-label="Search"
                 >
                   {submittingSearch || searching || aiIntentBusy ? (
-                    <ReelIcon className="h-4 w-4 animate-spin" />
+                    <ReelIcon className="h-5 w-5 animate-spin" />
                   ) : (
                     <SearchIcon className="h-4 w-4" />
                   )}

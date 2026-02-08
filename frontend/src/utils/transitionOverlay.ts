@@ -36,7 +36,10 @@ export function showRouteTransitionOverlay(options: OverlayOptions = {}) {
   if (!overlay) {
     overlay = document.createElement('div')
     overlay.id = OVERLAY_ID
-    overlay.className = 'fixed inset-0 glass-modal z-[120] flex items-center justify-center'
+    overlay.className = 'fixed inset-0 z-[140] flex items-center justify-center'
+    overlay.style.background = 'rgba(2, 6, 23, 0.82)'
+    overlay.style.backdropFilter = 'blur(18px) saturate(125%)'
+    overlay.style.webkitBackdropFilter = 'blur(18px) saturate(125%)'
     overlay.innerHTML = `
       <div class="glass-panel rounded-lg p-8 text-center max-w-md">
         <div class="flex flex-col items-center gap-4 mb-4">
