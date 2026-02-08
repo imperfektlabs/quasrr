@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { SonarrLibraryItem, RadarrLibraryItem, StreamingService } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
+import { hideRouteTransitionOverlay } from '@/utils/transitionOverlay'
 import { formatSize } from '@/utils/formatting'
 import { useClickOutside } from '@/hooks'
 import { NavigationMenu } from '@/components/NavigationMenu'
@@ -302,6 +303,7 @@ function LibraryContent() {
     const q = (searchParams.get('q') || '').toLowerCase()
     const tvdb = Number(searchParams.get('tvdb') || '')
     const tmdb = Number(searchParams.get('tmdb') || '')
+    const action = (searchParams.get('action') || '').toLowerCase()
     const season = Number(searchParams.get('season') || '')
     const wantedSeason = Number.isFinite(season) && season > 0 ? season : null
 
@@ -326,11 +328,34 @@ function LibraryContent() {
         setSelectedItem(match)
         if (match.mediaType === 'tv') {
           setAutoExpandSeason(wantedSeason)
+          setAutoSearch(false)
         } else {
           setAutoExpandSeason(null)
+          setAutoSearch(action === 'search')
+        }
+
+        if (action === 'search') {
+          const params = new URLSearchParams(searchParams.toString())
+          params.delete('action')
+          const next = params.toString() ? `/library?${params.toString()}` : '/library'
+          router.replace(next)
         }
       }
-  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter])
+  }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter, router])
+
+  useEffect(() => {
+    if (selectedItem) {
+      hideRouteTransitionOverlay()
+    }
+  }, [selectedItem])
+
+  useEffect(() => {
+    if (loading) return
+    const timeout = window.setTimeout(() => {
+      hideRouteTransitionOverlay()
+    }, 900)
+    return () => window.clearTimeout(timeout)
+  }, [loading])
 
   return (
     <main className="min-h-screen pt-16 px-4 pb-8 md:px-8">

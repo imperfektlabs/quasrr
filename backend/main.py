@@ -115,6 +115,13 @@ class BasicSettingsUpdate(BaseModel):
     sabnzbd: Optional[SabnzbdSettingsUpdate] = None
 
 
+class EnsureLibraryRequest(BaseModel):
+    type: SearchType
+    tmdb_id: Optional[int] = None
+    tvdb_id: Optional[int] = None
+    title: Optional[str] = None
+
+
 async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
     def normalize_provider(name: str) -> str:
         return "".join(ch for ch in name.lower() if ch.isalnum())
@@ -1002,6 +1009,64 @@ async def lookup(
                 for s in series[:10]
             ],
         }
+
+
+@app.post("/library/ensure")
+async def ensure_library(payload: EnsureLibraryRequest):
+    """
+    Ensure a title exists in Sonarr/Radarr library without searching indexers.
+    Idempotent: if already present, returns the existing item.
+    """
+    if payload.type == SearchType.movie:
+        if not payload.tmdb_id:
+            raise HTTPException(status_code=400, detail="tmdb_id required for movies")
+
+        radarr = get_radarr_client()
+        if not radarr.is_configured:
+            raise HTTPException(status_code=503, detail="Radarr not configured")
+
+        existing_movie = await radarr.get_movie_by_tmdb(payload.tmdb_id)
+        added = False
+        if not existing_movie:
+            existing_movie = await radarr.add_movie(payload.tmdb_id)
+            added = existing_movie is not None
+
+        if not existing_movie:
+            raise HTTPException(status_code=500, detail="Failed to add movie to Radarr")
+
+        return {
+            "status": "ok",
+            "type": "movie",
+            "added": added,
+            "title": existing_movie.get("title") or payload.title,
+            "tmdb_id": payload.tmdb_id,
+            "radarr_id": existing_movie.get("id"),
+        }
+
+    if not payload.tvdb_id:
+        raise HTTPException(status_code=400, detail="tvdb_id required for TV shows")
+
+    sonarr = get_sonarr_client()
+    if not sonarr.is_configured:
+        raise HTTPException(status_code=503, detail="Sonarr not configured")
+
+    existing_series = await sonarr.get_series_by_tvdb(payload.tvdb_id)
+    added = False
+    if not existing_series:
+        existing_series = await sonarr.add_series(payload.tvdb_id)
+        added = existing_series is not None
+
+    if not existing_series:
+        raise HTTPException(status_code=500, detail="Failed to add series to Sonarr")
+
+    return {
+        "status": "ok",
+        "type": "tv",
+        "added": added,
+        "title": existing_series.get("title") or payload.title,
+        "tvdb_id": payload.tvdb_id,
+        "sonarr_id": existing_series.get("id"),
+    }
 
 
 @app.get("/releases")
