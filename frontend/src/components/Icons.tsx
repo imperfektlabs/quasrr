@@ -163,6 +163,6 @@ export const ReelIcon = ({ className }: IconProps) => (
     src="/reel.png"
     alt=""
     aria-hidden="true"
-    className={className}
+    className={`object-contain brightness-0 invert ${className || ''}`.trim()}
   />
 )

@@ -131,7 +131,7 @@ export function MediaCardGrid({
         aria-label="Find releases"
       >
         {discoverySearchBusy ? (
-          <ReelIcon className="h-4 w-4 animate-spin" />
+          <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
         ) : (
           <SearchIcon className="h-4 w-4" />
         )}
@@ -199,7 +199,7 @@ export function MediaCardGrid({
             className="flex-1 bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
           >
             {librarySearchBusy ? (
-              <ReelIcon className="h-4 w-4 animate-spin" />
+              <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
             ) : (
               <SearchIcon className="h-4 w-4" />
             )}
