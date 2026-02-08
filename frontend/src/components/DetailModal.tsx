@@ -1216,7 +1216,7 @@ export function DetailModal({
           aria-label="Find releases"
         >
           {busy ? (
-            <ReelIcon className="h-4 w-4 animate-spin" />
+            <ReelIcon className="h-full w-full p-1.5 animate-spin" />
           ) : (
             <SearchIcon className="h-4 w-4" />
           )}
@@ -1236,7 +1236,7 @@ export function DetailModal({
           className="h-8 w-8 inline-flex items-center justify-center bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-cyan-900/40 disabled:cursor-not-allowed text-white rounded text-xs font-medium transition-colors"
         >
           {libraryActionBusy ? (
-            <ReelIcon className="h-4 w-4 animate-spin" />
+            <ReelIcon className="h-full w-full p-1.5 animate-spin" />
           ) : (
             <SearchIcon className="h-4 w-4" />
           )}
