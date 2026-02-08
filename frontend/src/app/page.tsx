@@ -13,6 +13,7 @@ import type {
 
 // Utility imports
 import { getBackendUrl, getLocalToolUrl } from '@/utils/backend'
+import { showRouteTransitionOverlay, hideRouteTransitionOverlay } from '@/utils/transitionOverlay'
 import {
   normalizeIdQuery,
   formatSize,
@@ -40,6 +41,7 @@ import {
   ArrowUpLineIcon,
   ArrowDownLineIcon,
   SearchIcon,
+  ReelIcon,
 } from '@/components'
 
 function HomeContent() {
@@ -73,7 +75,7 @@ function HomeContent() {
   const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
   const [libraryFlowBusy, setLibraryFlowBusy] = useState(false)
   const [libraryFlowError, setLibraryFlowError] = useState<string | null>(null)
-  const [showLibraryFlowOverlay, setShowLibraryFlowOverlay] = useState(false)
+  const [activeDiscoverySearchKey, setActiveDiscoverySearchKey] = useState<string | null>(null)
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
@@ -239,12 +241,17 @@ function HomeContent() {
     _episode?: number,
     _episodeDate?: string,
   ) => {
+    const searchKey = result.type === 'movie'
+      ? `movie:${result.tmdb_id ?? result.title}`
+      : `tv:${result.tvdb_id ?? result.title}`
     setLibraryFlowError(null)
+    setActiveDiscoverySearchKey(searchKey)
     setLibraryFlowBusy(true)
-    setShowLibraryFlowOverlay(false)
-    const overlayTimer = window.setTimeout(() => {
-      setShowLibraryFlowOverlay(true)
-    }, 180)
+    showRouteTransitionOverlay({
+      title: 'Opening library title...',
+      subtitle: 'Adding to library if needed',
+    })
+    let navigating = false
     try {
       const shouldEnsure = result.status === 'not_in_library'
 
@@ -295,12 +302,15 @@ function HomeContent() {
         }
       }
 
+      navigating = true
       router.push(`/library?${params.toString()}`)
     } catch (err) {
       setLibraryFlowError(err instanceof Error ? err.message : 'Failed to open library title')
     } finally {
-      window.clearTimeout(overlayTimer)
-      setShowLibraryFlowOverlay(false)
+      if (!navigating) {
+        hideRouteTransitionOverlay()
+        setActiveDiscoverySearchKey(null)
+      }
       setLibraryFlowBusy(false)
     }
   }
@@ -810,7 +820,11 @@ function HomeContent() {
                   className="bg-cyan-500/80 hover:bg-cyan-400 disabled:bg-slate-700/60 disabled:cursor-not-allowed px-3 py-1.5 rounded text-xs font-semibold transition-colors inline-flex items-center justify-center"
                   aria-label="Search"
                 >
-                  {submittingSearch || searching || aiIntentBusy ? '...' : <SearchIcon className="h-4 w-4" />}
+                  {submittingSearch || searching || aiIntentBusy ? (
+                    <ReelIcon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <SearchIcon className="h-4 w-4" />
+                  )}
                 </button>
               </div>
 
@@ -956,6 +970,13 @@ function HomeContent() {
                             item={{ source: 'discovery', data: result }}
                             onClick={() => setSelectedResult(result)}
                             onShowReleases={handleFindReleases}
+                            discoverySearchBusy={
+                              activeDiscoverySearchKey === (
+                                result.type === 'movie'
+                                  ? `movie:${result.tmdb_id ?? result.title}`
+                                  : `tv:${result.tvdb_id ?? result.title}`
+                              )
+                            }
                             onTypeToggle={handleTypeToggle}
                           />
                         </div>
@@ -970,6 +991,13 @@ function HomeContent() {
                           item={{ source: 'discovery', data: result }}
                           onClick={() => setSelectedResult(result)}
                           onShowReleases={handleFindReleases}
+                          discoverySearchBusy={
+                            activeDiscoverySearchKey === (
+                              result.type === 'movie'
+                                ? `movie:${result.tmdb_id ?? result.title}`
+                                : `tv:${result.tvdb_id ?? result.title}`
+                            )
+                          }
                           onTypeToggle={handleTypeToggle}
                         />
                       ))}
@@ -999,36 +1027,6 @@ function HomeContent() {
 
       </div>
 
-      {/* Loading overlay for library routing */}
-      {libraryFlowBusy && showLibraryFlowOverlay && (
-        <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
-          <div className="glass-panel rounded-lg p-8 text-center max-w-md">
-            <div className="flex flex-col items-center gap-4 mb-4">
-              <img
-                src="/reel.png"
-                alt="Loading"
-                className="w-20 h-20 brightness-0 invert"
-                style={{
-                  animation: 'spin 2s linear infinite, zoom 2.5s ease-in-out infinite alternate'
-                }}
-              />
-              <div className="text-white text-lg">Opening library title...</div>
-            </div>
-            <p className="text-gray-400 text-sm">Adding to library if needed</p>
-            <style jsx>{`
-              @keyframes spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-              }
-              @keyframes zoom {
-                from { transform: scale(0.9) rotate(0deg); }
-                to { transform: scale(1.1) rotate(360deg); }
-              }
-            `}</style>
-          </div>
-        </div>
-      )}
-
       {/* Library flow error */}
       {libraryFlowError && (
         <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center p-4">
@@ -1052,6 +1050,13 @@ function HomeContent() {
           result={selectedResult}
           onClose={() => setSelectedResult(null)}
           onShowReleases={handleFindReleases}
+          busy={
+            activeDiscoverySearchKey === (
+              selectedResult.type === 'movie'
+                ? `movie:${selectedResult.tmdb_id ?? selectedResult.title}`
+                : `tv:${selectedResult.tvdb_id ?? selectedResult.title}`
+            )
+          }
         />
       )}
 
