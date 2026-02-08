@@ -19,6 +19,16 @@ export type ConfigStatus = {
     model: string
     api_key: string | null
     available_providers?: string[]
+    providers?: Array<{
+      id: string
+      label: string
+      available: boolean
+      selected: boolean
+      model?: string | null
+      base_url?: string | null
+      openai_compatible?: boolean
+      notes?: string
+    }>
     openai_model?: string | null
     grok_model?: string | null
     perplexity_model?: string | null
