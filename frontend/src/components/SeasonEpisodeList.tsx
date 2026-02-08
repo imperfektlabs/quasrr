@@ -147,7 +147,7 @@ export function EpisodeRow({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
             </svg>
           ) : searchLoading ? (
-            <ReelIcon className="h-3.5 w-3.5 animate-spin" />
+            <ReelIcon className="h-full w-full p-1 animate-spin" />
           ) : (
             <SearchIcon className="h-3.5 w-3.5" />
           )}

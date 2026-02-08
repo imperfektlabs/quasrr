@@ -198,7 +198,7 @@ export function MediaCardList({
           aria-label="Find releases"
         >
           {discoverySearchBusy ? (
-            <ReelIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+            <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
           ) : (
             <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           )}
@@ -292,7 +292,7 @@ export function MediaCardList({
               aria-label="Search All"
             >
               {librarySearchBusy ? (
-                <ReelIcon className="h-3.5 w-3.5 animate-spin" />
+                <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
               ) : (
                 <SearchIcon className="h-3.5 w-3.5" />
               )}
