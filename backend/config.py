@@ -11,7 +11,7 @@ import logging
 import re
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -22,6 +22,40 @@ logger = logging.getLogger(__name__)
 CONFIG_DIR = Path(os.getenv("CONFIG_PATH", "/app/config"))
 DEFAULTS_FILE = CONFIG_DIR / "defaults.yaml"
 SETTINGS_FILE = CONFIG_DIR / "settings.yaml"
+AI_PROMPTS_FILE = Path(os.getenv("AI_PROMPTS_FILE", "/app/ai_prompts.yaml"))
+
+INTEGRATION_ENV_PREFIXES = {"SONARR", "RADARR", "SABNZBD", "PLEX", "TMDB", "USER", "LOG", "BACKEND", "FRONTEND", "PROJECT", "COMPOSE", "CONFIG"}
+
+KNOWN_AI_PROVIDER_ORDER = [
+    "openai",
+    "grok",
+    "perplexity",
+    "openrouter",
+    "gemini",
+    "anthropic",
+    "deepseek",
+    "local",
+]
+
+AI_PROVIDER_LABELS = {
+    "openai": "OpenAI",
+    "grok": "Grok",
+    "perplexity": "Perplexity",
+    "openrouter": "OpenRouter",
+    "gemini": "Gemini",
+    "anthropic": "Anthropic",
+    "deepseek": "DeepSeek",
+    "local": "Local",
+}
+
+
+def load_ai_prompts_file() -> dict:
+    """Load AI prompt/provider metadata from config/ai_prompts.yaml."""
+    data = load_yaml_file(AI_PROMPTS_FILE)
+    if not data:
+        # Fallback for legacy/default location
+        data = load_yaml_file(CONFIG_DIR / "ai_prompts.yaml")
+    return data if isinstance(data, dict) else {}
 
 
 # --- Pydantic Models ---
@@ -183,9 +217,176 @@ def _clean_env(value: Optional[str]) -> Optional[str]:
     stripped = value.strip()
     if not stripped:
         return None
+
+    # Handle quoted placeholders like "# comment" or '# comment'
+    if (stripped.startswith('"') and stripped.endswith('"')) or (stripped.startswith("'") and stripped.endswith("'")):
+        stripped = stripped[1:-1].strip()
+
+    # Treat comment-like and null-like placeholders as unset
+    if stripped.startswith('#'):
+        return None
+    if stripped.lower() in {"null", "none"}:
+        return None
+
     if " #" in stripped or "\t#" in stripped or " -#" in stripped:
         stripped = re.split(r"\s+#", stripped, maxsplit=1)[0].strip()
     return stripped or None
+
+
+def _provider_env_key(provider: str, suffix: str) -> str:
+    normalized = provider.strip().upper().replace("-", "_")
+    return f"{normalized}_{suffix}"
+
+
+def _provider_env_value(provider: str, suffix: str) -> Optional[str]:
+    return _clean_env(os.getenv(_provider_env_key(provider, suffix)))
+
+
+def _provider_label(provider: str) -> str:
+    if provider in AI_PROVIDER_LABELS:
+        return AI_PROVIDER_LABELS[provider]
+    return provider.replace("_", " ").replace("-", " ").title()
+
+
+def _is_openai_compatible_provider(provider: str) -> bool:
+    prompts_file = load_ai_prompts_file()
+    provider_cfg = (prompts_file.get("providers") or {}).get(provider, {}) if isinstance(prompts_file.get("providers"), dict) else {}
+    if isinstance(provider_cfg, dict) and "openai_compatible" in provider_cfg:
+        return bool(provider_cfg.get("openai_compatible"))
+    return provider not in {"anthropic", "gemini", "local"}
+
+
+def _detect_env_ai_providers() -> set[str]:
+    providers: set[str] = set()
+
+    for key, raw_value in os.environ.items():
+        value = _clean_env(raw_value)
+        if not value:
+            continue
+
+        api_match = re.fullmatch(r"([A-Z0-9_]+)_API_KEY", key)
+        if api_match:
+            prefix = api_match.group(1)
+            if prefix in INTEGRATION_ENV_PREFIXES:
+                continue
+            if prefix == "AI":
+                continue
+            providers.add(prefix.lower())
+            continue
+
+        endpoint_match = re.fullmatch(r"([A-Z0-9_]+)_ENDPOINT_URL", key)
+        if endpoint_match and endpoint_match.group(1) == "LOCAL":
+            providers.add("local")
+
+    if _clean_env(os.getenv("LOCAL_ENDPOINT_URL")):
+        providers.add("local")
+
+    return providers
+
+
+def _provider_model(config: "Config", provider: str) -> Optional[str]:
+    provider = provider.strip().lower()
+    prompts_file = load_ai_prompts_file()
+    provider_cfg = (prompts_file.get("providers") or {}).get(provider, {}) if isinstance(prompts_file.get("providers"), dict) else {}
+
+    explicit_env = _provider_env_value(provider, "MODEL")
+    if explicit_env:
+        return _clean_env(explicit_env)
+
+    yaml_model = provider_cfg.get("model") if isinstance(provider_cfg, dict) else None
+    if isinstance(yaml_model, str) and _clean_env(yaml_model):
+        return _clean_env(yaml_model)
+
+    if provider == "openai":
+        return _clean_env(config.ai.openai_model or config.ai.model)
+    if provider == "grok":
+        return _clean_env(config.ai.grok_model or config.ai.model)
+    if provider == "perplexity":
+        return _clean_env(config.ai.perplexity_model or config.ai.model)
+    if provider == "gemini":
+        return _clean_env(config.ai.gemini_model or config.ai.model)
+    if provider == "openrouter":
+        return _clean_env(config.ai.openrouter_model or config.ai.model)
+    if provider == "deepseek":
+        return _clean_env(config.ai.deepseek_model or config.ai.model)
+    if provider == "anthropic":
+        return _clean_env(config.ai.anthropic_model or config.ai.model)
+    return _clean_env(config.ai.model)
+
+
+def _provider_base_url(config: "Config", provider: str) -> Optional[str]:
+    provider = provider.strip().lower()
+    prompts_file = load_ai_prompts_file()
+    provider_cfg = (prompts_file.get("providers") or {}).get(provider, {}) if isinstance(prompts_file.get("providers"), dict) else {}
+
+    explicit_env = _provider_env_value(provider, "BASE_URL")
+    if explicit_env:
+        return _clean_env(explicit_env)
+
+    yaml_base_url = provider_cfg.get("base_url") if isinstance(provider_cfg, dict) else None
+    if isinstance(yaml_base_url, str) and _clean_env(yaml_base_url):
+        return _clean_env(yaml_base_url)
+
+    if provider == "grok":
+        return _clean_env(config.ai.grok_base_url)
+    if provider == "perplexity":
+        return _clean_env(config.ai.perplexity_base_url)
+    if provider == "openrouter":
+        return _clean_env(config.ai.openrouter_base_url)
+    if provider == "deepseek":
+        return _clean_env(config.ai.deepseek_base_url)
+    if provider == "openai":
+        return "https://api.openai.com/v1"
+    if provider == "gemini":
+        return "https://generativelanguage.googleapis.com/v1beta"
+    if provider == "anthropic":
+        return "https://api.anthropic.com/v1"
+    return None
+
+def _provider_has_api_key(config: "Config", provider: str) -> bool:
+    provider = provider.strip().lower()
+
+    env_key = _provider_env_value(provider, "API_KEY")
+    if env_key:
+        return True
+
+    attr_name = f"{provider}_api_key"
+    attr_value = getattr(config.ai, attr_name, None)
+    return bool(_clean_env(attr_value) if isinstance(attr_value, str) else attr_value)
+
+
+def _provider_is_configured(config: "Config", provider: str) -> bool:
+    provider = provider.strip().lower()
+    if provider == "local":
+        endpoint = _provider_env_value(provider, "ENDPOINT_URL") or config.ai.local_endpoint_url
+        return bool(_clean_env(endpoint) if isinstance(endpoint, str) else endpoint)
+    return _provider_has_api_key(config, provider)
+
+
+def _provider_notes(provider: str) -> str:
+    prompts_file = load_ai_prompts_file()
+    provider_cfg = (prompts_file.get("providers") or {}).get(provider, {}) if isinstance(prompts_file.get("providers"), dict) else {}
+    yaml_notes = provider_cfg.get("notes") if isinstance(provider_cfg, dict) else None
+    if isinstance(yaml_notes, str) and yaml_notes.strip():
+        return yaml_notes.strip()
+
+    if provider == "openrouter":
+        return "OpenAI-compatible endpoint. Requires OPENROUTER_API_KEY and OPENROUTER_MODEL; routes via OpenRouter model namespace."
+    if provider == "local":
+        return "Local OpenAI-compatible endpoint. Requires LOCAL_ENDPOINT_URL; LOCAL_API_KEY is optional if your local server allows anonymous access."
+    if provider == "anthropic":
+        return "Native Anthropic Messages API provider (not OpenAI-compatible)."
+    if provider == "gemini":
+        return "Native Gemini GenerateContent API provider (not OpenAI-compatible)."
+    return "OpenAI-compatible chat completions provider."
+
+
+def _yaml_provider_ids() -> set[str]:
+    prompts_file = load_ai_prompts_file()
+    providers_cfg = prompts_file.get("providers") if isinstance(prompts_file, dict) else None
+    if not isinstance(providers_cfg, dict):
+        return set()
+    return {str(k).strip().lower() for k in providers_cfg.keys() if str(k).strip()}
 
 
 def load_env_overrides() -> dict:
@@ -305,22 +506,9 @@ def redact_secrets(config: Config) -> dict:
         ]
 
     # Redact API keys
-    if data.get("ai", {}).get("openai_api_key"):
-        data["ai"]["openai_api_key"] = "***REDACTED***"
-    if data.get("ai", {}).get("grok_api_key"):
-        data["ai"]["grok_api_key"] = "***REDACTED***"
-    if data.get("ai", {}).get("perplexity_api_key"):
-        data["ai"]["perplexity_api_key"] = "***REDACTED***"
-    if data.get("ai", {}).get("gemini_api_key"):
-        data["ai"]["gemini_api_key"] = "***REDACTED***"
-    if data.get("ai", {}).get("openrouter_api_key"):
-        data["ai"]["openrouter_api_key"] = "***REDACTED***"
-    if data.get("ai", {}).get("deepseek_api_key"):
-        data["ai"]["deepseek_api_key"] = "***REDACTED***"
-    if data.get("ai", {}).get("anthropic_api_key"):
-        data["ai"]["anthropic_api_key"] = "***REDACTED***"
-    if data.get("ai", {}).get("local_api_key"):
-        data["ai"]["local_api_key"] = "***REDACTED***"
+    for key, value in list(data.get("ai", {}).items()):
+        if key.endswith("_api_key") and value:
+            data["ai"][key] = "***REDACTED***"
     if data.get("integrations", {}).get("sonarr_api_key"):
         data["integrations"]["sonarr_api_key"] = "***REDACTED***"
     if data.get("integrations", {}).get("radarr_api_key"):
@@ -333,6 +521,7 @@ def redact_secrets(config: Config) -> dict:
         data["integrations"]["tmdb_api_key"] = "***REDACTED***"
 
     data["ai"]["available_providers"] = get_available_ai_providers(config)
+    data["ai"]["providers"] = get_ai_provider_options(config)
 
     return data
 
@@ -343,27 +532,45 @@ def get_available_ai_providers(config: Config) -> list[str]:
     Availability is based on API key only (models have defaults).
     Local provider requires endpoint URL instead of API key.
     """
-    def has_value(value: Optional[str]) -> bool:
-        return bool(value and value.strip())
+    candidate_ids = _detect_env_ai_providers() | _yaml_provider_ids()
+    selected = (config.ai.provider or "").strip().lower()
+    if selected:
+        candidate_ids.add(selected)
 
-    providers = []
-    if has_value(config.ai.openai_api_key):
-        providers.append("openai")
-    if has_value(config.ai.grok_api_key):
-        providers.append("grok")
-    if has_value(config.ai.perplexity_api_key):
-        providers.append("perplexity")
-    if has_value(config.ai.anthropic_api_key):
-        providers.append("anthropic")
-    if has_value(config.ai.gemini_api_key):
-        providers.append("gemini")
-    if has_value(config.ai.openrouter_api_key):
-        providers.append("openrouter")
-    if has_value(config.ai.deepseek_api_key):
-        providers.append("deepseek")
-    if has_value(config.ai.local_endpoint_url):
-        providers.append("local")
-    return providers
+    providers = [provider for provider in candidate_ids if _provider_is_configured(config, provider)]
+    return sorted(set(providers), key=lambda p: _provider_label(p).lower())
+
+
+def get_ai_provider_options(config: Config) -> list[dict[str, Any]]:
+    """Build dynamic provider metadata for frontend settings UI."""
+    available = set(get_available_ai_providers(config))
+    selected = (config.ai.provider or "").strip().lower()
+
+    yaml_provider_keys = _yaml_provider_ids()
+
+    # Fully dynamic provider catalog: yaml-defined + env-discovered (+ selected provider if present)
+    all_ids = yaml_provider_keys | set(available) | _detect_env_ai_providers()
+    if selected:
+        all_ids.add(selected)
+
+    ordered = sorted(all_ids, key=lambda p: _provider_label(p).lower())
+
+    options: list[dict[str, Any]] = []
+    for provider in ordered:
+        options.append(
+            {
+                "id": provider,
+                "label": _provider_label(provider),
+                "available": _provider_is_configured(config, provider),
+                "selected": provider == selected,
+                "model": _provider_model(config, provider),
+                "base_url": _provider_base_url(config, provider),
+                "openai_compatible": _is_openai_compatible_provider(provider),
+                "notes": _provider_notes(provider),
+            }
+        )
+
+    return options
 
 
 # Global config instance
