@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 // Type imports
 import type {
@@ -42,6 +43,8 @@ import {
 } from '@/components'
 
 function HomeContent() {
+  const router = useRouter()
+
   // Backend API setup (health, config, integrations)
   const { config, setConfig, integrationsStatus } = useBackendApiSetup()
 
@@ -70,6 +73,7 @@ function HomeContent() {
   const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
   const [libraryFlowBusy, setLibraryFlowBusy] = useState(false)
   const [libraryFlowError, setLibraryFlowError] = useState<string | null>(null)
+  const [showLibraryFlowOverlay, setShowLibraryFlowOverlay] = useState(false)
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
@@ -237,50 +241,66 @@ function HomeContent() {
   ) => {
     setLibraryFlowError(null)
     setLibraryFlowBusy(true)
+    setShowLibraryFlowOverlay(false)
+    const overlayTimer = window.setTimeout(() => {
+      setShowLibraryFlowOverlay(true)
+    }, 180)
     try {
-      const backendUrl = getBackendUrl()
-      const payload: Record<string, unknown> = {
-        type: result.type,
-        title: result.title,
-      }
+      const shouldEnsure = result.status === 'not_in_library'
 
-      if (result.type === 'movie') {
-        if (!result.tmdb_id) {
-          throw new Error('Missing TMDB ID for movie')
+      if (shouldEnsure) {
+        const backendUrl = getBackendUrl()
+        const payload: Record<string, unknown> = {
+          type: result.type,
+          title: result.title,
         }
-        payload.tmdb_id = result.tmdb_id
-      } else {
-        if (!result.tvdb_id) {
-          throw new Error('Missing TVDB ID for TV series')
-        }
-        payload.tvdb_id = result.tvdb_id
-      }
 
-      const ensureRes = await fetch(`${backendUrl}/library/ensure`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!ensureRes.ok) {
-        const errorData = await ensureRes.json().catch(() => ({}))
-        throw new Error(errorData.detail || 'Failed to add title to library')
+        if (result.type === 'movie') {
+          if (!result.tmdb_id) {
+            throw new Error('Missing TMDB ID for movie')
+          }
+          payload.tmdb_id = result.tmdb_id
+        } else {
+          if (!result.tvdb_id) {
+            throw new Error('Missing TVDB ID for TV series')
+          }
+          payload.tvdb_id = result.tvdb_id
+        }
+
+        const ensureRes = await fetch(`${backendUrl}/library/ensure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!ensureRes.ok) {
+          const errorData = await ensureRes.json().catch(() => ({}))
+          throw new Error(errorData.detail || 'Failed to add title to library')
+        }
       }
 
       const params = new URLSearchParams()
       if (result.type === 'movie') {
+        if (!result.tmdb_id) {
+          throw new Error('Missing TMDB ID for movie')
+        }
         params.set('tmdb', String(result.tmdb_id))
         params.set('action', 'search')
       } else {
+        if (!result.tvdb_id) {
+          throw new Error('Missing TVDB ID for TV series')
+        }
         params.set('tvdb', String(result.tvdb_id))
         if (typeof season === 'number' && Number.isFinite(season) && season > 0) {
           params.set('season', String(season))
         }
       }
 
-      window.location.href = `/library?${params.toString()}`
+      router.push(`/library?${params.toString()}`)
     } catch (err) {
       setLibraryFlowError(err instanceof Error ? err.message : 'Failed to open library title')
     } finally {
+      window.clearTimeout(overlayTimer)
+      setShowLibraryFlowOverlay(false)
       setLibraryFlowBusy(false)
     }
   }
@@ -372,7 +392,7 @@ function HomeContent() {
       const resultWithType = {
         ...topResult,
         type: mediaType as 'movie' | 'tv',
-        status: topResult.status || 'not_in_library' as const,
+        status: aiModalResult?.status || topResult.status || 'not_in_library' as const,
       }
 
       console.log('[handleAiConfirm] Result type set:', resultWithType.type)
@@ -980,8 +1000,8 @@ function HomeContent() {
       </div>
 
       {/* Loading overlay for library routing */}
-      {libraryFlowBusy && (
-        <div className="fixed inset-0 glass-modal z-50 flex items-center justify-center">
+      {libraryFlowBusy && showLibraryFlowOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90">
           <div className="glass-panel rounded-lg p-8 text-center max-w-md">
             <div className="flex flex-col items-center gap-4 mb-4">
               <img
@@ -992,9 +1012,9 @@ function HomeContent() {
                   animation: 'spin 2s linear infinite, zoom 2.5s ease-in-out infinite alternate'
                 }}
               />
-              <div className="text-white text-lg">Preparing library title...</div>
+              <div className="text-white text-lg">Opening library title...</div>
             </div>
-            <p className="text-gray-400 text-sm">Adding if needed, then opening library detail</p>
+            <p className="text-gray-400 text-sm">Adding to library if needed</p>
             <style jsx>{`
               @keyframes spin {
                 from { transform: rotate(0deg); }
