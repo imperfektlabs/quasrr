@@ -14,6 +14,12 @@ x-common-config: &common-config
       max-size: "100m"
       max-file: "5"
 
+# Strict bind-mount policy: fail if host source path is missing.
+x-bind-strict: &bind-strict
+  type: bind
+  bind:
+    create_host_path: false
+
 # --- Service Definitions ---
 services:
   # -------------------------------------------------------------------
@@ -26,9 +32,15 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      - ${PROJECT_ROOT_PATH}/data:/app/data
-      - ${PROJECT_ROOT_PATH}/config:/app/config
-      - ${PROJECT_ROOT_PATH}/logs:/app/logs
+      - <<: *bind-strict
+        source: ${PROJECT_ROOT_PATH:-.}/data
+        target: /app/data
+      - <<: *bind-strict
+        source: ${PROJECT_ROOT_PATH:-.}/config
+        target: /app/config
+      - <<: *bind-strict
+        source: ${PROJECT_ROOT_PATH:-.}/logs
+        target: /app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
