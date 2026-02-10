@@ -24,19 +24,41 @@ TODOS.md
 
 
 # Prompts for agents
-AGENT_INITIALIZATION.md
+prompts/
+AGENT_INIT*.md
 EXECUTION*.md
+SESSION*.md
 
-
-# 4. Python
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-.venv/
-venv/
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
 
 # 5. Node.js / Frontend
 node_modules/
 .next/
 next-env.d.ts
 package-lock.json
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+
+
+# Test / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+docker-compose.override.yml
