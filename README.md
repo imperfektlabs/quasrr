@@ -1,8 +1,8 @@
 # Quasrr
 
-**Unified media search, streaming awareness, and intentional downloads for casual viewers.**
+**Unified media dashboard combining Sonarr, Radarr, SABnzbd, and Plex.**
 
-Quasrr is a self-hosted, mobile-first web app that brings discovery, streaming availability, and manual download workflows into one clean interface. It favors intentional, size-conscious downloads over automation and complexity.
+Quasrr is a self-hosted, mobile-first web app that brings discovery, streaming availability, and manual download workflows into one clean interface. It unifies Sonarr, Radarr, SABnzbd, and Plex into a single dashboard while keeping downloads intentional and user-controlled.
 
 ---
 
@@ -351,6 +351,7 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 2. **Configure environment**
    ```bash
+   cp .env.example .env
    # Edit .env with your API keys and service URLs
    ```
 
@@ -362,6 +363,8 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 4. **Launch with Docker Compose**
    ```bash
+   mkdir -p data config logs
+   docker network create net-media 2>/dev/null || true
    docker compose up -d
    ```
 
