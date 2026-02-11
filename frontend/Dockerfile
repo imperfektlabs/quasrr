@@ -9,17 +9,10 @@ RUN npm install
 FROM base AS builder
 WORKDIR /app
 
-COPY --from=deps --chown=node:node /app/node_modules ./node_modules
-COPY --chown=node:node . .
-
-RUN chown -R node:node /app && \
-    mkdir -p /app/.next /app/.next/cache /app/.next/static /app/.next/standalone /app/.next/server/app && \
-    find /app/src/app -mindepth 1 -type d | sed 's#^/app/src/app/##' | xargs -I{} mkdir -p "/app/.next/server/app/{}" && \
-    chown -R node:node /app/.next
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-
-USER node
 
 RUN npm run build
 

@@ -1,18 +1,27 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 
 import { useBackendApiSetup, useSettings, useClickOutside } from '@/hooks'
 import { getLocalToolUrl } from '@/utils/backend'
 import { NavigationMenu } from '@/components'
 import { getStreamingLogo } from '@/utils/streaming'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function SettingsPage() {
   const { config, setConfig } = useBackendApiSetup()
+  const { updateCredentials, logout } = useAuth()
 
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
+  const [currentUsername, setCurrentUsername] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newUsername, setNewUsername] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [credentialsBusy, setCredentialsBusy] = useState(false)
+  const [credentialsError, setCredentialsError] = useState<string | null>(null)
+  const [credentialsSaved, setCredentialsSaved] = useState(false)
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
@@ -129,6 +138,40 @@ export default function SettingsPage() {
       },
     },
   ]
+
+  const handleCredentialsSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setCredentialsSaved(false)
+    setCredentialsError(null)
+
+    const nextCurrentUsername = currentUsername.trim()
+    const nextNewUsername = newUsername.trim()
+    if (!nextCurrentUsername || !currentPassword || !nextNewUsername || !newPassword) {
+      setCredentialsError('All fields are required')
+      return
+    }
+    if (newPassword.length < 8) {
+      setCredentialsError('New password must be at least 8 characters')
+      return
+    }
+
+    setCredentialsBusy(true)
+    try {
+      await updateCredentials({
+        current_username: nextCurrentUsername,
+        current_password: currentPassword,
+        new_username: nextNewUsername,
+        new_password: newPassword,
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setCredentialsSaved(true)
+    } catch (err) {
+      setCredentialsError(err instanceof Error ? err.message : 'Unable to update credentials')
+    } finally {
+      setCredentialsBusy(false)
+    }
+  }
 
   return (
     <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
@@ -444,6 +487,81 @@ export default function SettingsPage() {
                   />
                 </label>
               </div>
+            </section>
+
+            {/* Authentication */}
+            <section className="glass-panel rounded-xl border border-slate-700/40 p-6">
+              <h2 className="text-lg font-bold text-slate-100 mb-1">Authentication</h2>
+              <p className="text-xs text-slate-400 mb-4">Update your login credentials</p>
+
+              <form onSubmit={(event) => void handleCredentialsSubmit(event)} className="grid md:grid-cols-2 gap-4">
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Current Username</span>
+                  <input
+                    type="text"
+                    value={currentUsername}
+                    onChange={(event) => setCurrentUsername(event.target.value)}
+                    autoComplete="username"
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">New Username</span>
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(event) => setNewUsername(event.target.value)}
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Current Password</span>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    autoComplete="current-password"
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs text-slate-400 font-medium">New Password</span>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    required
+                  />
+                </label>
+
+                <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={credentialsBusy}
+                    className="px-4 py-2 rounded-md bg-cyan-600/80 hover:bg-cyan-500 text-white text-sm disabled:bg-slate-700/80 disabled:cursor-not-allowed"
+                  >
+                    {credentialsBusy ? 'Updating...' : 'Update Credentials'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="px-4 py-2 rounded-md bg-slate-700/80 hover:bg-slate-600 text-slate-100 text-sm"
+                  >
+                    Log Out
+                  </button>
+                  {credentialsSaved && <span className="text-xs text-cyan-300">Credentials updated</span>}
+                  {credentialsError && <span className="text-xs text-rose-300">{credentialsError}</span>}
+                </div>
+              </form>
             </section>
           </div>
         )}
