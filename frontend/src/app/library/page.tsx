@@ -64,9 +64,9 @@ function LibraryContent() {
   const [autoSearch, setAutoSearch] = useState(false)
   const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const librarySearchAtBottom = (config?.layout?.library_search_position ?? 'top') === 'bottom'
+  const librarySearchAtBottom = (config?.layout?.library_search_position ?? 'bottom') === 'bottom'
   const librarySearchStickyClass = librarySearchAtBottom
-    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 md:px-8'
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
     : 'sticky top-16'
 
   useEffect(() => {
@@ -634,7 +634,7 @@ function LibraryContent() {
                 {!loading && !error && sortedItems.length > 0 && (
                   <>
                     {isGridView && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                      <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
                         {sortedItems.map((item, index) => (
                           <div
                             key={`${item.mediaType}-${item.id}`}
