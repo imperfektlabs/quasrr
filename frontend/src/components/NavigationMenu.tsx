@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { StreamingService, ConfigStatus } from '@/types'
 import { getStreamingLogo, getStreamingLink } from '@/utils/streaming'
 import { SearchIcon } from './Icons'
+import { useAuth } from '@/contexts/AuthContext'
 
 type MenuItem = {
   key: string
@@ -51,6 +52,7 @@ export function NavigationMenu({
   onHomeClick,
 }: NavigationMenuProps) {
   const router = useRouter()
+  const { logout } = useAuth()
 
   const enabledStreamingServices = config?.streaming_services?.filter((service) => service.enabled) || []
 
@@ -64,6 +66,11 @@ export function NavigationMenu({
   }
   const handleNavigate = (path: '/' | '/downloads' | '/status' | '/settings') => {
     router.push(path)
+    setMenuOpen(false)
+  }
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
     setMenuOpen(false)
   }
 
@@ -218,6 +225,21 @@ export function NavigationMenu({
                 )
               })
             )}
+          </div>
+
+          <div className="border-t border-slate-700/40 pt-2 mt-2">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full px-3 py-2 rounded inline-flex items-center gap-2 text-left bg-rose-900/30 hover:bg-rose-800/40 text-rose-200"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="M16 17l5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
+              <span>Log Out</span>
+            </button>
           </div>
           </div>
         )}
