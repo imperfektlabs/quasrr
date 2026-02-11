@@ -70,6 +70,8 @@ function HomeContent() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
+  const searchPanelRef = useRef<HTMLDivElement | null>(null)
+  const topSearchAnchorRef = useRef<HTMLDivElement | null>(null)
   const [aiTranslation, setAiTranslation] = useState<string | null>(null)
   const [showAiAvailability, setShowAiAvailability] = useState(false)
   const [aiModalSearchBusy, setAiModalSearchBusy] = useState(false)
@@ -79,6 +81,25 @@ function HomeContent() {
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [trendingItemsByType, setTrendingItemsByType] = useState<Record<'all' | 'movie' | 'tv', DiscoveryResult[]>>({
+    all: [],
+    movie: [],
+    tv: [],
+  })
+  const [trendingLoading, setTrendingLoading] = useState(false)
+  const [trendingErrorByType, setTrendingErrorByType] = useState<Record<'all' | 'movie' | 'tv', string | null>>({
+    all: null,
+    movie: null,
+    tv: null,
+  })
+  const [trendingSourceByType, setTrendingSourceByType] = useState<Record<'all' | 'movie' | 'tv', 'justwatch' | 'tmdb' | null>>({
+    all: null,
+    movie: null,
+    tv: null,
+  })
+  const [trendingFilter, setTrendingFilter] = useState<'all' | 'movie' | 'tv'>('all')
+  const [topSearchViewportTop, setTopSearchViewportTop] = useState(64)
+  const [searchPanelHeight, setSearchPanelHeight] = useState(0)
 
   // Discovery search (query, filters, results, pagination)
   const {
@@ -160,6 +181,149 @@ function HomeContent() {
     return () => controller.abort()
   }, [])
 
+  useEffect(() => {
+    if (!config) return
+    let cancelled = false
+    const controller = new AbortController()
+
+    const loadTrending = async () => {
+      setTrendingLoading(true)
+      setTrendingErrorByType({ all: null, movie: null, tv: null })
+      setTrendingSourceByType({ all: null, movie: null, tv: null })
+      try {
+        const backendUrl = getBackendUrl()
+        const trendingLimit = 24
+
+        const mapJustWatch = (items: Array<Record<string, unknown>>) => (
+          (items ?? [])
+            .map((item) => {
+              const title = String(item.title || '').trim()
+              if (!title) return null
+              const typeRaw = String(item.media_type || '')
+              const type: 'movie' | 'tv' = typeRaw === 'tv' ? 'tv' : 'movie'
+              const yearRaw = item.year
+              const year = Number.isFinite(yearRaw as number) ? Number(yearRaw) : undefined
+              const objectIdRaw = Number(item.object_id)
+              return {
+                type,
+                title,
+                year,
+                overview: String(item.overview || ''),
+                poster: String(item.poster_url || item.backdrop_url || '') || undefined,
+                status: 'not_in_library',
+                tmdb_id: type === 'movie' && Number.isFinite(objectIdRaw) ? objectIdRaw : undefined,
+              } as DiscoveryResult
+            })
+            .filter((item: DiscoveryResult | null): item is DiscoveryResult => Boolean(item))
+        )
+
+        const mapTmdb = (items: Array<Record<string, unknown>>, requestedType: 'all' | 'movie' | 'tv') => (
+          (items ?? [])
+            .slice(0, trendingLimit)
+            .map((item) => {
+              const title = String(item.title || item.name || '').trim()
+              if (!title) return null
+              const typeRaw = String(item.media_type || '')
+              const type: 'movie' | 'tv' =
+                requestedType === 'all'
+                  ? (typeRaw === 'tv' ? 'tv' : 'movie')
+                  : requestedType
+              const dateRaw = String(item.release_date || item.first_air_date || '')
+              const year = /^\d{4}/.test(dateRaw) ? Number(dateRaw.slice(0, 4)) : undefined
+              const posterPath = String(item.poster_path || '')
+              const tmdbId = Number(item.id)
+              return {
+                type,
+                title,
+                year,
+                overview: String(item.overview || ''),
+                poster: posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : undefined,
+                status: 'not_in_library',
+                tmdb_id: Number.isFinite(tmdbId) ? tmdbId : undefined,
+              } as DiscoveryResult
+            })
+            .filter((item: DiscoveryResult | null): item is DiscoveryResult => Boolean(item))
+        )
+
+        const loadForType = async (mediaType: 'all' | 'movie' | 'tv') => {
+          let source: 'justwatch' | 'tmdb' | null = null
+          let error: string | null = null
+          let mapped: DiscoveryResult[] = []
+
+          try {
+            const justWatchRes = await fetch(`${backendUrl}/justwatch/popular?media_type=${mediaType}&limit=${trendingLimit}`, {
+              signal: controller.signal,
+            })
+            if (justWatchRes.ok) {
+              const data = await justWatchRes.json()
+              mapped = mapJustWatch(data.results ?? [])
+              if (mapped.length > 0) source = 'justwatch'
+            }
+          } catch {
+            // Fall back to TMDB below.
+          }
+
+          if (mapped.length === 0) {
+            const tmdbRes = await fetch(`${backendUrl}/tmdb/trending?media_type=${mediaType}&time_window=week`, {
+              signal: controller.signal,
+            })
+            if (tmdbRes.status === 503) {
+              return { mediaType, source, error: 'Trending feed unavailable (TMDB not configured).', items: [] as DiscoveryResult[] }
+            }
+            if (!tmdbRes.ok) {
+              const errorData = await tmdbRes.json().catch(() => ({}))
+              error = errorData.detail || 'Unable to load trending titles'
+            } else {
+              const data = await tmdbRes.json()
+              mapped = mapTmdb(data.results ?? [], mediaType)
+              if (mapped.length > 0) source = 'tmdb'
+            }
+          }
+
+          return { mediaType, source, error, items: mapped }
+        }
+
+        const results = await Promise.all([
+          loadForType('all'),
+          loadForType('movie'),
+          loadForType('tv'),
+        ])
+
+        if (!cancelled) {
+          setTrendingItemsByType({
+            all: results.find((r) => r.mediaType === 'all')?.items ?? [],
+            movie: results.find((r) => r.mediaType === 'movie')?.items ?? [],
+            tv: results.find((r) => r.mediaType === 'tv')?.items ?? [],
+          })
+          setTrendingSourceByType({
+            all: results.find((r) => r.mediaType === 'all')?.source ?? null,
+            movie: results.find((r) => r.mediaType === 'movie')?.source ?? null,
+            tv: results.find((r) => r.mediaType === 'tv')?.source ?? null,
+          })
+          setTrendingErrorByType({
+            all: results.find((r) => r.mediaType === 'all')?.error ?? null,
+            movie: results.find((r) => r.mediaType === 'movie')?.error ?? null,
+            tv: results.find((r) => r.mediaType === 'tv')?.error ?? null,
+          })
+        }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : 'Unable to load trending titles'
+          setTrendingErrorByType({ all: message, movie: message, tv: message })
+        }
+      } finally {
+        if (!cancelled) setTrendingLoading(false)
+      }
+    }
+
+    void loadTrending()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [config])
+
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
@@ -223,8 +387,13 @@ function HomeContent() {
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
   const discoverySearchStickyClass = discoverySearchAtBottom
-    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 md:px-8'
-    : 'sticky top-16'
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
+    : 'fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
+  const discoverySearchStickyStyle = discoverySearchAtBottom
+    ? undefined
+    : { top: `${topSearchViewportTop}px` }
+  const searchContentVisible = Boolean(searching || searchError || searchResults)
+  const showTrending = !searchResults
 
 
   const handleHome = () => {
@@ -234,6 +403,40 @@ function HomeContent() {
     clearAiIntent()
     window.location.href = '/' // Force full reset via navigation
   }
+
+  useEffect(() => {
+    if (discoverySearchAtBottom) return
+
+    const updateTop = () => {
+      const anchor = topSearchAnchorRef.current
+      if (!anchor) return
+      const minTop = 64
+      const nextTop = Math.max(minTop, Math.round(anchor.getBoundingClientRect().top))
+      setTopSearchViewportTop((prev) => (prev === nextTop ? prev : nextTop))
+    }
+
+    updateTop()
+    window.addEventListener('scroll', updateTop, { passive: true })
+    window.addEventListener('resize', updateTop)
+
+    return () => {
+      window.removeEventListener('scroll', updateTop)
+      window.removeEventListener('resize', updateTop)
+    }
+  }, [discoverySearchAtBottom, dashboardLoading, dashboardError, searchContentVisible])
+
+  useEffect(() => {
+    const measure = () => {
+      const node = searchPanelRef.current
+      if (!node) return
+      const next = Math.ceil(node.getBoundingClientRect().height)
+      setSearchPanelHeight((prev) => (prev === next ? prev : next))
+    }
+
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [discoverySearchAtBottom, searchContentVisible, searchQuery, searching, submittingSearch, aiIntentBusy, sortField, sortDirection, filterType, aiTranslation])
 
   const handleFindReleases = async (
     result: DiscoveryResult,
@@ -496,6 +699,208 @@ function HomeContent() {
     </svg>
   )
 
+  const filteredTrendingItems = useMemo(() => {
+    return trendingItemsByType[trendingFilter] ?? []
+  }, [trendingFilter, trendingItemsByType])
+  const activeTrendingSource = trendingSourceByType[trendingFilter]
+  const activeTrendingError = trendingErrorByType[trendingFilter]
+
+  const resolveTrendingResult = async (seed: DiscoveryResult): Promise<DiscoveryResult> => {
+    try {
+      const backendUrl = getBackendUrl()
+      const res = await fetch(`${backendUrl}/lookup?type=${seed.type}&query=${encodeURIComponent(seed.title)}`)
+      if (!res.ok) return seed
+      const data = await res.json()
+      const results = Array.isArray(data.results) ? (data.results as DiscoveryResult[]) : []
+      if (!results.length) return seed
+
+      const normalizedTitle = seed.title.trim().toLowerCase()
+      const bestMatch = results.find((item) => {
+        const titleMatches = item.title.trim().toLowerCase() === normalizedTitle
+        if (!titleMatches) return false
+        if (seed.year && item.year) return seed.year === item.year
+        return true
+      }) || results[0]
+
+      return {
+        ...seed,
+        ...bestMatch,
+        type: seed.type,
+        status: bestMatch.status ?? seed.status ?? 'not_in_library',
+      }
+    } catch {
+      return seed
+    }
+  }
+
+  const handleTrendingOpenDetail = async (seed: DiscoveryResult) => {
+    const resolved = await resolveTrendingResult(seed)
+    setSelectedResult(resolved)
+  }
+
+  const handleTrendingFindReleases = async (seed: DiscoveryResult, season?: number) => {
+    const resolved = await resolveTrendingResult(seed)
+    await handleFindReleases(resolved, season)
+  }
+
+  const trendingSourceLogo = (() => {
+    const normalized = (activeTrendingSource ?? '').trim().toLowerCase()
+    if (normalized.includes('justwatch')) return '/logos/ratings/justwatch.svg'
+    if (normalized.includes('tvdb')) return '/logos/ratings/tvdb.svg'
+    return null
+  })()
+
+  const trendingSection = (
+    <section id="discover-trending" className="mb-4">
+      <div className="glass-panel rounded-lg p-3 md:p-4 border border-slate-700/40 min-h-[clamp(16rem,48vh,32rem)]">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-200">Trending Now</h2>
+              {activeTrendingSource && (
+                <span className="inline-flex items-center rounded bg-slate-800/70 px-1.5 py-0.5">
+                  {trendingSourceLogo ? (
+                    <img
+                      src={trendingSourceLogo}
+                      alt={activeTrendingSource}
+                      className="h-3.5 w-auto"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="text-[10px] uppercase tracking-wide text-slate-300">{activeTrendingSource}</span>
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setTrendingFilter('all')}
+                className={`px-2 py-1 rounded text-xs ${trendingFilter === 'all' ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrendingFilter('movie')}
+                className={`px-2 py-1 rounded text-xs ${trendingFilter === 'movie' ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                Movies
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrendingFilter('tv')}
+                className={`px-2 py-1 rounded text-xs ${trendingFilter === 'tv' ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                Series
+              </button>
+            </div>
+            <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  await saveSettings({ view_mode: 'grid' })
+                }}
+                className={`px-2 py-1 rounded transition ${
+                  isGridView ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Grid view"
+                aria-label="Grid view"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await saveSettings({ view_mode: 'list' })
+                }}
+                className={`px-2 py-1 rounded transition ${
+                  isListView ? 'bg-cyan-500/80 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="List view"
+                aria-label="List view"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {trendingLoading && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+            {Array.from({ length: 10 }).map((_, idx) => (
+              <div key={`trending-skel-${idx}`} className="h-[300px] rounded-xl bg-slate-800/60 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {!trendingLoading && activeTrendingError && (
+          <div className="text-sm text-amber-300">{activeTrendingError}</div>
+        )}
+
+        {!trendingLoading && !activeTrendingError && filteredTrendingItems.length === 0 && (
+          <div className="text-sm text-slate-500">No trending titles for the current filter.</div>
+        )}
+
+        {!trendingLoading && filteredTrendingItems.length > 0 && (
+          <>
+            {isGridView && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+                {filteredTrendingItems.map((result, index) => (
+                  <div
+                    key={`trend-grid-${result.type}-${result.tmdb_id ?? result.tvdb_id ?? result.title}-${index}`}
+                    className="opacity-0 animate-fade-in"
+                    style={{ animationDelay: `${index * 20}ms`, animationFillMode: 'forwards' }}
+                  >
+                    <MediaCardGrid
+                      item={{ source: 'discovery', data: result }}
+                      onClick={() => { void handleTrendingOpenDetail(result) }}
+                      onShowReleases={(item, season) => { void handleTrendingFindReleases(item, season) }}
+                      discoverySearchBusy={
+                        activeDiscoverySearchKey === (
+                          result.type === 'movie'
+                            ? `movie:${result.tmdb_id ?? result.title}`
+                            : `tv:${result.tvdb_id ?? result.title}`
+                        )
+                      }
+                      onTypeToggle={handleTypeToggle}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            {isListView && (
+              <div className="grid gap-2">
+                {filteredTrendingItems.map((result, index) => (
+                  <MediaCardList
+                    key={`trend-list-${result.type}-${result.tmdb_id ?? result.tvdb_id ?? result.title}-${index}`}
+                    item={{ source: 'discovery', data: result }}
+                    onClick={() => { void handleTrendingOpenDetail(result) }}
+                    onShowReleases={(item, season) => { void handleTrendingFindReleases(item, season) }}
+                    discoverySearchBusy={
+                      activeDiscoverySearchKey === (
+                        result.type === 'movie'
+                          ? `movie:${result.tmdb_id ?? result.title}`
+                          : `tv:${result.tvdb_id ?? result.title}`
+                      )
+                    }
+                    onTypeToggle={handleTypeToggle}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  )
+
   return (
     <main className="min-h-screen pt-16 px-4 pb-4 md:px-8 md:pb-8">
       <NavigationMenu
@@ -671,11 +1076,12 @@ function HomeContent() {
         )}
 
         {/* Search Section */}
-        <section id="search" className={`scroll-mt-24 ${discoverySearchAtBottom ? 'pb-28' : ''}`}>
-          {(() => {
-            const searchPanel = (
+        {(() => {
+          const searchPanel = (
               <SearchPanel
+                panelRef={searchPanelRef}
                 stickyClass={discoverySearchStickyClass}
+                stickyStyle={discoverySearchStickyStyle}
                 headerTitle={searchResults?.query ? `Results for "${searchResults.query}"` : 'Search'}
                 headerRightInline={searchResults && searchResults.results.length > 0 ? (
                   <div className="flex gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
@@ -891,33 +1297,8 @@ function HomeContent() {
               </SearchPanel>
             )
 
-            const searchContent = (
-              <>
-          {!searchResults && !searching && !searchError && (
-            <div className="glass-panel rounded-lg p-5 md:p-6 mb-4 relative overflow-hidden">
-              <div className="absolute inset-0">
-                <div className="absolute -top-8 -right-12 h-40 w-40 rounded-full bg-cyan-900/30 blur-2xl" />
-                <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-fuchsia-900/30 blur-2xl" />
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-950/40 via-transparent to-slate-900/40" />
-              </div>
-              <div className="relative">
-                <div className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                  Quasrr
-                </div>
-                <h2 className="mt-2 text-lg md:text-xl font-semibold text-slate-100">
-                  Search once. See what you already have. Grab what you do not.
-                </h2>
-                <p className="mt-2 text-sm text-slate-400 max-w-2xl">
-                  Try a title, an IMDB ID, or a quick quote like "s01e03 of The Night Manager".
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
-                  <span className="glass-chip px-2 py-1 rounded">imdb:tt0933346</span>
-                  <span className="glass-chip px-2 py-1 rounded">tvdb:289127</span>
-                  <span className="glass-chip px-2 py-1 rounded">The Night Manager s01e02</span>
-                </div>
-              </div>
-            </div>
-          )}
+          const searchContent = (
+            <>
           {searchError && (
             <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-4">
               <p className="text-red-300">{searchError}</p>
@@ -1008,22 +1389,42 @@ function HomeContent() {
 
             </div>
           )}
-              </>
-            )
+            </>
+          )
 
-            return discoverySearchAtBottom ? (
+          if (discoverySearchAtBottom) {
+            return (
               <>
-                {searchContent}
+                {searchContentVisible ? (
+                  <section id="search" className="scroll-mt-24">
+                    {searchContent}
+                  </section>
+                ) : null}
                 {searchPanel}
-              </>
-            ) : (
-              <>
-                {searchPanel}
-                {searchContent}
               </>
             )
-          })()}
-        </section>
+          }
+
+          return (
+            <>
+              <div ref={topSearchAnchorRef} className="h-0" />
+              {searchPanel}
+              {searchContentVisible ? (
+                <section id="search" className="scroll-mt-24" style={{ paddingTop: searchPanelHeight > 0 ? `${searchPanelHeight}px` : undefined }}>
+                  {searchContent}
+                </section>
+              ) : null}
+            </>
+          )
+        })()}
+
+        {!discoverySearchAtBottom && !searchContentVisible && searchPanelHeight > 0 ? (
+          <div aria-hidden="true" style={{ height: `${searchPanelHeight}px` }} />
+        ) : null}
+
+        {!discoverySearchAtBottom && showTrending && trendingSection}
+
+        {discoverySearchAtBottom && showTrending && trendingSection}
 
       </div>
 
@@ -1082,6 +1483,7 @@ function HomeContent() {
           }}
         />
       )}
+
     </main>
   )
 }

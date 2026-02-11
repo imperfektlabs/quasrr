@@ -138,8 +138,8 @@ class DashboardConfig(BaseModel):
 
 
 class LayoutConfig(BaseModel):
-    discovery_search_position: str = "top"
-    library_search_position: str = "top"
+    discovery_search_position: str = "bottom"
+    library_search_position: str = "bottom"
     view_mode: str = "grid"
 
 

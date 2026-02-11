@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode, RefObject } from 'react'
 
 type SearchPanelToggle = {
   onClick: () => void
@@ -11,6 +11,8 @@ type SearchPanelToggle = {
 
 type SearchPanelProps = {
   stickyClass: string
+  stickyStyle?: CSSProperties
+  panelRef?: RefObject<HTMLDivElement>
   headerTitle: ReactNode
   headerCount?: ReactNode
   headerRight?: ReactNode
@@ -21,6 +23,8 @@ type SearchPanelProps = {
 
 export function SearchPanel({
   stickyClass,
+  stickyStyle,
+  panelRef,
   headerTitle,
   headerCount,
   headerRight,
@@ -29,7 +33,7 @@ export function SearchPanel({
   toggle,
 }: SearchPanelProps) {
   return (
-    <div className={`${stickyClass} z-20`}>
+    <div ref={panelRef} className={`${stickyClass} z-20`} style={stickyStyle}>
       <div className="glass-panel rounded-lg p-3 mb-4 relative">
         <div className="space-y-2 text-xs text-slate-300">
           <div className="flex items-center justify-between gap-2">
