@@ -86,8 +86,8 @@ dashboard:
 
 # --- Layout ---
 layout:
-  discovery_search_position: top
-  library_search_position: top
+  discovery_search_position: bottom
+  library_search_position: bottom
 
 # --- SABnzbd ---
 sabnzbd:

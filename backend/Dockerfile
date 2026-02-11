@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 RUN apt-get update -o Acquire::ForceIPv4=true \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl ripgrep \
  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
