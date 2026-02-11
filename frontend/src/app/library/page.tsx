@@ -64,9 +64,9 @@ function LibraryContent() {
   const [autoSearch, setAutoSearch] = useState(false)
   const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const librarySearchAtBottom = (config?.layout?.library_search_position ?? 'top') === 'bottom'
+  const librarySearchAtBottom = (config?.layout?.library_search_position ?? 'bottom') === 'bottom'
   const librarySearchStickyClass = librarySearchAtBottom
-    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 md:px-8'
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
     : 'sticky top-16'
 
   useEffect(() => {

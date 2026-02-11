@@ -650,10 +650,10 @@ export function NavigationMenu({
           <button
             type="button"
             onClick={handleHomeClick}
-            className="text-lg md:text-xl font-semibold tracking-wide hover:text-cyan-300 transition-colors"
+            className="text-xl font-medium uppercase tracking-[0.3em] text-slate-400 hover:text-cyan-300 transition-colors"
             title="Go home"
           >
-            Quasrr
+            QUASRR
           </button>
         </div>
 
