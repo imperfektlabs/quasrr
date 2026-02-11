@@ -212,7 +212,8 @@ quasrr/
 │   └── sessions/
 │
 ├── .env                          # Environment variables (gitignored)
-├── compose.yml                   # Docker Compose orchestration
+├── compose.yml                   # Local/custom Docker Compose orchestration
+├── compose.example.yml           # Public Docker Compose template
 ├── .gitignore
 └── README.md
 ```
@@ -365,7 +366,7 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
    ```bash
    mkdir -p data config logs
    docker network create net-media 2>/dev/null || true
-   docker compose up -d
+   docker compose -f compose.example.yml up -d
    ```
 
 5. **Access the application**
