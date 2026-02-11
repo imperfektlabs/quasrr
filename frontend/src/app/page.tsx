@@ -833,7 +833,7 @@ function HomeContent() {
         </div>
 
         {trendingLoading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
             {Array.from({ length: 10 }).map((_, idx) => (
               <div key={`trending-skel-${idx}`} className="h-[300px] rounded-xl bg-slate-800/60 animate-pulse" />
             ))}
@@ -851,7 +851,7 @@ function HomeContent() {
         {!trendingLoading && filteredTrendingItems.length > 0 && (
           <>
             {isGridView && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+              <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
                 {filteredTrendingItems.map((result, index) => (
                   <div
                     key={`trend-grid-${result.type}-${result.tmdb_id ?? result.tvdb_id ?? result.title}-${index}`}
@@ -1340,7 +1340,7 @@ function HomeContent() {
               ) : (
                 <>
                   {isGridView && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
                       {searchResults.results.map((result, index) => (
                         <div
                           key={result.tmdb_id || result.tvdb_id || index}
