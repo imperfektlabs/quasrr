@@ -57,6 +57,7 @@ Quasrr is built around these core principles:
 - Country-aware provider detection (TMDB)
 - Local SVG logos and subscription highlighting
 - Per-title availability in AI, discovery, and library modals
+- Trending source support via JustWatch popular feed (with TMDB fallback)
 
 ✅ **Manual Download Workflow**
 - Release search via Sonarr/Radarr indexers
@@ -78,10 +79,12 @@ Quasrr is built around these core principles:
 - Deep links to Library with season auto-expand
 
 ✅ **System + Settings**
+- Single-user auth with login + session token validation
 - Integration health monitoring (Sonarr, Radarr, SABnzbd)
 - Settings UI for streaming services, country, AI provider/model
 - Dashboard card toggles and layout options
 - SAB recent group limit setting
+- Quick settings menu with nested hover/click actions
 
 ✅ **UI/UX**
 - Nebula-inspired theme with glass panels
@@ -123,6 +126,7 @@ Quasrr uses a containerized frontend + backend architecture:
 ### Data Flow
 
 1. **Discovery**: User searches -> AI parses intent -> Backend searches Sonarr/Radarr + TMDB availability
+   Trending feed uses JustWatch popular data with TMDB fallback when needed.
 2. **Releases**: User selects title -> Backend triggers indexer search -> Results grouped by episode/quality
 3. **Download**: User grabs a release -> Sonarr/Radarr triggers SABnzbd
 4. **Monitoring**: Frontend polls SABnzbd queue/history -> Deep links into Library
@@ -253,6 +257,12 @@ USER_COUNTRY=CA
 USER_LANGUAGE=en
 LOG_LEVEL=INFO
 
+# Auth (required for persistent sessions)
+AUTH_SECRET=replace_with_long_random_secret
+AUTH_DEFAULT_USERNAME=admin
+AUTH_DEFAULT_PASSWORD=change_me
+AUTH_TOKEN_TTL_SECONDS=86400
+
 # --- Dynamic AI Provider Pattern ---
 # Any provider can be added with:
 # <PROVIDER>_API_KEY=...
@@ -270,25 +280,6 @@ LOG_LEVEL=INFO
 # LOCAL_ENDPOINT_URL=http://your-local-llm:11434/v1
 # LOCAL_API_KEY=optional
 ```
-
-### AI Prompt + Provider Metadata (`ai_prompts.yaml`)
-
-- Prompts are externalized in [`ai_prompts.yaml`](quasrr/ai_prompts.yaml).
-- Non-secret provider defaults (model/base URL/notes) are defined there.
-- API keys remain in `.env`.
-
-Resolution order:
-
-1. `.env` (highest)
-2. [`ai_prompts.yaml`](quasrr/ai_prompts.yaml)
-3. code defaults
-
-Provider differences:
-
-- **OpenAI-compatible providers** (OpenAI, Grok, Perplexity, OpenRouter, DeepSeek, Local-compatible endpoints): use `/chat/completions` style API.
-- **OpenRouter**: OpenAI-compatible transport, but model IDs must be OpenRouter namespace/model identifiers.
-- **Local**: requires `LOCAL_ENDPOINT_URL`; `LOCAL_API_KEY` is optional depending on local server auth.
-- **Anthropic/Gemini**: native APIs (not OpenAI-compatible), handled separately in backend integration.
 
 ### User Settings (config/settings.yaml)
 
@@ -323,8 +314,9 @@ dashboard:
 
 # Layout settings
 layout:
-  discovery_search_position: top
-  library_search_position: top
+  discovery_search_position: bottom
+  library_search_position: bottom
+  view_mode: grid
 
 # SABnzbd settings
 sabnzbd:
@@ -359,7 +351,6 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 2. **Configure environment**
    ```bash
-   cp .env.example .env
    # Edit .env with your API keys and service URLs
    ```
 
@@ -377,7 +368,7 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 5. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs    ---- TBD
+   - API Docs: http://localhost:8000/docs
 
 
 ### Health Checks
@@ -427,7 +418,7 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 ### Known Technical Debt
 
-1. **No authentication**: Relies on network isolation
+1. **Single-user auth only**: No RBAC or multi-user support yet
 2. **No automated tests**: Manual testing only
 3. **No state management library**: Uses React state and hooks
 
@@ -435,8 +426,12 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 ### API Endpoints (Selected)
 
 - `GET /health` - Health check
+- `POST /api/auth/login` - Authenticate and create session token
+- `PUT /api/auth/credentials` - Rotate username/password (authenticated)
 - `GET /config` - Get configuration (secrets redacted)
 - `GET /search` - Stage 1: Discover titles
+- `GET /justwatch/popular` - Trending source data (country/media_type aware)
+- `GET /tmdb/trending` - TMDB trending fallback feed
 - `GET /releases` - Stage 2: Get indexer releases
 - `POST /releases/grab` - Download a single release
 - `POST /releases/grab-all` - Download multiple releases
@@ -499,6 +494,8 @@ AI suggestions use these preferences to rank releases. (if enabled)
 - [x] Unified Library for movies and TV
 - [x] Per-episode release expansion
 - [x] Dashboard cards with tool shortcuts
+- [x] Single-user authentication and session-gated API routes
+- [x] Home trending carousel with filter chips and source fallback
 
 ### Planned
 
@@ -507,7 +504,6 @@ AI suggestions use these preferences to rank releases. (if enabled)
 - [ ] Release matching improvements for daily shows (date-first fallback)
 
 **Long-term:**
-- [ ] Authentication (possibly piggyback on Sonarr/Radarr auth)
 - [ ] Custom quality profiles per user
 - [ ] Watchlist functionality
 - [ ] Download scheduling
@@ -520,7 +516,7 @@ AI suggestions use these preferences to rank releases. (if enabled)
 ### Non-Goals
 - Media playback (use Plex/Jellyfin)
 - Cloud deployment (self-hosted only)
-- Complex authentication (network-level security preferred)
+- Full multi-tenant account management
 
 ---
 
