@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import httpx
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -255,6 +256,124 @@ def normalize_id_query(query: str) -> tuple[str, str | None]:
     return query, None
 
 
+def _build_justwatch_image_url(template: Optional[str], profile: str) -> Optional[str]:
+    if not template:
+        return None
+    path = str(template).strip()
+    if not path:
+        return None
+    if path.startswith("//"):
+        path = f"https:{path}"
+    elif path.startswith("/"):
+        path = f"https://images.justwatch.com{path}"
+    path = path.replace("{profile}", profile).replace("{format}", "webp")
+    return path
+
+
+def _extract_justwatch_apollo_state(page_html: str) -> dict:
+    match = re.search(r"window\.__APOLLO_STATE__=(\{.*?\})</script>", page_html, flags=re.DOTALL)
+    if not match:
+        raise ValueError("JustWatch Apollo state not found in page payload")
+    state = json.loads(match.group(1))
+    # JustWatch wraps cache entries under defaultClient in current payloads.
+    if isinstance(state, dict) and isinstance(state.get("defaultClient"), dict):
+        return state["defaultClient"]
+    if isinstance(state, dict):
+        return state
+    raise ValueError("Unexpected Apollo state shape")
+
+
+def _resolve_apollo_ref(apollo_state: dict, value):
+    if not isinstance(value, dict):
+        return value
+    ref_id = value.get("id")
+    if isinstance(ref_id, str):
+        resolved = apollo_state.get(ref_id)
+        if resolved is not None:
+            return resolved
+    return value
+
+
+def _parse_justwatch_popular_titles(apollo_state: dict, media_type: str, limit: int) -> list[dict]:
+    root_entry = None
+    for key, value in apollo_state.items():
+        if key.startswith("$ROOT_QUERY.popularTitles("):
+            root_entry = value
+            break
+
+    if not isinstance(root_entry, dict):
+        return []
+
+    results: list[dict] = []
+    edges = root_entry.get("edges") or []
+    for edge in edges:
+        if len(results) >= limit:
+            break
+        edge_value = _resolve_apollo_ref(apollo_state, edge)
+        if not isinstance(edge_value, dict):
+            continue
+        node_ref = edge_value.get("node")
+        if not isinstance(node_ref, dict):
+            continue
+        node = _resolve_apollo_ref(apollo_state, node_ref)
+        if not isinstance(node, dict):
+            continue
+
+        object_type = str(node.get("objectType") or "").upper()
+        if object_type == "MOVIE":
+            normalized_type = "movie"
+        elif object_type == "SHOW":
+            normalized_type = "tv"
+        else:
+            continue
+
+        if media_type != "all" and normalized_type != media_type:
+            continue
+
+        content_ref = None
+        for key, value in node.items():
+            if key.startswith("content(") and isinstance(value, dict):
+                content_ref = value
+                break
+        if not isinstance(content_ref, dict):
+            continue
+
+        content = _resolve_apollo_ref(apollo_state, content_ref)
+        if not isinstance(content, dict):
+            continue
+
+        title = str(content.get("title") or "").strip()
+        if not title:
+            continue
+
+        full_path = str(content.get("fullPath") or "").strip()
+        justwatch_url = f"https://www.justwatch.com{full_path}" if full_path.startswith("/") else None
+        overview = str(content.get("shortDescription") or "").strip()
+        release_year = content.get("originalReleaseYear")
+        year = release_year if isinstance(release_year, int) else None
+
+        backdrop_url = None
+        backdrops_ref = content.get("backdrops({})")
+        if isinstance(backdrops_ref, list) and backdrops_ref:
+            first_backdrop_ref = _resolve_apollo_ref(apollo_state, backdrops_ref[0])
+            if isinstance(first_backdrop_ref, dict):
+                backdrop_url = _build_justwatch_image_url(first_backdrop_ref.get("backdropUrl"), "s1440")
+
+        results.append({
+            "id": str(node.get("id") or title),
+            "object_id": node.get("objectId"),
+            "title": title,
+            "media_type": normalized_type,
+            "year": year,
+            "overview": overview,
+            "poster_url": _build_justwatch_image_url(content.get("posterUrl({})"), "s592"),
+            "backdrop_url": backdrop_url,
+            "link": justwatch_url,
+        })
+
+    return results
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Quasrr backend")
@@ -474,6 +593,46 @@ async def get_tmdb_popular(
 
     results = await tmdb.get_popular(media_type)
     return {"results": results}
+
+
+@protected_get("/justwatch/popular")
+async def get_justwatch_popular(
+    country: Optional[str] = Query(default=None, description="Two-letter country code (e.g., ca, us)"),
+    media_type: str = Query("all", description="Media type: all, movie, or tv"),
+    limit: int = Query(20, ge=1, le=40, description="Maximum titles to return"),
+):
+    """Get popular titles from JustWatch page payload."""
+    normalized_type = media_type.strip().lower()
+    if normalized_type not in {"all", "movie", "tv"}:
+        raise HTTPException(status_code=400, detail="media_type must be one of: all, movie, tv")
+
+    config = get_config()
+    country_code = (country or config.user.country or "us").strip().lower()
+    if not country_code:
+        country_code = "us"
+
+    target_url = f"https://www.justwatch.com/{country_code}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            response = await client.get(target_url, headers=headers)
+            response.raise_for_status()
+            apollo_state = _extract_justwatch_apollo_state(response.text)
+        results = _parse_justwatch_popular_titles(apollo_state, normalized_type, limit)
+    except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
+        logger.warning("JustWatch popular fetch failed for %s: %s", target_url, exc)
+        raise HTTPException(status_code=502, detail="Unable to load JustWatch popular titles") from exc
+
+    return {
+        "source": "justwatch",
+        "country": country_code.upper(),
+        "count": len(results),
+        "results": results,
+    }
 
 
 @protected_get("/integrations/status")
