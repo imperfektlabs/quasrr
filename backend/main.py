@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from enum import Enum
 from typing import Optional, Literal
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,13 @@ from integrations.radarr import get_radarr_client
 from integrations.sonarr import get_sonarr_client
 from integrations.sabnzbd import get_sabnzbd_client, SabnzbdError
 from integrations.plex import get_plex_client
+from auth import (
+    init_auth_storage,
+    authenticate_user,
+    update_user_credentials,
+    create_access_token,
+    verify_token,
+)
 
 # Configure logging
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -120,6 +127,18 @@ class EnsureLibraryRequest(BaseModel):
     tmdb_id: Optional[int] = None
     tvdb_id: Optional[int] = None
     title: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class CredentialsUpdateRequest(BaseModel):
+    current_username: str
+    current_password: str
+    new_username: str
+    new_password: str
 
 
 async def _get_tmdb_availability(media_type: str, title: str, config) -> dict:
@@ -240,6 +259,7 @@ def normalize_id_query(query: str) -> tuple[str, str | None]:
 async def lifespan(app: FastAPI):
     logger.info("Starting Quasrr backend")
     logger.info(f"Database path: {DATABASE_PATH}")
+    init_auth_storage(DATABASE_PATH)
 
     # Load configuration on startup
     config = get_config()
@@ -288,12 +308,67 @@ app.add_middleware(
 )
 
 
+def protected_get(path: str, **kwargs):
+    return app.get(path, dependencies=[Depends(verify_token)], **kwargs)
+
+
+def protected_post(path: str, **kwargs):
+    return app.post(path, dependencies=[Depends(verify_token)], **kwargs)
+
+
+def protected_put(path: str, **kwargs):
+    return app.put(path, dependencies=[Depends(verify_token)], **kwargs)
+
+
+def protected_delete(path: str, **kwargs):
+    return app.delete(path, dependencies=[Depends(verify_token)], **kwargs)
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
 
-@app.post("/log")
+@app.post("/api/auth/login")
+async def auth_login(payload: LoginRequest):
+    username = (payload.username or "").strip()
+    password = payload.password or ""
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password are required")
+
+    if not authenticate_user(DATABASE_PATH, username, password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    return create_access_token(username)
+
+
+@app.put("/api/auth/credentials", dependencies=[Depends(verify_token)])
+async def auth_update_credentials(payload: CredentialsUpdateRequest):
+    current_username = (payload.current_username or "").strip()
+    current_password = payload.current_password or ""
+    new_username = (payload.new_username or "").strip()
+    new_password = payload.new_password or ""
+
+    if not current_username or not current_password or not new_username or not new_password:
+        raise HTTPException(status_code=400, detail="All credential fields are required")
+
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+
+    success = update_user_credentials(
+        DATABASE_PATH,
+        current_username=current_username,
+        current_password=current_password,
+        new_username=new_username,
+        new_password=new_password,
+    )
+    if not success:
+        raise HTTPException(status_code=401, detail="Current credentials are invalid")
+
+    return {"status": "updated"}
+
+
+@protected_post("/log")
 async def log_message(request: LogRequest):
     """Log a message to the backend console."""
     level_map = {
@@ -307,14 +382,14 @@ async def log_message(request: LogRequest):
     return {"status": "logged"}
 
 
-@app.get("/config")
+@protected_get("/config")
 async def get_configuration():
     """Return current configuration with secrets redacted."""
     config = get_config()
     return redact_secrets(config)
 
 
-@app.post("/config/reload")
+@protected_post("/config/reload")
 async def reload_configuration():
     """Reload configuration from files."""
     config = reload_config()
@@ -322,7 +397,7 @@ async def reload_configuration():
     return {"status": "reloaded", "config": redact_secrets(config)}
 
 
-@app.post("/config/streaming_services")
+@protected_post("/config/streaming_services")
 async def update_streaming_services_config(payload: StreamingServicesUpdate):
     """Update enabled streaming services in settings.yaml."""
     config = update_streaming_services(payload.enabled_ids)
@@ -330,7 +405,7 @@ async def update_streaming_services_config(payload: StreamingServicesUpdate):
     return {"status": "updated", "config": redact_secrets(config)}
 
 
-@app.post("/config/settings")
+@protected_post("/config/settings")
 async def update_basic_settings_config(payload: BasicSettingsUpdate):
     """Update non-secret settings in settings.yaml."""
     dashboard_settings = payload.dashboard.model_dump(exclude_unset=True) if payload.dashboard else None
@@ -347,7 +422,7 @@ async def update_basic_settings_config(payload: BasicSettingsUpdate):
     return {"status": "updated", "config": redact_secrets(config)}
 
 
-@app.get("/tmdb/providers")
+@protected_get("/tmdb/providers")
 async def get_tmdb_providers(
     type: SearchType = Query(SearchType.movie, description="Type: movie or tv"),
 ):
@@ -374,7 +449,7 @@ async def get_tmdb_providers(
     return {"providers": results}
 
 
-@app.get("/tmdb/trending")
+@protected_get("/tmdb/trending")
 async def get_tmdb_trending(
     media_type: str = Query("all", description="Media type: all, movie, or tv"),
     time_window: str = Query("week", description="Time window: day or week"),
@@ -388,7 +463,7 @@ async def get_tmdb_trending(
     return {"results": results}
 
 
-@app.get("/tmdb/popular")
+@protected_get("/tmdb/popular")
 async def get_tmdb_popular(
     media_type: str = Query("movie", description="Media type: movie or tv"),
 ):
@@ -401,7 +476,7 @@ async def get_tmdb_popular(
     return {"results": results}
 
 
-@app.get("/integrations/status")
+@protected_get("/integrations/status")
 async def get_integrations_status():
     """Get status of all integrations."""
     radarr = get_radarr_client()
@@ -450,7 +525,7 @@ async def get_integrations_status():
     }
 
 
-@app.get("/dashboard/summary")
+@protected_get("/dashboard/summary")
 async def get_dashboard_summary():
     """Get summary metrics for dashboard cards."""
     radarr = get_radarr_client()
@@ -507,7 +582,7 @@ async def get_dashboard_summary():
     return summary
 
 
-@app.get("/sab/queue")
+@protected_get("/sab/queue")
 async def get_sab_queue():
     """Get the current SABnzbd download queue."""
     sab = get_sabnzbd_client()
@@ -525,7 +600,7 @@ async def get_sab_queue():
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
-@app.get("/sab/recent")
+@protected_get("/sab/recent")
 async def get_sab_recent(limit: Optional[int] = Query(None, ge=1, le=20, description="Number of groups to return")):
     """Get recent SABnzbd download history, grouped."""
     sab = get_sabnzbd_client()
@@ -545,7 +620,7 @@ async def get_sab_recent(limit: Optional[int] = Query(None, ge=1, le=20, descrip
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
-@app.get("/radarr/library")
+@protected_get("/radarr/library")
 async def get_radarr_library():
     """Get Radarr library list."""
     radarr = get_radarr_client()
@@ -558,7 +633,7 @@ async def get_radarr_library():
         raise HTTPException(status_code=500, detail="Radarr request failed")
 
 
-@app.get("/sonarr/library")
+@protected_get("/sonarr/library")
 async def get_sonarr_library():
     """Get Sonarr library list."""
     sonarr = get_sonarr_client()
@@ -571,7 +646,7 @@ async def get_sonarr_library():
         raise HTTPException(status_code=500, detail="Sonarr request failed")
 
 
-@app.get("/sonarr/series/{series_id}/episodes")
+@protected_get("/sonarr/series/{series_id}/episodes")
 async def get_sonarr_series_episodes(series_id: int):
     """Get episodes for a Sonarr series."""
     sonarr = get_sonarr_client()
@@ -584,7 +659,7 @@ async def get_sonarr_series_episodes(series_id: int):
         raise HTTPException(status_code=500, detail="Sonarr request failed")
 
 
-@app.post("/sonarr/episode/{episode_id}/search")
+@protected_post("/sonarr/episode/{episode_id}/search")
 async def search_sonarr_episode(episode_id: int):
     """Trigger a Sonarr episode search."""
     sonarr = get_sonarr_client()
@@ -600,7 +675,7 @@ async def search_sonarr_episode(episode_id: int):
     return {"status": "ok"}
 
 
-@app.post("/sonarr/series/{series_id}/search")
+@protected_post("/sonarr/series/{series_id}/search")
 async def search_sonarr_series(series_id: int):
     """Trigger a Sonarr series search."""
     sonarr = get_sonarr_client()
@@ -616,7 +691,7 @@ async def search_sonarr_series(series_id: int):
     return {"status": "ok"}
 
 
-@app.post("/radarr/movie/{movie_id}/search")
+@protected_post("/radarr/movie/{movie_id}/search")
 async def search_radarr_movie(movie_id: int):
     """Trigger a Radarr movie search."""
     radarr = get_radarr_client()
@@ -632,7 +707,7 @@ async def search_radarr_movie(movie_id: int):
     return {"status": "ok"}
 
 
-@app.delete("/sonarr/series/{series_id}")
+@protected_delete("/sonarr/series/{series_id}")
 async def delete_sonarr_series(series_id: int, delete_files: bool = Query(False)):
     """Remove a series from Sonarr."""
     sonarr = get_sonarr_client()
@@ -648,7 +723,7 @@ async def delete_sonarr_series(series_id: int, delete_files: bool = Query(False)
     return {"status": "ok"}
 
 
-@app.delete("/sonarr/episodefile/{episode_file_id}")
+@protected_delete("/sonarr/episodefile/{episode_file_id}")
 async def delete_sonarr_episode_file(episode_file_id: int):
     """Remove an episode file from Sonarr."""
     sonarr = get_sonarr_client()
@@ -664,7 +739,7 @@ async def delete_sonarr_episode_file(episode_file_id: int):
     return {"status": "ok"}
 
 
-@app.delete("/radarr/movie/{movie_id}")
+@protected_delete("/radarr/movie/{movie_id}")
 async def delete_radarr_movie(movie_id: int, delete_files: bool = Query(False)):
     """Remove a movie from Radarr."""
     radarr = get_radarr_client()
@@ -680,7 +755,7 @@ async def delete_radarr_movie(movie_id: int, delete_files: bool = Query(False)):
     return {"status": "ok"}
 
 
-@app.post("/sab/queue/pause")
+@protected_post("/sab/queue/pause")
 async def pause_sab_queue():
     """Pause the full SABnzbd queue."""
     sab = get_sabnzbd_client()
@@ -698,7 +773,7 @@ async def pause_sab_queue():
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
-@app.post("/sab/queue/resume")
+@protected_post("/sab/queue/resume")
 async def resume_sab_queue():
     """Resume the full SABnzbd queue."""
     sab = get_sabnzbd_client()
@@ -716,7 +791,7 @@ async def resume_sab_queue():
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
-@app.post("/sab/queue/item/{job_id}/pause")
+@protected_post("/sab/queue/item/{job_id}/pause")
 async def pause_sab_job(job_id: str):
     """Pause a single SABnzbd queue item."""
     sab = get_sabnzbd_client()
@@ -734,7 +809,7 @@ async def pause_sab_job(job_id: str):
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
-@app.post("/sab/queue/item/{job_id}/resume")
+@protected_post("/sab/queue/item/{job_id}/resume")
 async def resume_sab_job(job_id: str):
     """Resume a single SABnzbd queue item."""
     sab = get_sabnzbd_client()
@@ -752,7 +827,7 @@ async def resume_sab_job(job_id: str):
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
-@app.post("/sab/queue/item/{job_id}/delete")
+@protected_post("/sab/queue/item/{job_id}/delete")
 async def delete_sab_job(job_id: str):
     """Delete a single SABnzbd queue item."""
     sab = get_sabnzbd_client()
@@ -770,7 +845,7 @@ async def delete_sab_job(job_id: str):
         raise HTTPException(status_code=500, detail="SABnzbd request failed")
 
 
-@app.post("/downloads/queue/item/{job_id}/delete")
+@protected_post("/downloads/queue/item/{job_id}/delete")
 async def delete_download_job(job_id: str):
     """Delete a download via Sonarr/Radarr so they stay in sync."""
     sonarr = get_sonarr_client()
@@ -795,7 +870,7 @@ async def delete_download_job(job_id: str):
     )
     raise HTTPException(status_code=404, detail=message)
 
-@app.get("/search")
+@protected_get("/search")
 async def search(
     query: str = Query(..., min_length=1, description="Search term"),
     type: Optional[SearchType] = Query(None, description="Search type: movie or tv"),
@@ -949,7 +1024,7 @@ async def search(
     }
 
 
-@app.get("/lookup")
+@protected_get("/lookup")
 async def lookup(
     query: str = Query(..., min_length=1, description="Search term"),
     type: SearchType = Query(..., description="Search type: movie or tv"),
@@ -1011,7 +1086,7 @@ async def lookup(
         }
 
 
-@app.post("/library/ensure")
+@protected_post("/library/ensure")
 async def ensure_library(payload: EnsureLibraryRequest):
     """
     Ensure a title exists in Sonarr/Radarr library without searching indexers.
@@ -1069,7 +1144,7 @@ async def ensure_library(payload: EnsureLibraryRequest):
     }
 
 
-@app.get("/releases")
+@protected_get("/releases")
 async def get_releases(
     type: SearchType = Query(..., description="Type: movie or tv"),
     tmdb_id: Optional[int] = Query(None, description="TMDB ID for movies"),
@@ -1135,7 +1210,7 @@ async def get_releases(
         return result
 
 
-@app.post("/releases/grab")
+@protected_post("/releases/grab")
 async def grab_release(payload: GrabRequest):
     """Grab a release via Radarr or Sonarr (sends to configured download client)."""
     logger.info(
@@ -1163,7 +1238,7 @@ async def grab_release(payload: GrabRequest):
     return {"status": "ok"}
 
 
-@app.post("/releases/grab-all")
+@protected_post("/releases/grab-all")
 async def grab_all_releases(payload: GrabAllRequest):
     """Grab multiple releases via Radarr or Sonarr."""
     if not payload.releases:
@@ -1212,7 +1287,7 @@ async def grab_all_releases(payload: GrabAllRequest):
     }
 
 
-@app.post("/ai/release/suggest")
+@protected_post("/ai/release/suggest")
 async def suggest_release(payload: AISuggestRequest):
     """Get an AI suggestion for the best release."""
     if not payload.releases:
@@ -1283,7 +1358,7 @@ async def suggest_release(payload: AISuggestRequest):
     return {"status": "ok", "suggestion": result.get("data", {})}
 
 
-@app.post("/ai/intent")
+@protected_post("/ai/intent")
 async def parse_intent(payload: AIIntentRequest):
     """Parse a natural language query into a structured plan."""
     if not payload.query.strip():
@@ -1338,7 +1413,7 @@ async def parse_intent(payload: AIIntentRequest):
     }
 
 
-@app.get("/availability")
+@protected_get("/availability")
 async def get_availability(
     query: str = Query(..., min_length=1, description="Title to lookup"),
     type: Optional[SearchType] = Query(None, description="Type: movie or tv"),

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { DownloadToastHost } from '@/components/DownloadToastHost'
+import { AuthProvider, AuthGate } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
   title: 'Quasrr',
@@ -15,8 +16,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="text-slate-100 min-h-screen">
-        {children}
-        <DownloadToastHost />
+        <AuthProvider>
+          <AuthGate>
+            {children}
+            <DownloadToastHost />
+          </AuthGate>
+        </AuthProvider>
       </body>
     </html>
   )
