@@ -1,0 +1,63 @@
+# Docker Compose example for Quasrr (public template)
+
+x-common-config: &common-config
+  env_file:
+    - ./.env
+  networks:
+    - net-media
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "100m"
+      max-file: "5"
+
+x-bind-strict: &bind-strict
+  type: bind
+  bind:
+    create_host_path: false
+
+services:
+  backend:
+    <<: *common-config
+    build: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME}-backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - <<: *bind-strict
+        source: ${QUASRR_DATA_DIR:-./data}
+        target: /app/data
+      - <<: *bind-strict
+        source: ${QUASRR_CONFIG_DIR:-./config}
+        target: /app/config
+      - <<: *bind-strict
+        source: ${QUASRR_LOGS_DIR:-./logs}
+        target: /app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  frontend:
+    <<: *common-config
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME}-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  net-media:
+    name: ${MEDIA_NETWORK_NAME:-net-media}
+    external: true
