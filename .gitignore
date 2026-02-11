@@ -1,6 +1,16 @@
-# --- .gitignore for Media Stack ---
+# --- Project .gitignore ---
 
-# 0. Scratch Folder
+# 0. Local/Environment-Specific Files
+# Convention: prefix with _ for files that shouldn't be committed
+_*
+
+# AI Agent Directories (developer-specific)
+.claude/
+.codex/
+.cursor/
+.vscode/
+
+# Scratch Folder
 .scratch/
 
 
@@ -10,12 +20,14 @@ Thumbs.db
 
 # 2. Secrets (Passwords/API Keys)
 *.env
+.env.local
 settings.yaml
-TODOS.md
+
 
 # 3. Data Volumes (The heavy stuff)
 # This wildcard ignores every folder ending in "_data"
 *_data/
+*data/
 
 # Image files
 *.svg
@@ -24,10 +36,8 @@ TODOS.md
 
 
 # Prompts for agents
-prompts/
-AGENT_INIT*.md
-EXECUTION*.md
-SESSION*.md
+
+
 
 # Python
 __pycache__/
