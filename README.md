@@ -9,6 +9,8 @@ Quasrr is a self-hosted, mobile-first web app that brings discovery, streaming a
 ## Table of Contents
 
 - [Philosophy](#philosophy)
+- [Legal and Responsible Use](#legal-and-responsible-use)
+- [Legal Policy File](#legal-policy-file)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
@@ -32,6 +34,29 @@ Quasrr is built around these core principles:
 - **AI-assisted, not automated** - AI suggests releases based on your preferences, but never downloads automatically.
 - **Mobile-optimized** - Touch-friendly interface designed for phones and tablets.
 - **Low-volume usage** - Built for casual, intentional viewing, not archival or library perfectionism.
+
+---
+
+## Legal and Responsible Use
+
+Quasrr is a self-hosted dashboard that helps users manage and coordinate their own media tooling. It does not host, mirror, or distribute media content.
+
+- Quasrr only orchestrates APIs and user-configured services (for example Sonarr, Radarr, SABnzbd, Plex, and metadata providers).
+- All download and playback actions are initiated by the user and are the user's responsibility.
+- The project does not condone piracy or unauthorized copying/downloading of copyrighted works.
+- Use Quasrr only with content you own, are licensed to access, or are otherwise legally permitted to use in your jurisdiction.
+- Users are solely responsible for complying with local laws, copyright rules, and service terms.
+
+### Third-Party Marks and Artwork
+
+- Service names, logos, and trademarks are the property of their respective owners.
+- Movie/series posters, backdrops, and metadata come from third-party providers and rightsholders.
+- Quasrr displays third-party branding and artwork for identification and informational purposes only and does not claim ownership.
+- Inclusion of any third-party name, logo, or artwork does not imply sponsorship, endorsement, or affiliation.
+
+## Legal Policy File
+
+For a standalone legal notice and contributor-facing policy details, see `LEGAL.md`.
 
 ---
 

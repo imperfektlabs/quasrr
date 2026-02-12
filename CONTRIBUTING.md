@@ -9,6 +9,14 @@ Thanks for contributing.
 - Update docs when behavior or setup changes.
 - Follow the project's Code of Conduct.
 
+## Legal and Content Compliance
+
+- Quasrr is a self-hosted orchestration UI and does not host or distribute media.
+- Do not contribute features that imply or promote unauthorized downloading/access to copyrighted content.
+- Keep user intent explicit: no hidden automation that bypasses user control.
+- Use third-party logos, names, and artwork in a way that is informational and non-deceptive.
+- Preserve or improve legal disclaimers when touching docs, onboarding, or UI copy.
+
 ## Development Setup
 
 1. Fork and clone the repository.
