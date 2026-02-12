@@ -214,6 +214,7 @@ function HomeContent() {
                 poster: String(item.poster_url || item.backdrop_url || '') || undefined,
                 status: 'not_in_library',
                 tmdb_id: type === 'movie' && Number.isFinite(objectIdRaw) ? objectIdRaw : undefined,
+                external_url: String(item.link || '').trim() || undefined,
               } as DiscoveryResult
             })
             .filter((item: DiscoveryResult | null): item is DiscoveryResult => Boolean(item))
@@ -790,62 +791,37 @@ function HomeContent() {
   const activeTrendingSource = trendingSourceByType[trendingFilter]
   const activeTrendingError = trendingErrorByType[trendingFilter]
 
-  const resolveTrendingResult = async (seed: DiscoveryResult): Promise<DiscoveryResult> => {
-    try {
-      const backendUrl = getBackendUrl()
-      const params = new URLSearchParams({
-        type: seed.type,
-        query: seed.title,
-        page: '1',
-        page_size: '25',
-      })
-      const res = await fetch(`${backendUrl}/search?${params.toString()}`)
-      if (!res.ok) return seed
-      const data = await res.json()
-      const results = Array.isArray(data.results) ? (data.results as DiscoveryResult[]) : []
-      if (!results.length) return seed
-
-      const normalizedTitle = seed.title.trim().toLowerCase()
-      const bestMatch = results.find((item) => {
-        if (seed.type === 'movie' && seed.tmdb_id && item.tmdb_id && seed.tmdb_id === item.tmdb_id) {
-          return true
-        }
-        if (seed.type === 'tv' && seed.tvdb_id && item.tvdb_id && seed.tvdb_id === item.tvdb_id) {
-          return true
-        }
-        const titleMatches = item.title.trim().toLowerCase() === normalizedTitle
-        if (!titleMatches) return false
-        if (seed.year && item.year) return seed.year === item.year
-        return true
-      }) || results[0]
-
-      return {
-        ...seed,
-        ...bestMatch,
-        type: seed.type,
-        status: bestMatch.status ?? seed.status ?? 'not_in_library',
-      }
-    } catch {
-      return seed
-    }
-  }
-
-  const handleTrendingOpenDetail = async (seed: DiscoveryResult) => {
-    const resolved = await resolveTrendingResult(seed)
-    setSelectedResult(resolved)
-  }
-
-  const handleTrendingFindReleases = async (seed: DiscoveryResult, season?: number) => {
-    const resolved = await resolveTrendingResult(seed)
-    await handleFindReleases(resolved, season)
-  }
-
   const trendingSourceLogo = (() => {
     const normalized = (activeTrendingSource ?? '').trim().toLowerCase()
     if (normalized.includes('justwatch')) return '/logos/ratings/justwatch.svg'
     if (normalized.includes('tvdb')) return '/logos/ratings/tvdb.svg'
     return null
   })()
+
+  const getTrendingExternalUrl = (result: DiscoveryResult): string => {
+    if (result.external_url) {
+      return result.external_url
+    }
+
+    const source = (activeTrendingSource ?? '').trim().toLowerCase()
+    const query = encodeURIComponent(result.title)
+
+    if (source.includes('justwatch')) {
+      const country = (config?.user?.country || 'CA').toLowerCase()
+      return `https://www.justwatch.com/${country}/search?q=${query}`
+    }
+
+    if (result.tmdb_id) {
+      const baseType = result.type === 'movie' ? 'movie' : 'tv'
+      return `https://www.themoviedb.org/${baseType}/${result.tmdb_id}`
+    }
+
+    return `https://www.themoviedb.org/search?query=${query}`
+  }
+
+  const trendingExternalLabel = (activeTrendingSource ?? '').trim().toLowerCase().includes('justwatch')
+    ? 'View on JustWatch'
+    : 'View on TMDB'
 
   const trendingSection = (
     <section id="discover-trending" className="mb-4">
@@ -869,6 +845,9 @@ function HomeContent() {
                 </span>
               )}
             </div>
+            <p className="mt-1 text-xs text-slate-400">
+              View-only list. Open titles on source sites for details.
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg p-1">
@@ -957,16 +936,9 @@ function HomeContent() {
                   >
                     <MediaCardGrid
                       item={{ source: 'discovery', data: result }}
-                      onClick={() => { void handleTrendingOpenDetail(result) }}
-                      onShowReleases={(item, season) => { void handleTrendingFindReleases(item, season) }}
-                      discoverySearchBusy={
-                        activeDiscoverySearchKey === (
-                          result.type === 'movie'
-                            ? `movie:${result.tmdb_id ?? result.title}`
-                            : `tv:${result.tvdb_id ?? result.title}`
-                        )
-                      }
-                      onTypeToggle={handleTypeToggle}
+                      discoveryMode="external"
+                      externalUrl={getTrendingExternalUrl(result)}
+                      externalLabel={trendingExternalLabel}
                     />
                   </div>
                 ))}
@@ -978,16 +950,9 @@ function HomeContent() {
                   <MediaCardList
                     key={`trend-list-${result.type}-${result.tmdb_id ?? result.tvdb_id ?? result.title}-${index}`}
                     item={{ source: 'discovery', data: result }}
-                    onClick={() => { void handleTrendingOpenDetail(result) }}
-                    onShowReleases={(item, season) => { void handleTrendingFindReleases(item, season) }}
-                    discoverySearchBusy={
-                      activeDiscoverySearchKey === (
-                        result.type === 'movie'
-                          ? `movie:${result.tmdb_id ?? result.title}`
-                          : `tv:${result.tvdb_id ?? result.title}`
-                      )
-                    }
-                    onTypeToggle={handleTypeToggle}
+                    discoveryMode="external"
+                    externalUrl={getTrendingExternalUrl(result)}
+                    externalLabel={trendingExternalLabel}
                   />
                 ))}
               </div>
