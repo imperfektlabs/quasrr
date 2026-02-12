@@ -17,6 +17,9 @@ type MediaCardListProps = {
   onClick?: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
   discoverySearchBusy?: boolean
+  discoveryMode?: 'interactive' | 'external'
+  externalUrl?: string
+  externalLabel?: string
   onTypeToggle?: (type: DiscoveryResult['type']) => void
   onLibrarySearch?: () => void
   librarySearchBusy?: boolean
@@ -28,6 +31,9 @@ export function MediaCardList({
   onClick,
   onShowReleases,
   discoverySearchBusy = false,
+  discoveryMode = 'interactive',
+  externalUrl,
+  externalLabel = 'View Source',
   onTypeToggle,
   onLibrarySearch,
   librarySearchBusy = false,
@@ -120,63 +126,87 @@ export function MediaCardList({
       </div>
     ) : null
 
-    const discoveryLibraryLink = result.type === 'movie' && result.tmdb_id
-      ? `/library?tmdb=${result.tmdb_id}`
-      : (result.type === 'tv' && result.tvdb_id ? `/library?tvdb=${result.tvdb_id}` : null)
-
-    statusBadge = (
-      <div className="flex flex-wrap gap-1.5 items-center">
-        {result.status !== 'not_in_library' && discoveryLibraryLink ? (
-          <a
-            href={discoveryLibraryLink}
-            onClick={(event) => event.stopPropagation()}
-            className="inline-flex"
-            title="View in library"
-            aria-label="View in library"
-          >
-            <StatusBadge status={result.status} />
-          </a>
-        ) : (
-          <StatusBadge status={result.status} />
-        )}
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onTypeToggle?.(result.type)
-          }}
-          className="glass-badge text-2xs px-1.5 py-0.5 rounded transition-smooth hover:shadow-glow-cyan inline-flex items-center justify-center"
-          title={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
-          aria-label={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
-        >
-          {result.type === 'movie' ? (
-            <ProjectorIcon className="h-3.5 w-3.5" />
-          ) : (
-            <TvIcon className="h-3.5 w-3.5" />
-          )}
-          <span className="sr-only">{result.type === 'movie' ? 'Movie' : 'TV'}</span>
-        </button>
-        {result.type === 'tv' && result.seasons && result.seasons > 1 && (
-          <select
-            value={selectedSeason}
-            onChange={(event) => {
-              const value = event.target.value
-              setSelectedSeason(value === 'all' ? 'all' : Number(value))
+    if (discoveryMode === 'external') {
+      statusBadge = (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onTypeToggle?.(result.type)
             }}
-            onClick={(event) => event.stopPropagation()}
-            className="glass-badge text-2xs px-1.5 py-0.5 rounded cursor-pointer border-0 transition-smooth hover:shadow-glow-cyan"
-            title="Season"
+            className="glass-badge text-2xs px-1.5 py-0.5 rounded transition-smooth hover:shadow-glow-cyan inline-flex items-center justify-center"
+            title={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
+            aria-label={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
           >
-            <option value="all">All</option>
-            {Array.from({ length: result.seasons }, (_, index) => index + 1).map((season) => (
-              <option key={season} value={season}>
-                S{season}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-    )
+            {result.type === 'movie' ? (
+              <ProjectorIcon className="h-3.5 w-3.5" />
+            ) : (
+              <TvIcon className="h-3.5 w-3.5" />
+            )}
+            <span className="sr-only">{result.type === 'movie' ? 'Movie' : 'TV'}</span>
+          </button>
+        </div>
+      )
+    } else {
+      const discoveryLibraryLink = result.type === 'movie' && result.tmdb_id
+        ? `/library?tmdb=${result.tmdb_id}`
+        : (result.type === 'tv' && result.tvdb_id ? `/library?tvdb=${result.tvdb_id}` : null)
+
+      statusBadge = (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {result.status !== 'not_in_library' && discoveryLibraryLink ? (
+            <a
+              href={discoveryLibraryLink}
+              onClick={(event) => event.stopPropagation()}
+              className="inline-flex"
+              title="View in library"
+              aria-label="View in library"
+            >
+              <StatusBadge status={result.status} />
+            </a>
+          ) : (
+            <StatusBadge status={result.status} />
+          )}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onTypeToggle?.(result.type)
+            }}
+            className="glass-badge text-2xs px-1.5 py-0.5 rounded transition-smooth hover:shadow-glow-cyan inline-flex items-center justify-center"
+            title={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
+            aria-label={`Filter to ${result.type === 'movie' ? 'movies' : 'TV shows'}`}
+          >
+            {result.type === 'movie' ? (
+              <ProjectorIcon className="h-3.5 w-3.5" />
+            ) : (
+              <TvIcon className="h-3.5 w-3.5" />
+            )}
+            <span className="sr-only">{result.type === 'movie' ? 'Movie' : 'TV'}</span>
+          </button>
+          {result.type === 'tv' && result.seasons && result.seasons > 1 && (
+            <select
+              value={selectedSeason}
+              onChange={(event) => {
+                const value = event.target.value
+                setSelectedSeason(value === 'all' ? 'all' : Number(value))
+              }}
+              onClick={(event) => event.stopPropagation()}
+              className="glass-badge text-2xs px-1.5 py-0.5 rounded cursor-pointer border-0 transition-smooth hover:shadow-glow-cyan"
+              title="Season"
+            >
+              <option value="all">All</option>
+              {Array.from({ length: result.seasons }, (_, index) => index + 1).map((season) => (
+                <option key={season} value={season}>
+                  S{season}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )
+    }
 
     const handleReleasesClick = (event: React.MouseEvent) => {
       event.stopPropagation()
@@ -187,24 +217,32 @@ export function MediaCardList({
       onShowReleases?.(result)
     }
 
-    actionButton = (
-      <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
-        {renderRatings(result.ratings, (rating) => getRatingLink(result, rating))}
+    if (discoveryMode === 'external') {
+      actionButton = (
+        <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
+          {renderRatings(result.ratings, (rating) => getRatingLink(result, rating))}
+        </div>
+      )
+    } else {
+      actionButton = (
+        <div className="flex flex-wrap items-center justify-between md:flex-col md:items-end md:justify-start gap-2">
+          {renderRatings(result.ratings, (rating) => getRatingLink(result, rating))}
 
-        <button
-          onClick={handleReleasesClick}
-          disabled={discoverySearchBusy}
-          className="bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white h-8 w-8 sm:h-9 sm:w-9 rounded-lg inline-flex items-center justify-center transition-smooth active:scale-95 ml-auto md:ml-0"
-          aria-label="Find releases"
-        >
-          {discoverySearchBusy ? (
-            <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
-          ) : (
-            <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          )}
-        </button>
-      </div>
-    )
+          <button
+            onClick={handleReleasesClick}
+            disabled={discoverySearchBusy}
+            className="bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white h-8 w-8 sm:h-9 sm:w-9 rounded-lg inline-flex items-center justify-center transition-smooth active:scale-95 ml-auto md:ml-0"
+            aria-label="Find releases"
+          >
+            {discoverySearchBusy ? (
+              <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
+            ) : (
+              <SearchIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            )}
+          </button>
+        </div>
+      )
+    }
   } else {
     // Library item
     const libItem = item.data
@@ -327,7 +365,28 @@ export function MediaCardList({
       {/* Poster - Responsive sizing */}
       <div className="w-28 sm:w-32 md:w-32 lg:w-36 xl:w-40 flex-shrink-0">
         <div className="aspect-[2/3] w-full bg-slate-800/60 relative overflow-hidden">
-          {item.source === 'discovery' ? (
+          {item.source === 'discovery' && discoveryMode === 'external' && externalUrl ? (
+            <a
+              href={externalUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full h-full relative overflow-hidden block"
+              title={externalLabel}
+            >
+              {poster ? (
+                <img
+                  src={poster}
+                  alt={title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xs p-2 text-center">
+                  No poster
+                </div>
+              )}
+            </a>
+          ) : item.source === 'discovery' ? (
             <button
               type="button"
               onClick={onClick}
