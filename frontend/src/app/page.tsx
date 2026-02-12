@@ -190,8 +190,8 @@ function HomeContent() {
 
     const loadTrending = async () => {
       setTrendingLoading(true)
-      setTrendingErrorByType({ all: null, movie: null, tv: null })
-      setTrendingSourceByType({ all: null, movie: null, tv: null })
+      setTrendingErrorByType((prev) => ({ ...prev, [trendingFilter]: null }))
+      setTrendingSourceByType((prev) => ({ ...prev, [trendingFilter]: null }))
       try {
         const backendUrl = getBackendUrl()
         const trendingLimit = 24
@@ -252,6 +252,27 @@ function HomeContent() {
           let source: 'justwatch' | 'tmdb' | null = null
           let error: string | null = null
           let mapped: DiscoveryResult[] = []
+          let toppedUpFromFallback = false
+
+          const dedupeKey = (item: DiscoveryResult) => {
+            const normalizedTitle = item.title.trim().toLowerCase()
+            if (item.type === 'movie' && item.tmdb_id) return `movie:tmdb:${item.tmdb_id}`
+            if (item.type === 'tv' && item.tvdb_id) return `tv:tvdb:${item.tvdb_id}`
+            return `${item.type}:title:${normalizedTitle}:${item.year ?? ''}`
+          }
+
+          const mergeUnique = (primary: DiscoveryResult[], secondary: DiscoveryResult[]) => {
+            const seen = new Set(primary.map(dedupeKey))
+            const merged = [...primary]
+            for (const item of secondary) {
+              const key = dedupeKey(item)
+              if (seen.has(key)) continue
+              seen.add(key)
+              merged.push(item)
+              if (merged.length >= trendingLimit) break
+            }
+            return merged
+          }
 
           try {
             const justWatchRes = await fetch(`${backendUrl}/justwatch/popular?media_type=${mediaType}&limit=${trendingLimit}`, {
@@ -266,29 +287,37 @@ function HomeContent() {
             // Fall back to TMDB below.
           }
 
-          if (mapped.length === 0) {
+          if (mapped.length < trendingLimit) {
             const tmdbRes = await fetch(`${backendUrl}/tmdb/trending?media_type=${mediaType}&time_window=week`, {
               signal: controller.signal,
             })
             if (tmdbRes.status === 503) {
-              return { mediaType, source, error: 'Trending feed unavailable (TMDB not configured).', items: [] as DiscoveryResult[] }
+              return { source, error: 'Trending feed unavailable (TMDB not configured).', items: [] as DiscoveryResult[] }
             }
             if (!tmdbRes.ok) {
               const errorData = await tmdbRes.json().catch(() => ({}))
               error = errorData.detail || 'Unable to load trending titles'
             } else {
               const data = await tmdbRes.json()
-              mapped = mapTmdb(data.results ?? [], mediaType)
-              if (mapped.length > 0) source = 'tmdb'
+              const tmdbMapped = mapTmdb(data.results ?? [], mediaType)
+              if (mapped.length === 0) {
+                mapped = tmdbMapped
+                if (mapped.length > 0) source = 'tmdb'
+              } else {
+                mapped = mergeUnique(mapped, tmdbMapped)
+                toppedUpFromFallback = mapped.length > 0
+              }
             }
           }
 
-          return { mediaType, source, error, items: mapped }
+          return {
+            source: toppedUpFromFallback && source === 'justwatch' ? 'justwatch' : source,
+            error,
+            items: mapped.slice(0, trendingLimit),
+          }
         }
 
-        const hydrateTrendingStatuses = async (
-          input: Record<'all' | 'movie' | 'tv', DiscoveryResult[]>,
-        ): Promise<Record<'all' | 'movie' | 'tv', DiscoveryResult[]>> => {
+        const hydrateTrendingStatuses = async (items: DiscoveryResult[]): Promise<DiscoveryResult[]> => {
           const [sonarrRes, radarrRes] = await Promise.all([
             fetch(`${backendUrl}/sonarr/library`, { signal: controller.signal }),
             fetch(`${backendUrl}/radarr/library`, { signal: controller.signal }),
@@ -351,28 +380,14 @@ function HomeContent() {
             }
           }
 
-          return {
-            all: input.all.map(hydrateItem),
-            movie: input.movie.map(hydrateItem),
-            tv: input.tv.map(hydrateItem),
-          }
+          return items.map(hydrateItem)
         }
 
-        const results = await Promise.all([
-          loadForType('all'),
-          loadForType('movie'),
-          loadForType('tv'),
-        ])
+        const result = await loadForType(trendingFilter)
 
-        const baseItemsByType: Record<'all' | 'movie' | 'tv', DiscoveryResult[]> = {
-          all: results.find((r) => r.mediaType === 'all')?.items ?? [],
-          movie: results.find((r) => r.mediaType === 'movie')?.items ?? [],
-          tv: results.find((r) => r.mediaType === 'tv')?.items ?? [],
-        }
-
-        let statusHydratedItems = baseItemsByType
+        let statusHydratedItems = result.items
         try {
-          statusHydratedItems = await hydrateTrendingStatuses(baseItemsByType)
+          statusHydratedItems = await hydrateTrendingStatuses(result.items)
         } catch (err) {
           if ((err as Error).name !== 'AbortError') {
             console.warn('[trending-status-hydration] Falling back to default status map', err)
@@ -380,23 +395,15 @@ function HomeContent() {
         }
 
         if (!cancelled) {
-          setTrendingItemsByType(statusHydratedItems)
-          setTrendingSourceByType({
-            all: results.find((r) => r.mediaType === 'all')?.source ?? null,
-            movie: results.find((r) => r.mediaType === 'movie')?.source ?? null,
-            tv: results.find((r) => r.mediaType === 'tv')?.source ?? null,
-          })
-          setTrendingErrorByType({
-            all: results.find((r) => r.mediaType === 'all')?.error ?? null,
-            movie: results.find((r) => r.mediaType === 'movie')?.error ?? null,
-            tv: results.find((r) => r.mediaType === 'tv')?.error ?? null,
-          })
+          setTrendingItemsByType((prev) => ({ ...prev, [trendingFilter]: statusHydratedItems }))
+          setTrendingSourceByType((prev) => ({ ...prev, [trendingFilter]: result.source ?? null }))
+          setTrendingErrorByType((prev) => ({ ...prev, [trendingFilter]: result.error ?? null }))
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
         if (!cancelled) {
           const message = err instanceof Error ? err.message : 'Unable to load trending titles'
-          setTrendingErrorByType({ all: message, movie: message, tv: message })
+          setTrendingErrorByType((prev) => ({ ...prev, [trendingFilter]: message }))
         }
       } finally {
         if (!cancelled) setTrendingLoading(false)
@@ -408,7 +415,7 @@ function HomeContent() {
       cancelled = true
       controller.abort()
     }
-  }, [config])
+  }, [config, trendingFilter])
 
   // Close menu when clicking outside
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
