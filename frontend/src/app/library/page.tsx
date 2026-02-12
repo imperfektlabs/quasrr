@@ -712,7 +712,7 @@ function LibraryContent() {
                 {!loading && !error && sortedItems.length > 0 && (
                   <>
                     {isGridView && (
-                      <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
                         {sortedItems.map((item, index) => (
                           <div
                             key={`${item.mediaType}-${item.id}`}
