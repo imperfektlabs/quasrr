@@ -17,6 +17,9 @@ type MediaCardProps = {
   onClick?: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
   discoverySearchBusy?: boolean
+  discoveryMode?: 'interactive' | 'external'
+  externalUrl?: string
+  externalLabel?: string
   onTypeToggle?: (type: DiscoveryResult['type']) => void
   onLibrarySearch?: () => void
   librarySearchBusy?: boolean
@@ -28,6 +31,9 @@ export function MediaCardGrid({
   onClick,
   onShowReleases,
   discoverySearchBusy = false,
+  discoveryMode = 'interactive',
+  externalUrl,
+  externalLabel = 'View Source',
   onTypeToggle,
   onLibrarySearch,
   librarySearchBusy = false,
@@ -79,39 +85,43 @@ export function MediaCardGrid({
     )
 
     // Badges
-    const discoveryLibraryLink = result.type === 'movie' && result.tmdb_id
-      ? `/library?tmdb=${result.tmdb_id}`
-      : (result.type === 'tv' && result.tvdb_id ? `/library?tvdb=${result.tvdb_id}` : null)
+    if (discoveryMode === 'external') {
+      badges = null
+    } else {
+      const discoveryLibraryLink = result.type === 'movie' && result.tmdb_id
+        ? `/library?tmdb=${result.tmdb_id}`
+        : (result.type === 'tv' && result.tvdb_id ? `/library?tvdb=${result.tvdb_id}` : null)
 
-    badges = (
-      <div className="flex flex-wrap gap-1.5 items-center">
-        {result.status !== 'not_in_library' && discoveryLibraryLink ? (
-          <a
-            href={discoveryLibraryLink}
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex"
-            title="View in library"
-          >
+      badges = (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {result.status !== 'not_in_library' && discoveryLibraryLink ? (
+            <a
+              href={discoveryLibraryLink}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex"
+              title="View in library"
+            >
+              <StatusBadge status={result.status} />
+            </a>
+          ) : (
             <StatusBadge status={result.status} />
-          </a>
-        ) : (
-          <StatusBadge status={result.status} />
-        )}
-        {result.type === 'tv' && result.seasons && result.seasons > 1 && (
-          <select
-            value={selectedSeason}
-            onChange={(e) => setSelectedSeason(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            onClick={(e) => e.stopPropagation()}
-            className="glass-badge text-2xs px-1.5 py-0.5 rounded cursor-pointer border-0 transition-smooth hover:shadow-glow-cyan"
-          >
-            <option value="all">All</option>
-            {Array.from({ length: result.seasons }, (_, i) => i + 1).map((s) => (
-              <option key={s} value={s}>S{s}</option>
-            ))}
-          </select>
-        )}
-      </div>
-    )
+          )}
+          {result.type === 'tv' && result.seasons && result.seasons > 1 && (
+            <select
+              value={selectedSeason}
+              onChange={(e) => setSelectedSeason(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-badge text-2xs px-1.5 py-0.5 rounded cursor-pointer border-0 transition-smooth hover:shadow-glow-cyan"
+            >
+              <option value="all">All</option>
+              {Array.from({ length: result.seasons }, (_, i) => i + 1).map((s) => (
+                <option key={s} value={s}>S{s}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )
+    }
 
     // Action button
     const handleReleasesClick = (e: React.MouseEvent) => {
@@ -123,21 +133,25 @@ export function MediaCardGrid({
       }
     }
 
-    actionButtons = (
-      <button
-        onClick={handleReleasesClick}
-        disabled={discoverySearchBusy}
-        className="w-full bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
-        aria-label="Find releases"
-      >
-        {discoverySearchBusy ? (
-          <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
-        ) : (
-          <SearchIcon className="h-4 w-4" />
-        )}
-        <span className="text-sm font-medium">Find Releases</span>
-      </button>
-    )
+    if (discoveryMode === 'external') {
+      actionButtons = null
+    } else {
+      actionButtons = (
+        <button
+          onClick={handleReleasesClick}
+          disabled={discoverySearchBusy}
+          className="w-full bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+          aria-label="Find releases"
+        >
+          {discoverySearchBusy ? (
+            <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
+          ) : (
+            <SearchIcon className="h-4 w-4" />
+          )}
+          <span className="text-sm font-medium">Find Releases</span>
+        </button>
+      )
+    }
   } else {
     // Library item
     const libItem = item.data
@@ -233,12 +247,49 @@ export function MediaCardGrid({
   return (
     <div className="glass-card rounded-xl overflow-hidden group transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-cyan-500/20 hover:border-cyan-400/40">
       {/* POSTER - Full-width hero */}
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full aspect-[2/3] relative overflow-hidden bg-slate-800/60"
-        title="View details"
-      >
+      {item.source === 'discovery' && discoveryMode === 'external' && externalUrl ? (
+        <a
+          href={externalUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="w-full aspect-[2/3] relative overflow-hidden bg-slate-800/60 block"
+          title={externalLabel}
+        >
+          {poster ? (
+            <>
+              <img
+                src={poster}
+                alt={title}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                loading="lazy"
+              />
+              <div className="absolute top-2 right-2 z-10">
+                <div className="bg-slate-900/90 backdrop-blur-sm border border-slate-700/60 rounded-md p-1.5 shadow-lg">
+                  {mediaType === 'movie' ? (
+                    <ProjectorIcon className="h-3.5 w-3.5 text-cyan-400" />
+                  ) : (
+                    <TvIcon className="h-3.5 w-3.5 text-purple-400" />
+                  )}
+                </div>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                {ratings}
+              </div>
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
+              No poster
+            </div>
+          )}
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full aspect-[2/3] relative overflow-hidden bg-slate-800/60"
+          title="View details"
+        >
         {poster ? (
           <>
             <img
@@ -272,7 +323,8 @@ export function MediaCardGrid({
             No poster
           </div>
         )}
-      </button>
+        </button>
+      )}
 
       {/* CONTENT - Compact below poster */}
       <div className="p-3 space-y-2.5">

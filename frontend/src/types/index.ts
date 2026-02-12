@@ -122,6 +122,7 @@ export type DiscoveryResult = {
   ratings?: Rating[]
   cast?: string[]
   popularity?: number
+  external_url?: string
 }
 
 export type SearchResponse = {
