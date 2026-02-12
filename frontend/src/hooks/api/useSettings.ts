@@ -7,6 +7,18 @@ import { useEffect, useState } from 'react'
 import type { ConfigStatus } from '@/types'
 import { getBackendUrl } from '@/utils/backend'
 
+const DISCOVERY_SEARCH_POSITION_KEY = 'quasrr.layout.discovery_search_position'
+const LIBRARY_SEARCH_POSITION_KEY = 'quasrr.layout.library_search_position'
+
+const readCachedPosition = (
+  key: string,
+  fallback: 'top' | 'bottom' = 'bottom',
+): 'top' | 'bottom' => {
+  if (typeof window === 'undefined') return fallback
+  const value = window.localStorage.getItem(key)
+  return value === 'top' || value === 'bottom' ? value : fallback
+}
+
 export type SettingsResult = {
   country: string
   setCountry: (c: string) => void
@@ -67,8 +79,12 @@ export function useSettings(
   const [showSabnzbd, setShowSabnzbd] = useState(true)
   const [showPlex, setShowPlex] = useState(false)
   const [sabRecentLimit, setSabRecentLimit] = useState(10)
-  const [discoverySearchPosition, setDiscoverySearchPosition] = useState<'top' | 'bottom'>('bottom')
-  const [librarySearchPosition, setLibrarySearchPosition] = useState<'top' | 'bottom'>('bottom')
+  const [discoverySearchPosition, setDiscoverySearchPosition] = useState<'top' | 'bottom'>(
+    () => readCachedPosition(DISCOVERY_SEARCH_POSITION_KEY, 'bottom')
+  )
+  const [librarySearchPosition, setLibrarySearchPosition] = useState<'top' | 'bottom'>(
+    () => readCachedPosition(LIBRARY_SEARCH_POSITION_KEY, 'bottom')
+  )
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -87,11 +103,27 @@ export function useSettings(
       setShowSabnzbd(config.dashboard.show_sabnzbd)
       setShowPlex(config.dashboard.show_plex)
       setSabRecentLimit(config.sabnzbd?.recent_group_limit ?? 10)
-      setDiscoverySearchPosition(config.layout?.discovery_search_position ?? 'bottom')
-      setLibrarySearchPosition(config.layout?.library_search_position ?? 'bottom')
+      const nextDiscoveryPosition = config.layout?.discovery_search_position ?? 'bottom'
+      const nextLibraryPosition = config.layout?.library_search_position ?? 'bottom'
+      setDiscoverySearchPosition(nextDiscoveryPosition)
+      setLibrarySearchPosition(nextLibraryPosition)
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(DISCOVERY_SEARCH_POSITION_KEY, nextDiscoveryPosition)
+        window.localStorage.setItem(LIBRARY_SEARCH_POSITION_KEY, nextLibraryPosition)
+      }
       setViewMode((config.layout?.view_mode as 'grid' | 'list') ?? 'grid')
     }
   }, [config])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(DISCOVERY_SEARCH_POSITION_KEY, discoverySearchPosition)
+  }, [discoverySearchPosition])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(LIBRARY_SEARCH_POSITION_KEY, librarySearchPosition)
+  }, [librarySearchPosition])
 
   const toggleStreaming = async (id: string, enabled: boolean) => {
     if (!config) return
@@ -227,6 +259,8 @@ export function useSettings(
 
       const updatedResponse = await res.json()
       onConfigUpdate(updatedResponse.config)
+      setDiscoverySearchPosition(nextDiscoverySearchPosition)
+      setLibrarySearchPosition(nextLibrarySearchPosition)
       setSaved(true)
 
       // Clear "saved" message after 2 seconds
