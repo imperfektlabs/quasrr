@@ -9,6 +9,8 @@ import type {
   SearchSortField,
   AIIntentPlan,
   DashboardSummary,
+  SonarrLibraryItem,
+  RadarrLibraryItem,
 } from '@/types'
 
 // Utility imports
@@ -283,18 +285,101 @@ function HomeContent() {
           return { mediaType, source, error, items: mapped }
         }
 
+        const hydrateTrendingStatuses = async (
+          input: Record<'all' | 'movie' | 'tv', DiscoveryResult[]>,
+        ): Promise<Record<'all' | 'movie' | 'tv', DiscoveryResult[]>> => {
+          const [sonarrRes, radarrRes] = await Promise.all([
+            fetch(`${backendUrl}/sonarr/library`, { signal: controller.signal }),
+            fetch(`${backendUrl}/radarr/library`, { signal: controller.signal }),
+          ])
+
+          const sonarrItems: SonarrLibraryItem[] = sonarrRes.ok ? await sonarrRes.json() : []
+          const radarrItems: RadarrLibraryItem[] = radarrRes.ok ? await radarrRes.json() : []
+
+          const moviesByTmdb = new Map<number, RadarrLibraryItem>()
+          const moviesByTitleYear = new Map<string, RadarrLibraryItem>()
+          for (const movie of radarrItems) {
+            if (movie.tmdbId) {
+              moviesByTmdb.set(movie.tmdbId, movie)
+            }
+            const movieKey = `${movie.title.trim().toLowerCase()}::${movie.year ?? ''}`
+            moviesByTitleYear.set(movieKey, movie)
+          }
+
+          const seriesByTvdb = new Map<number, SonarrLibraryItem>()
+          const seriesByTitleYear = new Map<string, SonarrLibraryItem>()
+          for (const series of sonarrItems) {
+            if (series.tvdbId) {
+              seriesByTvdb.set(series.tvdbId, series)
+            }
+            const seriesKey = `${series.title.trim().toLowerCase()}::${series.year ?? ''}`
+            seriesByTitleYear.set(seriesKey, series)
+          }
+
+          const getTvStatus = (series: SonarrLibraryItem): DiscoveryResult['status'] => {
+            const totalEpisodes = series.totalEpisodeCount ?? series.episodeCount ?? 0
+            const downloadedEpisodes = series.episodeFileCount ?? 0
+            if (totalEpisodes > 0 && downloadedEpisodes >= totalEpisodes) return 'downloaded'
+            if (downloadedEpisodes > 0) return 'partial'
+            return 'in_library'
+          }
+
+          const hydrateItem = (item: DiscoveryResult): DiscoveryResult => {
+            if (item.type === 'movie') {
+              const matchedMovie = (item.tmdb_id ? moviesByTmdb.get(item.tmdb_id) : undefined)
+                ?? moviesByTitleYear.get(`${item.title.trim().toLowerCase()}::${item.year ?? ''}`)
+              if (!matchedMovie) {
+                return { ...item, status: 'not_in_library' }
+              }
+              return {
+                ...item,
+                status: matchedMovie.hasFile ? 'downloaded' : 'in_library',
+                tmdb_id: item.tmdb_id ?? matchedMovie.tmdbId,
+              }
+            }
+
+            const matchedSeries = (item.tvdb_id ? seriesByTvdb.get(item.tvdb_id) : undefined)
+              ?? seriesByTitleYear.get(`${item.title.trim().toLowerCase()}::${item.year ?? ''}`)
+            if (!matchedSeries) {
+              return { ...item, status: 'not_in_library' }
+            }
+            return {
+              ...item,
+              status: getTvStatus(matchedSeries),
+              tvdb_id: item.tvdb_id ?? matchedSeries.tvdbId,
+            }
+          }
+
+          return {
+            all: input.all.map(hydrateItem),
+            movie: input.movie.map(hydrateItem),
+            tv: input.tv.map(hydrateItem),
+          }
+        }
+
         const results = await Promise.all([
           loadForType('all'),
           loadForType('movie'),
           loadForType('tv'),
         ])
 
+        const baseItemsByType: Record<'all' | 'movie' | 'tv', DiscoveryResult[]> = {
+          all: results.find((r) => r.mediaType === 'all')?.items ?? [],
+          movie: results.find((r) => r.mediaType === 'movie')?.items ?? [],
+          tv: results.find((r) => r.mediaType === 'tv')?.items ?? [],
+        }
+
+        let statusHydratedItems = baseItemsByType
+        try {
+          statusHydratedItems = await hydrateTrendingStatuses(baseItemsByType)
+        } catch (err) {
+          if ((err as Error).name !== 'AbortError') {
+            console.warn('[trending-status-hydration] Falling back to default status map', err)
+          }
+        }
+
         if (!cancelled) {
-          setTrendingItemsByType({
-            all: results.find((r) => r.mediaType === 'all')?.items ?? [],
-            movie: results.find((r) => r.mediaType === 'movie')?.items ?? [],
-            tv: results.find((r) => r.mediaType === 'tv')?.items ?? [],
-          })
+          setTrendingItemsByType(statusHydratedItems)
           setTrendingSourceByType({
             all: results.find((r) => r.mediaType === 'all')?.source ?? null,
             movie: results.find((r) => r.mediaType === 'movie')?.source ?? null,
@@ -708,7 +793,13 @@ function HomeContent() {
   const resolveTrendingResult = async (seed: DiscoveryResult): Promise<DiscoveryResult> => {
     try {
       const backendUrl = getBackendUrl()
-      const res = await fetch(`${backendUrl}/lookup?type=${seed.type}&query=${encodeURIComponent(seed.title)}`)
+      const params = new URLSearchParams({
+        type: seed.type,
+        query: seed.title,
+        page: '1',
+        page_size: '25',
+      })
+      const res = await fetch(`${backendUrl}/search?${params.toString()}`)
       if (!res.ok) return seed
       const data = await res.json()
       const results = Array.isArray(data.results) ? (data.results as DiscoveryResult[]) : []
@@ -716,6 +807,12 @@ function HomeContent() {
 
       const normalizedTitle = seed.title.trim().toLowerCase()
       const bestMatch = results.find((item) => {
+        if (seed.type === 'movie' && seed.tmdb_id && item.tmdb_id && seed.tmdb_id === item.tmdb_id) {
+          return true
+        }
+        if (seed.type === 'tv' && seed.tvdb_id && item.tvdb_id && seed.tvdb_id === item.tvdb_id) {
+          return true
+        }
         const titleMatches = item.title.trim().toLowerCase() === normalizedTitle
         if (!titleMatches) return false
         if (seed.year && item.year) return seed.year === item.year
