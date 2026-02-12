@@ -32,6 +32,14 @@ type MediaTypeFilter = 'all' | MediaType
 type LibraryItem = (SonarrLibraryItem & { mediaType: 'tv' }) | (RadarrLibraryItem & { mediaType: 'movies' })
 type RawLibraryItem = SonarrLibraryItem | RadarrLibraryItem
 
+const LIBRARY_SEARCH_POSITION_KEY = 'quasrr.layout.library_search_position'
+
+const readCachedLibrarySearchPosition = (): 'top' | 'bottom' => {
+  if (typeof window === 'undefined') return 'bottom'
+  const value = window.localStorage.getItem(LIBRARY_SEARCH_POSITION_KEY)
+  return value === 'top' || value === 'bottom' ? value : 'bottom'
+}
+
 function LibraryContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -63,9 +71,12 @@ function LibraryContent() {
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
   const [autoSearch, setAutoSearch] = useState(false)
   const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
+  const [librarySearchPosition, setLibrarySearchPosition] = useState<'top' | 'bottom'>(
+    () => readCachedLibrarySearchPosition()
+  )
   const autoActionHandledRef = useRef<Set<string>>(new Set())
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const librarySearchAtBottom = (config?.layout?.library_search_position ?? 'bottom') === 'bottom'
+  const librarySearchAtBottom = librarySearchPosition === 'bottom'
   const librarySearchStickyClass = librarySearchAtBottom
     ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
     : 'sticky top-16'
@@ -85,6 +96,11 @@ function LibraryContent() {
           const configData = (await configRes.json()) as ConfigResponse
           if (active) {
             setConfig(configData)
+            const nextSearchPosition = configData.layout?.library_search_position ?? 'bottom'
+            setLibrarySearchPosition(nextSearchPosition)
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem(LIBRARY_SEARCH_POSITION_KEY, nextSearchPosition)
+            }
           }
         }
 
@@ -282,6 +298,10 @@ function LibraryContent() {
   }
 
   const updateLibrarySearchPosition = async (next: 'top' | 'bottom') => {
+    setLibrarySearchPosition(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LIBRARY_SEARCH_POSITION_KEY, next)
+    }
     try {
       const backendUrl = getBackendUrl()
       const res = await fetch(`${backendUrl}/config/settings`, {
