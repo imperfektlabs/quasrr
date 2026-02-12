@@ -63,6 +63,7 @@ function LibraryContent() {
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null)
   const [autoSearch, setAutoSearch] = useState(false)
   const [autoDeleteOpen, setAutoDeleteOpen] = useState(false)
+  const autoActionHandledRef = useRef<Set<string>>(new Set())
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const librarySearchAtBottom = (config?.layout?.library_search_position ?? 'bottom') === 'bottom'
   const librarySearchStickyClass = librarySearchAtBottom
@@ -340,7 +341,84 @@ function LibraryContent() {
           const next = params.toString() ? `/library?${params.toString()}` : '/library'
           router.replace(next)
         }
+      return
+    }
+
+    if (action !== 'search') return
+    if (!(Number.isFinite(tvdb) || Number.isFinite(tmdb))) return
+
+    const actionKey = `${tvdb || ''}:${tmdb || ''}:${q}:${season || ''}`
+    if (autoActionHandledRef.current.has(actionKey)) return
+    autoActionHandledRef.current.add(actionKey)
+
+    let active = true
+
+    const ensureAndRefresh = async () => {
+      try {
+        const backendUrl = getBackendUrl()
+        const payload: Record<string, unknown> = {}
+
+        if (Number.isFinite(tmdb)) {
+          payload.type = 'movie'
+          payload.tmdb_id = tmdb
+        } else if (Number.isFinite(tvdb)) {
+          payload.type = 'tv'
+          payload.tvdb_id = tvdb
+        } else {
+          return
+        }
+
+        if (q) {
+          payload.title = q
+        }
+
+        const ensureRes = await fetch(`${backendUrl}/library/ensure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!ensureRes.ok) {
+          return
+        }
+
+        if (payload.type === 'movie') {
+          const radarrRes = await fetch(`${backendUrl}/radarr/library`)
+          if (!radarrRes.ok) return
+          const latestRadarr = (await radarrRes.json()) as RadarrLibraryItem[]
+          if (!active) return
+          setRadarrItems(latestRadarr)
+          const found = latestRadarr.find((item) => item.tmdbId === tmdb)
+          if (!found) return
+          setSelectedItem({ ...found, mediaType: 'movies' })
+          setAutoExpandSeason(null)
+          setAutoSearch(true)
+          setAutoDeleteOpen(false)
+        } else {
+          const sonarrRes = await fetch(`${backendUrl}/sonarr/library`)
+          if (!sonarrRes.ok) return
+          const latestSonarr = (await sonarrRes.json()) as SonarrLibraryItem[]
+          if (!active) return
+          setSonarrItems(latestSonarr)
+          const found = latestSonarr.find((item) => item.tvdbId === tvdb)
+          if (!found) return
+          setSelectedItem({ ...found, mediaType: 'tv' })
+          setAutoExpandSeason(wantedSeason)
+          setAutoSearch(false)
+          setAutoDeleteOpen(false)
+        }
+      } finally {
+        if (!active) return
+        const params = new URLSearchParams(searchParams.toString())
+        params.delete('action')
+        const next = params.toString() ? `/library?${params.toString()}` : '/library'
+        router.replace(next)
       }
+    }
+
+    void ensureAndRefresh()
+    return () => {
+      active = false
+    }
   }, [loading, searchParams, sonarrItems, radarrItems, mediaTypeFilter, router])
 
   useEffect(() => {
