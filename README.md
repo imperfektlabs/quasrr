@@ -8,6 +8,7 @@ Quasrr is a self-hosted, mobile-first web app that brings discovery, streaming a
 
 ## Table of Contents
 
+- [Project Note](#project-note)
 - [Philosophy](#philosophy)
 - [Legal and Responsible Use](#legal-and-responsible-use)
 - [Legal Policy File](#legal-policy-file)
@@ -21,6 +22,16 @@ Quasrr is a self-hosted, mobile-first web app that brings discovery, streaming a
 - [Development Notes](#development-notes)
 - [Quality Preferences](#quality-preferences)
 - [Roadmap](#roadmap)
+
+---
+
+## Project Note
+
+Quasrr was created as a practical learning project to better understand AI overall, including how modern models work, how prompting affects outcomes, and how agent-style workflows fit into real software development.
+
+The codebase was generated and iterated primarily with AI tools, including Claude, Codex, and Gemini, through chatbot interfaces, CLI tools, and VS Code extensions.
+
+I guided the product direction, prompts, testing, and implementation decisions, while AI produced most of the code.
 
 ---
 
@@ -440,7 +451,7 @@ Contains sensible defaults for quality preferences, feature flags, and streaming
 
 ### Current State
 
-- **Version**: 0.1.0
+- **Version**: 26.02.1
 - **Status**: Functional MVP with core flows in place
 - **Theme**: Nebula-inspired glass UI
 - **Recent work**: Unified Library, AI modal polish, per-episode releases, streaming logos, dashboard/layout settings
@@ -560,6 +571,6 @@ MIT License - See LICENSE file for details
 Built with love for casual media consumers who want control without complexity.
 
 **Maintainer**: imperfektlabs
-**Project Start**: January 2026
-**Current Version**: 0.1.0
+**Project Start**: February 2026
+**Current Version**: 26.02.1
 **Codename**: Quasrr
