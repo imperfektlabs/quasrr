@@ -12,3 +12,9 @@ Security updates are provided for the latest release branch.
 
 We will acknowledge reports within 72 hours and provide remediation status as
 work progresses.
+
+## Legal Use Reminder
+
+Quasrr is a self-hosted orchestration dashboard and does not host or distribute media files.
+Use this software only with content you are legally entitled to access, copy, or download.
+For full legal and third-party trademark/artwork disclaimers, see `LEGAL.md`.
