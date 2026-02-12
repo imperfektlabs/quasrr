@@ -611,7 +611,12 @@ async def get_justwatch_popular(
     if not country_code:
         country_code = "us"
 
-    target_url = f"https://www.justwatch.com/{country_code}"
+    if normalized_type == "movie":
+        target_url = f"https://www.justwatch.com/{country_code}/movies"
+    elif normalized_type == "tv":
+        target_url = f"https://www.justwatch.com/{country_code}/tv-shows"
+    else:
+        target_url = f"https://www.justwatch.com/{country_code}"
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
