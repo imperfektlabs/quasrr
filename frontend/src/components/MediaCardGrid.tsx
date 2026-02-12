@@ -52,7 +52,8 @@ export function MediaCardGrid({
   let status: 'not_in_library' | 'in_library' | 'partial' | 'downloaded'
   let ratings: React.ReactNode = null
   let badges: React.ReactNode = null
-  let actionButtons: React.ReactNode = null
+  let overlayActions: React.ReactNode = null
+  let mobileActions: React.ReactNode = null
 
   if (item.source === 'discovery') {
     const result = item.data
@@ -134,21 +135,37 @@ export function MediaCardGrid({
     }
 
     if (discoveryMode === 'external') {
-      actionButtons = null
+      overlayActions = null
+      mobileActions = null
     } else {
-      actionButtons = (
+      overlayActions = (
         <button
           onClick={handleReleasesClick}
           disabled={discoverySearchBusy}
-          className="w-full bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+          className="h-6 w-6 rounded bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white inline-flex items-center justify-center transition-all duration-300 active:scale-95"
           aria-label="Find releases"
+          title="Find releases"
         >
           {discoverySearchBusy ? (
-            <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
+            <ReelIcon className="h-full w-full p-1 animate-spin" />
           ) : (
-            <SearchIcon className="h-4 w-4" />
+            <SearchIcon className="h-3 w-3" />
           )}
-          <span className="text-sm font-medium">Find Releases</span>
+        </button>
+      )
+      mobileActions = (
+        <button
+          onClick={handleReleasesClick}
+          disabled={discoverySearchBusy}
+          className="h-8 w-8 rounded bg-cyan-500/90 hover:bg-cyan-400 text-white inline-flex items-center justify-center transition-all duration-300 active:scale-95"
+          aria-label="Find releases"
+          title="Find releases"
+        >
+          {discoverySearchBusy ? (
+            <ReelIcon className="h-full w-full p-1.5 animate-spin" />
+          ) : (
+            <SearchIcon className="h-3.5 w-3.5" />
+          )}
         </button>
       )
     }
@@ -204,29 +221,59 @@ export function MediaCardGrid({
     )
 
     // Action buttons
-    actionButtons = (
-      <div className="flex gap-2">
+    overlayActions = (
+      <>
         {libItem.mediaType === 'movies' && (
           <button
             onClick={(e) => { e.stopPropagation(); onLibrarySearch?.() }}
             disabled={librarySearchBusy}
-            className="flex-1 bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white py-2 px-3 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+            className="h-6 w-6 rounded bg-cyan-500/90 hover:bg-cyan-400 hover:shadow-glow-cyan text-white inline-flex items-center justify-center transition-all duration-300 active:scale-95"
+            aria-label="Search releases"
+            title="Search releases"
           >
             {librarySearchBusy ? (
-              <ReelIcon className="h-full w-full p-1.5 sm:p-2 animate-spin" />
+              <ReelIcon className="h-full w-full p-1 animate-spin" />
             ) : (
-              <SearchIcon className="h-4 w-4" />
+              <SearchIcon className="h-3 w-3" />
             )}
-            <span className="text-sm font-medium">Search</span>
           </button>
         )}
         <button
           onClick={(e) => { e.stopPropagation(); onLibraryDelete?.() }}
-          className="flex-1 bg-rose-500/80 hover:bg-rose-500 text-white py-2 px-3 rounded-lg inline-flex items-center justify-center transition-all duration-300 hover:scale-[1.02] active:scale-95"
+          className="h-6 w-6 rounded bg-rose-500/80 hover:bg-rose-500 text-white inline-flex items-center justify-center transition-all duration-300 active:scale-95"
+          aria-label="Remove title"
+          title="Remove title"
         >
-          <span className="text-sm font-medium">Remove</span>
+          <span className="text-sm leading-none">✕</span>
         </button>
-      </div>
+      </>
+    )
+    mobileActions = (
+      <>
+        {libItem.mediaType === 'movies' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onLibrarySearch?.() }}
+            disabled={librarySearchBusy}
+            className="h-8 w-8 rounded bg-cyan-500/90 hover:bg-cyan-400 text-white inline-flex items-center justify-center transition-all duration-300 active:scale-95"
+            aria-label="Search releases"
+            title="Search releases"
+          >
+            {librarySearchBusy ? (
+              <ReelIcon className="h-full w-full p-1.5 animate-spin" />
+            ) : (
+              <SearchIcon className="h-3.5 w-3.5" />
+            )}
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onLibraryDelete?.() }}
+          className="h-8 w-8 rounded bg-rose-500/80 hover:bg-rose-500 text-white inline-flex items-center justify-center transition-all duration-300 active:scale-95"
+          aria-label="Remove title"
+          title="Remove title"
+        >
+          <span className="text-sm leading-none">✕</span>
+        </button>
+      </>
     )
   }
 
@@ -273,8 +320,11 @@ export function MediaCardGrid({
                 </div>
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                {ratings}
+              <div className="absolute bottom-0 left-0 right-0 p-3 space-y-1.5 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                <div className="flex items-center justify-end gap-1.5">
+                  {ratings}
+                  {overlayActions && <div className="hidden md:flex items-center gap-1.5">{overlayActions}</div>}
+                </div>
               </div>
             </>
           ) : (
@@ -313,8 +363,11 @@ export function MediaCardGrid({
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
             {/* Badges overlaid on poster bottom */}
-            <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-              {badges}
+            <div className="absolute bottom-0 left-0 right-0 p-3 space-y-1.5 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {badges}
+                {overlayActions && <div className="hidden md:flex items-center gap-1.5 ml-auto">{overlayActions}</div>}
+              </div>
               {ratings}
             </div>
           </>
@@ -339,7 +392,11 @@ export function MediaCardGrid({
           )}
         </div>
 
-        {actionButtons}
+        {mobileActions && (
+          <div className="flex md:hidden items-center justify-end gap-2">
+            {mobileActions}
+          </div>
+        )}
       </div>
     </div>
   )
