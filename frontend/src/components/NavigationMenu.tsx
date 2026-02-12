@@ -120,6 +120,79 @@ type MobileView =
   | 'settings-sab-limit'
   | 'streaming-links'
 
+type SettingsSectionId =
+  | 'ai-provider'
+  | 'dashboard-cards'
+  | 'streaming-services'
+  | 'discovery-search'
+  | 'library-search'
+  | 'view-mode'
+  | 'sab-limit'
+
+function renderSectionIcon(sectionId: SettingsSectionId) {
+  switch (sectionId) {
+    case 'ai-provider':
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="3.5" />
+          <path d="M12 2v3M12 19v3M4.2 7l2.2 1.2M17.6 15.8L19.8 17M2 12h3M19 12h3M4.2 17l2.2-1.2M17.6 8.2L19.8 7" />
+        </svg>
+      )
+    case 'dashboard-cards':
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="4" rx="1.5" />
+          <rect x="14" y="10" width="7" height="11" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+      )
+    case 'streaming-services':
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="4" y="5" width="16" height="11" rx="2" />
+          <path d="M8 20h8M12 16v4" />
+          <path d="M10 9l5 2.5-5 2.5V9z" />
+        </svg>
+      )
+    case 'discovery-search':
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="6" />
+          <path d="M20 20l-4.2-4.2" />
+          <path d="M11 8v6M8 11h6" />
+        </svg>
+      )
+    case 'library-search':
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          <circle cx="16.5" cy="8.5" r="2.5" />
+        </svg>
+      )
+    case 'view-mode':
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="4" width="7" height="7" rx="1.2" />
+          <rect x="14" y="4" width="7" height="7" rx="1.2" />
+          <path d="M3 16h18M3 20h18" />
+        </svg>
+      )
+    case 'sab-limit':
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 3v6" />
+          <path d="M9 6l3-3 3 3" />
+          <rect x="4" y="11" width="16" height="9" rx="2" />
+          <path d="M8 15h8M8 18h5" />
+        </svg>
+      )
+    default:
+      return null
+  }
+}
+
 export function NavigationMenu({
   menuOpen,
   setMenuOpen,
@@ -135,9 +208,7 @@ export function NavigationMenu({
   const [activeSettings, setActiveSettings] = useState(false)
   const [activeStreaming, setActiveStreaming] = useState(false)
   const [mobileView, setMobileView] = useState<MobileView>('root')
-  const [activeSection, setActiveSection] = useState<
-    'ai-provider' | 'dashboard-cards' | 'streaming-services' | 'discovery-search' | 'library-search' | 'view-mode' | 'sab-limit' | null
-  >(null)
+  const [activeSection, setActiveSection] = useState<SettingsSectionId | null>(null)
   const [quickConfig, setQuickConfig] = useState<QuickConfig | null>(mapQuickConfig(config ?? null))
   const [quickBusy, setQuickBusy] = useState(false)
   const [quickError, setQuickError] = useState<string | null>(null)
@@ -239,13 +310,13 @@ export function NavigationMenu({
   }, [setMenuOpen])
 
   const sectionItems = useMemo(() => ([
-    { id: 'ai-provider' as const, label: 'AI Provider', icon: 'AI' },
-    { id: 'dashboard-cards' as const, label: 'Dashboard Cards', icon: 'DB' },
-    { id: 'streaming-services' as const, label: 'Streaming Services', icon: 'TV' },
-    { id: 'discovery-search' as const, label: 'Discovery Search', icon: 'DS' },
-    { id: 'library-search' as const, label: 'Library Search', icon: 'LS' },
-    { id: 'view-mode' as const, label: 'View Mode', icon: 'VM' },
-    { id: 'sab-limit' as const, label: 'Recent Downloads', icon: 'DL' },
+    { id: 'ai-provider' as const, label: 'AI Provider' },
+    { id: 'dashboard-cards' as const, label: 'Dashboard Cards' },
+    { id: 'streaming-services' as const, label: 'Streaming Services' },
+    { id: 'discovery-search' as const, label: 'Discovery Search' },
+    { id: 'library-search' as const, label: 'Library Search' },
+    { id: 'view-mode' as const, label: 'View Mode' },
+    { id: 'sab-limit' as const, label: 'Recent Downloads' },
   ]), [])
 
   const quick = quickConfig
@@ -365,7 +436,12 @@ export function NavigationMenu({
                 quick.layout.discovery_search_position === pos ? 'bg-cyan-600/20 text-cyan-100' : 'bg-slate-800/50 hover:bg-slate-700/60 text-slate-200'
               }`}
             >
-              {pos === 'top' ? 'Top' : 'Bottom'}
+              <span className="inline-flex items-center gap-2">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {pos === 'top' ? <path d="M12 19V5M6 11l6-6 6 6" /> : <path d="M12 5v14M6 13l6 6 6-6" />}
+                </svg>
+                {pos === 'top' ? 'Top' : 'Bottom'}
+              </span>
             </button>
           ))}
         </div>
@@ -385,7 +461,12 @@ export function NavigationMenu({
                 quick.layout.library_search_position === pos ? 'bg-cyan-600/20 text-cyan-100' : 'bg-slate-800/50 hover:bg-slate-700/60 text-slate-200'
               }`}
             >
-              {pos === 'top' ? 'Top' : 'Bottom'}
+              <span className="inline-flex items-center gap-2">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {pos === 'top' ? <path d="M12 19V5M6 11l6-6 6 6" /> : <path d="M12 5v14M6 13l6 6 6-6" />}
+                </svg>
+                {pos === 'top' ? 'Top' : 'Bottom'}
+              </span>
             </button>
           ))}
         </div>
@@ -548,7 +629,12 @@ export function NavigationMenu({
             quick.layout.discovery_search_position === pos ? 'bg-cyan-600/20 text-cyan-100' : 'bg-slate-800/50 text-slate-200'
           }`}
         >
-          {pos === 'top' ? 'Top' : 'Bottom'}
+          <span className="inline-flex items-center gap-2">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {pos === 'top' ? <path d="M12 19V5M6 11l6-6 6 6" /> : <path d="M12 5v14M6 13l6 6 6-6" />}
+            </svg>
+            {pos === 'top' ? 'Top' : 'Bottom'}
+          </span>
         </button>
       ))
     }
@@ -564,7 +650,12 @@ export function NavigationMenu({
             quick.layout.library_search_position === pos ? 'bg-cyan-600/20 text-cyan-100' : 'bg-slate-800/50 text-slate-200'
           }`}
         >
-          {pos === 'top' ? 'Top' : 'Bottom'}
+          <span className="inline-flex items-center gap-2">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {pos === 'top' ? <path d="M12 19V5M6 11l6-6 6 6" /> : <path d="M12 5v14M6 13l6 6 6-6" />}
+            </svg>
+            {pos === 'top' ? 'Top' : 'Bottom'}
+          </span>
         </button>
       ))
     }
@@ -713,7 +804,7 @@ export function NavigationMenu({
                     {sectionItems.map((section) => (
                       <div key={section.id} className="relative" onMouseEnter={() => setActiveSection(section.id)}>
                         <button type="button" className={`w-full px-3 py-2 border-b border-slate-700/40 inline-flex items-center gap-2 text-left text-sm ${activeSection === section.id ? 'bg-slate-700/70 text-slate-100' : 'bg-slate-800/50 hover:bg-slate-700/60 text-slate-200'}`}>
-                          <span className="h-5 w-5 bg-slate-700/80 text-[10px] inline-flex items-center justify-center text-slate-300">{section.icon}</span>
+                          <span className="h-5 w-5 rounded bg-slate-700/80 inline-flex items-center justify-center text-slate-300">{renderSectionIcon(section.id)}</span>
                           <span>{section.label}</span>
                           <svg className="ml-auto h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M9 6l6 6-6 6" />
@@ -846,7 +937,11 @@ export function NavigationMenu({
                   </button>
 
                   <button type="button" onClick={() => void handleMobileOpenSettingsQuick()} className="px-3 py-3 border-b border-slate-700/40 inline-flex items-center gap-2 text-left bg-slate-800/50">
-                    <span className="h-5 w-5 bg-slate-700/80 text-[10px] inline-flex items-center justify-center text-slate-300">QK</span>
+                    <span className="h-5 w-5 rounded bg-slate-700/80 inline-flex items-center justify-center text-slate-300">
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 3l1.8 3.6L18 8.4l-3 2.9.7 4.1-3.7-2-3.7 2 .7-4.1-3-2.9 4.2-1.8L12 3z" />
+                      </svg>
+                    </span>
                     <span>Settings Quick Options</span>
                     <svg className="ml-auto h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 6l6 6-6 6" />
@@ -891,7 +986,7 @@ export function NavigationMenu({
                       onClick={() => setMobileView(mobileSectionTarget[section.id])}
                       className="w-full px-3 py-3 border-b border-slate-700/40 inline-flex items-center gap-2 text-left text-sm bg-slate-800/50"
                     >
-                      <span className="h-5 w-5 bg-slate-700/80 text-[10px] inline-flex items-center justify-center text-slate-300">{section.icon}</span>
+                      <span className="h-5 w-5 rounded bg-slate-700/80 inline-flex items-center justify-center text-slate-300">{renderSectionIcon(section.id)}</span>
                       <span>{section.label}</span>
                       <svg className="ml-auto h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M9 6l6 6-6 6" />
