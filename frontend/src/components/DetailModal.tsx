@@ -40,6 +40,7 @@ type DetailModalProps = {
   error?: string | null
   onConfirm?: (plan: AIIntentPlan) => void
   onSearch?: (query: string) => void
+  aiProviderLabel?: string
   // Discovery mode props
   result?: DiscoveryResult
   // Library mode props
@@ -74,6 +75,7 @@ export function DetailModal({
   autoExpandSeason = null,
   autoHighlightEpisode = null,
   autoHighlightEpisodeDate = null,
+  aiProviderLabel,
 }: DetailModalProps) {
   const [manualQuery, setManualQuery] = useState(plan?.query || '')
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -730,7 +732,7 @@ export function DetailModal({
         ended: availability?.ended ?? undefined,
       }) || availability?.year
       : availability?.year
-    headerTitle = 'AI Suggests…'
+    headerTitle = aiProviderLabel ? `${aiProviderLabel} Suggests…` : 'AI Suggests…'
     headerSubtitle = plan?.query ? `"${plan.query}"` : ''
     poster = availability?.poster_url
     displayTitle = availability?.title || intent?.title || plan?.query || 'Unknown'
