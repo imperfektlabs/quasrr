@@ -56,6 +56,7 @@ export type SettingsResult = {
   saveSettings: (next?: Partial<{
     country: string
     ai_provider: string
+    ai_model: string
     sab_recent_group_limit: number
     discovery_search_position: 'top' | 'bottom'
     library_search_position: 'top' | 'bottom'
@@ -216,6 +217,7 @@ export function useSettings(
   const saveSettings = async (next?: Partial<{
     country: string
     ai_provider: string
+    ai_model: string
     sab_recent_group_limit: number
     discovery_search_position: 'top' | 'bottom'
     library_search_position: 'top' | 'bottom'
@@ -227,6 +229,7 @@ export function useSettings(
 
     const nextCountry = next?.country ?? country
     const nextAiProvider = next?.ai_provider ?? aiProvider
+    const nextAiModel = next?.ai_model
     const nextSabRecentLimit = next?.sab_recent_group_limit ?? sabRecentLimit
     const nextDiscoverySearchPosition = next?.discovery_search_position ?? discoverySearchPosition
     const nextLibrarySearchPosition = next?.library_search_position ?? librarySearchPosition
@@ -240,6 +243,7 @@ export function useSettings(
         body: JSON.stringify({
           country: nextCountry,
           ai_provider: nextAiProvider,
+          ai_model: nextAiModel,
           layout: {
             discovery_search_position: nextDiscoverySearchPosition,
             library_search_position: nextLibrarySearchPosition,

@@ -22,6 +22,8 @@ export default function SettingsPage() {
   const [credentialsBusy, setCredentialsBusy] = useState(false)
   const [credentialsError, setCredentialsError] = useState<string | null>(null)
   const [credentialsSaved, setCredentialsSaved] = useState(false)
+  const [editingModel, setEditingModel] = useState(false)
+  const [tempModel, setTempModel] = useState('')
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
@@ -267,8 +269,51 @@ export default function SettingsPage() {
 
               {selectedProviderOption && (
                 <div className="text-xs text-slate-400 mt-2 space-y-1">
-                  <div>
-                    Model: <span className="text-slate-200">{selectedProviderModel ?? ''}</span>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="cursor-pointer hover:text-cyan-400 transition-colors"
+                      onClick={() => {
+                        setTempModel(selectedProviderModel ?? '')
+                        setEditingModel(true)
+                      }}
+                    >
+                      Model:
+                    </span>
+                    {editingModel ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={tempModel}
+                        onChange={(e) => setTempModel(e.target.value)}
+                        onBlur={() => {
+                          setEditingModel(false)
+                          if (tempModel !== (selectedProviderModel ?? '')) {
+                            void saveSettings({ ai_model: tempModel })
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setEditingModel(false)
+                            if (tempModel !== (selectedProviderModel ?? '')) {
+                              void saveSettings({ ai_model: tempModel })
+                            }
+                          } else if (e.key === 'Escape') {
+                            setEditingModel(false)
+                          }
+                        }}
+                        className="bg-slate-900/60 border border-slate-700/60 rounded px-1.5 py-0.5 text-slate-200 outline-none focus:border-cyan-500/60 min-w-[120px]"
+                      />
+                    ) : (
+                      <span
+                        className="text-slate-200 cursor-pointer hover:text-white transition-colors"
+                        onClick={() => {
+                          setTempModel(selectedProviderModel ?? '')
+                          setEditingModel(true)
+                        }}
+                      >
+                        {selectedProviderModel ?? ''}
+                      </span>
+                    )}
                   </div>
                   <div>
                     Base URL: <span className="text-slate-200">{selectedProviderBaseUrl ?? ''}</span>
