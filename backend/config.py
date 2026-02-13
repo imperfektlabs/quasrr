@@ -620,6 +620,7 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
 def update_basic_settings(
     country: Optional[str] = None,
     ai_provider: Optional[str] = None,
+    ai_model: Optional[str] = None,
     dashboard: Optional[dict] = None,
     layout: Optional[dict] = None,
     sabnzbd: Optional[dict] = None
@@ -632,6 +633,15 @@ def update_basic_settings(
 
     if ai_provider:
         settings.setdefault("ai", {})["provider"] = ai_provider
+
+    if ai_model:
+        # Determine which provider to update the model for
+        target_provider = ai_provider or settings.get("ai", {}).get("provider") or "openai"
+        target_provider = target_provider.strip().lower()
+        
+        # Map provider to its settings key (e.g. openai -> openai_model)
+        model_key = f"{target_provider}_model"
+        settings.setdefault("ai", {})[model_key] = ai_model
 
     if dashboard:
         settings.setdefault("dashboard", {}).update(dashboard)

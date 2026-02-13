@@ -118,6 +118,7 @@ class SabnzbdSettingsUpdate(BaseModel):
 class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
     ai_provider: Optional[str] = None
+    ai_model: Optional[str] = None
     dashboard: Optional[DashboardSettingsUpdate] = None
     layout: Optional[LayoutSettingsUpdate] = None
     sabnzbd: Optional[SabnzbdSettingsUpdate] = None
@@ -533,6 +534,7 @@ async def update_basic_settings_config(payload: BasicSettingsUpdate):
     config = update_basic_settings(
         payload.country,
         ai_provider=payload.ai_provider,
+        ai_model=payload.ai_model,
         dashboard=dashboard_settings,
         layout=layout_settings,
         sabnzbd=sabnzbd_settings,
