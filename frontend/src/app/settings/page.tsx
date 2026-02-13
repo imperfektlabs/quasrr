@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 
 import { useBackendApiSetup, useSettings, useClickOutside } from '@/hooks'
-import { getLocalToolUrl } from '@/utils/backend'
+import { getLocalToolUrl, getBackendUrl } from '@/utils/backend'
 import { NavigationMenu } from '@/components'
 import { getStreamingLogo } from '@/utils/streaming'
 import { useAuth } from '@/contexts/AuthContext'
@@ -24,6 +24,32 @@ export default function SettingsPage() {
   const [credentialsSaved, setCredentialsSaved] = useState(false)
   const [editingModel, setEditingModel] = useState(false)
   const [tempModel, setTempModel] = useState('')
+  const [validatingModel, setValidatingModel] = useState(false)
+  const [validationResult, setValidationResult] = useState<{ valid: boolean; message?: string } | null>(null)
+
+  const handleValidateModel = async (provider: string, model: string) => {
+    if (!model) {
+      setValidationResult(null)
+      return true
+    }
+    setValidatingModel(true)
+    setValidationResult(null)
+    try {
+      const backendUrl = getBackendUrl()
+      const params = new URLSearchParams({ provider, model })
+      const res = await fetch(`${backendUrl}/ai/validate_model?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setValidationResult({ valid: data.valid, message: data.message })
+        return data.valid
+      }
+    } catch (e) {
+      console.error('Model validation failed', e)
+    } finally {
+      setValidatingModel(false)
+    }
+    return true // Assume valid on error to not block user
+  }
 
   useClickOutside([menuButtonRef, menuPanelRef], () => setMenuOpen(false), menuOpen)
 
@@ -269,50 +295,81 @@ export default function SettingsPage() {
 
               {selectedProviderOption && (
                 <div className="text-xs text-slate-400 mt-2 space-y-1">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 min-h-[24px]">
                     <span
                       className="cursor-pointer hover:text-cyan-400 transition-colors"
                       onClick={() => {
                         setTempModel(selectedProviderModel ?? '')
+                        setValidationResult(null)
                         setEditingModel(true)
                       }}
                     >
                       Model:
                     </span>
                     {editingModel ? (
-                      <input
-                        type="text"
-                        autoFocus
-                        value={tempModel}
-                        onChange={(e) => setTempModel(e.target.value)}
-                        onBlur={() => {
-                          setEditingModel(false)
-                          if (tempModel !== (selectedProviderModel ?? '')) {
-                            void saveSettings({ ai_model: tempModel })
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            setEditingModel(false)
-                            if (tempModel !== (selectedProviderModel ?? '')) {
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={tempModel}
+                          onChange={(e) => {
+                            setTempModel(e.target.value)
+                            setValidationResult(null)
+                          }}
+                          onBlur={async () => {
+                            if (tempModel === (selectedProviderModel ?? '')) {
+                              setEditingModel(false)
+                              return
+                            }
+                            const isValid = await handleValidateModel(settingsAiProvider, tempModel)
+                            if (isValid || !tempModel) {
+                              setEditingModel(false)
                               void saveSettings({ ai_model: tempModel })
                             }
-                          } else if (e.key === 'Escape') {
-                            setEditingModel(false)
-                          }
-                        }}
-                        className="bg-slate-900/60 border border-slate-700/60 rounded px-1.5 py-0.5 text-slate-200 outline-none focus:border-cyan-500/60 min-w-[120px]"
-                      />
+                          }}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                              if (tempModel === (selectedProviderModel ?? '')) {
+                                setEditingModel(false)
+                                return
+                              }
+                              const isValid = await handleValidateModel(settingsAiProvider, tempModel)
+                              if (isValid || !tempModel) {
+                                setEditingModel(false)
+                                void saveSettings({ ai_model: tempModel })
+                              }
+                            } else if (e.key === 'Escape') {
+                              setEditingModel(false)
+                              setValidationResult(null)
+                            }
+                          }}
+                          className={`bg-slate-900/60 border rounded px-1.5 py-0.5 text-slate-200 outline-none min-w-[120px] transition-colors ${
+                            validationResult?.valid === false ? 'border-rose-500/60' : 'border-slate-700/60 focus:border-cyan-500/60'
+                          }`}
+                        />
+                        {validatingModel && (
+                          <div className="w-3.5 h-3.5 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+                        )}
+                        {!validatingModel && validationResult?.valid === false && (
+                          <span className="text-rose-400 font-medium">Model not found</span>
+                        )}
+                      </div>
                     ) : (
-                      <span
-                        className="text-slate-200 cursor-pointer hover:text-white transition-colors"
-                        onClick={() => {
-                          setTempModel(selectedProviderModel ?? '')
-                          setEditingModel(true)
-                        }}
-                      >
-                        {selectedProviderModel ?? ''}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-slate-200 cursor-pointer hover:text-white transition-colors"
+                          onClick={() => {
+                            setTempModel(selectedProviderModel ?? '')
+                            setValidationResult(null)
+                            setEditingModel(true)
+                          }}
+                        >
+                          {selectedProviderModel ?? ''}
+                        </span>
+                        {selectedProviderModel && (
+                          <span className="text-emerald-500/80" title="Verified">✓</span>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div>
