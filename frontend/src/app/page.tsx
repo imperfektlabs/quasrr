@@ -471,7 +471,14 @@ function HomeContent() {
     discoverySearchPosition: settingsDiscoverySearchPosition,
     setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
     saveSettings,
+    aiProvider,
   } = useSettings(config, setConfig)
+
+  const aiProviderLabel = useMemo(() => {
+    if (!config?.ai?.providers) return null
+    const found = config.ai.providers.find((p) => p.id === aiProvider)
+    return found?.label || null
+  }, [config?.ai?.providers, aiProvider])
 
   // View mode (grid/list) from backend config
   const viewMode = (config?.layout?.view_mode as 'grid' | 'list') ?? 'grid'
@@ -1543,6 +1550,7 @@ function HomeContent() {
           plan={aiIntentPlan}
           aiResult={aiModalResult || undefined}
           busy={aiIntentBusy || aiModalSearchBusy || libraryFlowBusy}
+          aiProviderLabel={aiProviderLabel || undefined}
           onConfirm={handleAiConfirm}
           onSearch={async (query) => {
             setAiModalSearchBusy(true)
