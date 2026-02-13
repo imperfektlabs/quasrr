@@ -543,6 +543,17 @@ async def update_basic_settings_config(payload: BasicSettingsUpdate):
     return {"status": "updated", "config": redact_secrets(config)}
 
 
+@protected_get("/ai/validate_model")
+async def validate_ai_model(
+    provider: str = Query(..., description="AI provider ID"),
+    model: str = Query(..., description="Model ID to validate"),
+):
+    """Verify if an AI model name is valid for the provider."""
+    ai = get_ai_client()
+    result = await ai.validate_model(provider, model)
+    return result
+
+
 @protected_get("/tmdb/providers")
 async def get_tmdb_providers(
     type: SearchType = Query(SearchType.movie, description="Type: movie or tv"),
