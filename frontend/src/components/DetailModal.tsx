@@ -48,6 +48,8 @@ type DetailModalProps = {
   autoSearch?: boolean
   autoDeleteOpen?: boolean
   autoExpandSeason?: number | null
+  autoHighlightEpisode?: number | null
+  autoHighlightEpisodeDate?: string | null
   // Common props
   onClose: () => void
   onShowReleases?: (result: DiscoveryResult, season?: number) => void
@@ -70,6 +72,8 @@ export function DetailModal({
   autoSearch = false,
   autoDeleteOpen = false,
   autoExpandSeason = null,
+  autoHighlightEpisode = null,
+  autoHighlightEpisodeDate = null,
 }: DetailModalProps) {
   const [manualQuery, setManualQuery] = useState(plan?.query || '')
   const [selectedSeason, setSelectedSeason] = useState<number | 'all'>('all')
@@ -102,6 +106,7 @@ export function DetailModal({
   const [libraryReleaseData, setLibraryReleaseData] = useState<ReleaseResponse | null>(null)
   const [libraryReleaseLoading, setLibraryReleaseLoading] = useState(false)
   const [libraryReleaseError, setLibraryReleaseError] = useState<string | null>(null)
+  const [highlightInteractionCleared, setHighlightInteractionCleared] = useState(false)
   const libraryResultsRef = useRef<HTMLDivElement | null>(null)
   const deleteConfirmRef = useRef<HTMLDivElement | null>(null)
   const autoSearchHandled = useRef(false)
@@ -249,6 +254,7 @@ export function DetailModal({
     setEpisodeReleaseLoadingKeys(new Set())
     setEpisodeReleaseErrors({})
     setSeasonReleaseCache({})
+    setHighlightInteractionCleared(false)
     clearLibraryGrab()
     setLibraryGrabFeedback(null)
     autoSearchHandled.current = false
@@ -286,6 +292,21 @@ export function DetailModal({
       deleteConfirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
   }, [deleteConfirmOpen])
+
+  useEffect(() => {
+    if (autoHighlightEpisode == null && autoHighlightEpisodeDate == null) return
+    if (episodesLoading) return
+
+    // Give it a tiny bit of time for DOM to settle after expansion/loading
+    const timeout = setTimeout(() => {
+      const highlighted = document.querySelector('.animate-flash-highlight')
+      if (highlighted) {
+        highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 300)
+
+    return () => clearTimeout(timeout)
+  }, [episodesLoading, expandedSeasons, autoHighlightEpisode, autoHighlightEpisodeDate])
 
   const buildEpisodeKey = (seasonNumber: number, episodeNumber: number) =>
     `${seasonNumber}:${episodeNumber}`
@@ -974,7 +995,7 @@ export function DetailModal({
           </div>
         </div>
       )}
-      <div className="grid gap-2">
+      <div className="grid gap-2" onMouseDown={() => setHighlightInteractionCleared(true)}>
         {[...libraryItem.seasons]
           .sort((a, b) => (b.seasonNumber ?? 0) - (a.seasonNumber ?? 0))
           .map((season) => {
@@ -1012,6 +1033,11 @@ export function DetailModal({
                       return parsed.toISOString().slice(0, 10)
                     }
                     const airDateLabel = formatAirDate(ep.airDate)
+                    const isTargetSeason = autoExpandSeason === null || ep.seasonNumber === autoExpandSeason
+                    const isHighlighted = !highlightInteractionCleared && isTargetSeason && (
+                      (autoHighlightEpisode != null && ep.episodeNumber === autoHighlightEpisode) ||
+                      (autoHighlightEpisodeDate != null && airDateLabel === autoHighlightEpisodeDate)
+                    )
                     const fileLabelRaw = ep.sceneName || ep.relativePath || ep.filePath
                     const fileLabel = fileLabelRaw ? getFileNameFromPath(fileLabelRaw) : null
                     const sizeLabel = ep.size ? formatSize(ep.size) : null
@@ -1091,6 +1117,7 @@ export function DetailModal({
                               setEpisodeDeleteConfirmId(ep.id ?? null)
                             }}
                             deleteDisabled={!canDeleteEpisode || isDeleting}
+                            isHighlighted={isHighlighted}
                           />
                         )}
                         {isReleaseOpen && (
