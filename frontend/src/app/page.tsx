@@ -534,8 +534,8 @@ function HomeContent() {
   const handleFindReleases = async (
     result: DiscoveryResult,
     season?: number,
-    _episode?: number,
-    _episodeDate?: string,
+    episode?: number,
+    episodeDate?: string,
   ) => {
     const searchKey = result.type === 'movie'
       ? `movie:${result.tmdb_id ?? result.title}`
@@ -595,6 +595,12 @@ function HomeContent() {
         params.set('tvdb', String(result.tvdb_id))
         if (typeof season === 'number' && Number.isFinite(season) && season > 0) {
           params.set('season', String(season))
+        }
+        if (typeof episode === 'number' && Number.isFinite(episode) && episode > 0) {
+          params.set('episode', String(episode))
+        }
+        if (episodeDate) {
+          params.set('episodeDate', episodeDate)
         }
       }
 

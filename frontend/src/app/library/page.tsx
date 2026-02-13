@@ -60,6 +60,8 @@ function LibraryContent() {
   }
   const [searchText, setSearchText] = useState('')
   const [autoExpandSeason, setAutoExpandSeason] = useState<number | null>(null)
+  const [autoHighlightEpisode, setAutoHighlightEpisode] = useState<number | null>(null)
+  const [autoHighlightEpisodeDate, setAutoHighlightEpisodeDate] = useState<string | null>(null)
   const [filterModes, setFilterModes] = useState<Set<'downloaded' | 'missing' | 'monitored' | 'unmonitored'>>(new Set())
   const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaTypeFilter>(() => {
     const type = searchParams.get('type')
@@ -326,7 +328,10 @@ function LibraryContent() {
     const tmdb = Number(searchParams.get('tmdb') || '')
     const action = (searchParams.get('action') || '').toLowerCase()
     const season = Number(searchParams.get('season') || '')
+    const episode = Number(searchParams.get('episode') || '')
+    const episodeDate = searchParams.get('episodeDate')
     const wantedSeason = Number.isFinite(season) && season > 0 ? season : null
+    const wantedEpisode = Number.isFinite(episode) && episode > 0 ? episode : null
 
     let match: LibraryItem | undefined
     if (tvdb && Number.isFinite(tvdb)) {
@@ -349,9 +354,13 @@ function LibraryContent() {
         setSelectedItem(match)
         if (match.mediaType === 'tv') {
           setAutoExpandSeason(wantedSeason)
+          setAutoHighlightEpisode(wantedEpisode)
+          setAutoHighlightEpisodeDate(episodeDate)
           setAutoSearch(false)
         } else {
           setAutoExpandSeason(null)
+          setAutoHighlightEpisode(null)
+          setAutoHighlightEpisodeDate(null)
           setAutoSearch(action === 'search')
         }
 
@@ -411,6 +420,8 @@ function LibraryContent() {
           if (!found) return
           setSelectedItem({ ...found, mediaType: 'movies' })
           setAutoExpandSeason(null)
+          setAutoHighlightEpisode(null)
+          setAutoHighlightEpisodeDate(null)
           setAutoSearch(true)
           setAutoDeleteOpen(false)
         } else {
@@ -423,6 +434,8 @@ function LibraryContent() {
           if (!found) return
           setSelectedItem({ ...found, mediaType: 'tv' })
           setAutoExpandSeason(wantedSeason)
+          setAutoHighlightEpisode(wantedEpisode)
+          setAutoHighlightEpisodeDate(episodeDate)
           setAutoSearch(false)
           setAutoDeleteOpen(false)
         }
@@ -815,11 +828,15 @@ function LibraryContent() {
           autoSearch={autoSearch}
           autoDeleteOpen={autoDeleteOpen}
           autoExpandSeason={autoExpandSeason}
+          autoHighlightEpisode={autoHighlightEpisode}
+          autoHighlightEpisodeDate={autoHighlightEpisodeDate}
           onClose={() => {
             setSelectedItem(null)
             setAutoSearch(false)
             setAutoDeleteOpen(false)
             setAutoExpandSeason(null)
+            setAutoHighlightEpisode(null)
+            setAutoHighlightEpisodeDate(null)
           }}
           onLibraryDelete={handleLibraryDelete}
         />
