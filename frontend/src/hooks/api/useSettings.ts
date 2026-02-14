@@ -205,8 +205,8 @@ export function useSettings(
       onConfigUpdate(updatedResponse.config)
       setSaved(true)
 
-      // Clear "saved" message after 2 seconds
-      setTimeout(() => setSaved(false), 2000)
+      // Clear "saved" message after 5 seconds
+      setTimeout(() => setSaved(false), 5000)
     } catch (e) {
       setError('Network error while saving settings')
     } finally {
@@ -267,8 +267,8 @@ export function useSettings(
       setLibrarySearchPosition(nextLibrarySearchPosition)
       setSaved(true)
 
-      // Clear "saved" message after 2 seconds
-      setTimeout(() => setSaved(false), 2000)
+      // Clear "saved" message after 5 seconds
+      setTimeout(() => setSaved(false), 5000)
     } catch (e) {
       setError('Network error while saving settings')
     } finally {
