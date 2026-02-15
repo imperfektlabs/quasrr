@@ -720,7 +720,7 @@ export function NavigationMenu({
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 pt-1">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="glass-panel rounded-md border border-slate-700/40 shadow-[0_18px_45px_rgba(3,6,20,0.5)] px-3 md:px-4 py-2 flex items-center justify-between gap-3">
           <button
             type="button"

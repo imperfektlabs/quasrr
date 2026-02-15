@@ -216,6 +216,63 @@ class AIClient:
     def _provider_api_key(self, provider: str) -> str | None:
         return self._normalize_secret(self._provider_field_value(provider, "api_key"))
 
+    async def validate_model(self, provider: str, model: str) -> dict:
+        """Verify if a model name is valid for the given provider."""
+        provider = provider.strip().lower()
+        if not model:
+            return {"status": "ok", "valid": True, "message": "Empty model is allowed"}
+
+        api_key = self._provider_api_key(provider)
+        if not api_key and provider != "local":
+            return {"status": "error", "message": f"API key not configured for {provider}"}
+
+        try:
+            if provider == "gemini":
+                # https://ai.google.dev/api/rest/v1beta/models/get
+                # Note: model name for Gemini must start with 'models/' if it doesn't already
+                model_id = model if model.startswith("models/") else f"models/{model}"
+                endpoint = f"https://generativelanguage.googleapis.com/v1beta/{model_id}"
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(endpoint, params={"key": api_key})
+                    if response.status_code == 200:
+                        return {"status": "ok", "valid": True}
+                    elif response.status_code == 404:
+                        return {"status": "ok", "valid": False, "message": "Model not found"}
+                    else:
+                        return {"status": "error", "message": f"Gemini API error: {response.status_code}"}
+
+            elif provider == "anthropic":
+                # Anthropic doesn't have a simple model GET endpoint, 
+                # but we can check their known list or just assume success if we can't verify easily.
+                # For now, let's just return success to not block the user.
+                return {"status": "ok", "valid": True, "message": "Anthropic model verification skipped"}
+
+            else:
+                # OpenAI-compatible / OpenRouter / Perplexity / Local
+                endpoint = self._provider_base_url(provider)
+                if not endpoint:
+                    return {"status": "error", "message": "Provider base URL not configured"}
+                
+                # Standard OpenAI models endpoint
+                models_url = f"{endpoint.rstrip('/')}/models"
+                headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+                
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(models_url, headers=headers)
+                    if response.status_code != 200:
+                        return {"status": "error", "message": f"API error: {response.status_code}"}
+                    
+                    data = response.json()
+                    # Response should be a list of models: {"data": [{"id": "model-name", ...}, ...]}
+                    model_list = data.get("data", [])
+                    if any(m.get("id") == model for m in model_list):
+                        return {"status": "ok", "valid": True}
+                    
+                    return {"status": "ok", "valid": False, "message": f"Model '{model}' not found in provider list"}
+
+        except Exception as e:
+            return {"status": "error", "message": f"Validation failed: {str(e)}"}
+
     def _provider_model(self, provider: str) -> str | None:
         model = self._provider_field_value(provider, "model")
         if model:

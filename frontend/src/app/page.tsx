@@ -194,7 +194,7 @@ function HomeContent() {
       setTrendingSourceByType((prev) => ({ ...prev, [trendingFilter]: null }))
       try {
         const backendUrl = getBackendUrl()
-        const trendingLimit = 24
+        const trendingLimit = 36
 
         const mapJustWatch = (items: Array<Record<string, unknown>>) => (
           (items ?? [])
@@ -471,7 +471,14 @@ function HomeContent() {
     discoverySearchPosition: settingsDiscoverySearchPosition,
     setDiscoverySearchPosition: setSettingsDiscoverySearchPosition,
     saveSettings,
+    aiProvider,
   } = useSettings(config, setConfig)
+
+  const aiProviderLabel = useMemo(() => {
+    if (!config?.ai?.providers) return null
+    const found = config.ai.providers.find((p) => p.id === aiProvider)
+    return found?.label || null
+  }, [config?.ai?.providers, aiProvider])
 
   // View mode (grid/list) from backend config
   const viewMode = (config?.layout?.view_mode as 'grid' | 'list') ?? 'grid'
@@ -480,8 +487,8 @@ function HomeContent() {
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
   const discoverySearchStickyClass = discoverySearchAtBottom
-    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
-    : 'fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-7xl'
+    : 'fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-7xl'
   const discoverySearchStickyStyle = discoverySearchAtBottom
     ? undefined
     : { top: `${topSearchViewportTop}px` }
@@ -534,8 +541,8 @@ function HomeContent() {
   const handleFindReleases = async (
     result: DiscoveryResult,
     season?: number,
-    _episode?: number,
-    _episodeDate?: string,
+    episode?: number,
+    episodeDate?: string,
   ) => {
     const searchKey = result.type === 'movie'
       ? `movie:${result.tmdb_id ?? result.title}`
@@ -595,6 +602,12 @@ function HomeContent() {
         params.set('tvdb', String(result.tvdb_id))
         if (typeof season === 'number' && Number.isFinite(season) && season > 0) {
           params.set('season', String(season))
+        }
+        if (typeof episode === 'number' && Number.isFinite(episode) && episode > 0) {
+          params.set('episode', String(episode))
+        }
+        if (episodeDate) {
+          params.set('episodeDate', episodeDate)
         }
       }
 
@@ -916,8 +929,8 @@ function HomeContent() {
         </div>
 
         {trendingLoading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
-            {Array.from({ length: 10 }).map((_, idx) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
+            {Array.from({ length: 12 }).map((_, idx) => (
               <div key={`trending-skel-${idx}`} className="h-[300px] rounded-xl bg-slate-800/60 animate-pulse" />
             ))}
           </div>
@@ -934,7 +947,7 @@ function HomeContent() {
         {!trendingLoading && filteredTrendingItems.length > 0 && (
           <>
             {isGridView && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                 {filteredTrendingItems.map((result, index) => (
                   <div
                     key={`trend-grid-${result.type}-${result.tmdb_id ?? result.tvdb_id ?? result.title}-${index}`}
@@ -982,7 +995,7 @@ function HomeContent() {
         onHomeClick={handleHome}
       />
 
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {dashboardEnabledCount > 0 && (
           <section id="dashboard" className="mb-4">
             <div className="glass-panel rounded-lg p-3">
@@ -1409,7 +1422,7 @@ function HomeContent() {
               ) : (
                 <>
                   {isGridView && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                       {searchResults.results.map((result, index) => (
                         <div
                           key={result.tmdb_id || result.tvdb_id || index}
@@ -1537,6 +1550,7 @@ function HomeContent() {
           plan={aiIntentPlan}
           aiResult={aiModalResult || undefined}
           busy={aiIntentBusy || aiModalSearchBusy || libraryFlowBusy}
+          aiProviderLabel={aiProviderLabel || undefined}
           onConfirm={handleAiConfirm}
           onSearch={async (query) => {
             setAiModalSearchBusy(true)
