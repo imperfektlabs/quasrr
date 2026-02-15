@@ -194,7 +194,7 @@ function HomeContent() {
       setTrendingSourceByType((prev) => ({ ...prev, [trendingFilter]: null }))
       try {
         const backendUrl = getBackendUrl()
-        const trendingLimit = 24
+        const trendingLimit = 36
 
         const mapJustWatch = (items: Array<Record<string, unknown>>) => (
           (items ?? [])
@@ -930,7 +930,7 @@ function HomeContent() {
 
         {trendingLoading && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-            {Array.from({ length: 10 }).map((_, idx) => (
+            {Array.from({ length: 12 }).map((_, idx) => (
               <div key={`trending-skel-${idx}`} className="h-[300px] rounded-xl bg-slate-800/60 animate-pulse" />
             ))}
           </div>
