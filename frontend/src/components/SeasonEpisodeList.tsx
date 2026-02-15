@@ -84,6 +84,7 @@ type EpisodeRowProps = {
   onDelete?: () => void
   deleteDisabled?: boolean
   onRowClick?: () => void
+  isHighlighted?: boolean
 }
 
 export function EpisodeRow({
@@ -99,6 +100,7 @@ export function EpisodeRow({
   onDelete,
   deleteDisabled = false,
   onRowClick,
+  isHighlighted = false,
 }: EpisodeRowProps) {
   const rowProps = onRowClick
     ? { role: 'button' as const, tabIndex: 0, onClick: onRowClick }
@@ -108,6 +110,8 @@ export function EpisodeRow({
     <div
       className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 rounded-md transition-all ${
         onRowClick ? 'hover:bg-slate-800/40 cursor-pointer' : ''
+      } ${
+        isHighlighted ? 'animate-flash-highlight bg-cyan-500/20 ring-1 ring-cyan-400/30' : ''
       }`}
       {...rowProps}
     >
@@ -154,7 +158,10 @@ export function EpisodeRow({
         </button>
         <button
           type="button"
-          onClick={onDelete}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete?.()
+          }}
           disabled={!onDelete || deleteDisabled}
           title="Delete episode"
           aria-label="Delete episode"

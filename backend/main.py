@@ -118,6 +118,7 @@ class SabnzbdSettingsUpdate(BaseModel):
 class BasicSettingsUpdate(BaseModel):
     country: Optional[str] = None
     ai_provider: Optional[str] = None
+    ai_model: Optional[str] = None
     dashboard: Optional[DashboardSettingsUpdate] = None
     layout: Optional[LayoutSettingsUpdate] = None
     sabnzbd: Optional[SabnzbdSettingsUpdate] = None
@@ -533,12 +534,24 @@ async def update_basic_settings_config(payload: BasicSettingsUpdate):
     config = update_basic_settings(
         payload.country,
         ai_provider=payload.ai_provider,
+        ai_model=payload.ai_model,
         dashboard=dashboard_settings,
         layout=layout_settings,
         sabnzbd=sabnzbd_settings,
     )
     logger.info("Basic settings updated")
     return {"status": "updated", "config": redact_secrets(config)}
+
+
+@protected_get("/ai/validate_model")
+async def validate_ai_model(
+    provider: str = Query(..., description="AI provider ID"),
+    model: str = Query(..., description="Model ID to validate"),
+):
+    """Verify if an AI model name is valid for the provider."""
+    ai = get_ai_client()
+    result = await ai.validate_model(provider, model)
+    return result
 
 
 @protected_get("/tmdb/providers")

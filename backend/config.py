@@ -285,33 +285,117 @@ def _detect_env_ai_providers() -> set[str]:
 
 
 def _provider_model(config: "Config", provider: str) -> Optional[str]:
+
+
     provider = provider.strip().lower()
+
+
     prompts_file = load_ai_prompts_file()
+
+
     provider_cfg = (prompts_file.get("providers") or {}).get(provider, {}) if isinstance(prompts_file.get("providers"), dict) else {}
 
+
+
+
+
+    # 1. Highest priority: Explicit environment variables (e.g., GEMINI_MODEL)
+
+
     explicit_env = _provider_env_value(provider, "MODEL")
+
+
     if explicit_env:
+
+
         return _clean_env(explicit_env)
 
-    yaml_model = provider_cfg.get("model") if isinstance(provider_cfg, dict) else None
-    if isinstance(yaml_model, str) and _clean_env(yaml_model):
-        return _clean_env(yaml_model)
+
+
+
+
+    # 2. Second priority: User-defined model in settings.yaml (via config object)
+
+
+    config_model = None
+
 
     if provider == "openai":
-        return _clean_env(config.ai.openai_model or config.ai.model)
-    if provider == "grok":
-        return _clean_env(config.ai.grok_model or config.ai.model)
-    if provider == "perplexity":
-        return _clean_env(config.ai.perplexity_model or config.ai.model)
-    if provider == "gemini":
-        return _clean_env(config.ai.gemini_model or config.ai.model)
-    if provider == "openrouter":
-        return _clean_env(config.ai.openrouter_model or config.ai.model)
-    if provider == "deepseek":
-        return _clean_env(config.ai.deepseek_model or config.ai.model)
-    if provider == "anthropic":
-        return _clean_env(config.ai.anthropic_model or config.ai.model)
+
+
+        config_model = config.ai.openai_model
+
+
+    elif provider == "grok":
+
+
+        config_model = config.ai.grok_model
+
+
+    elif provider == "perplexity":
+
+
+        config_model = config.ai.perplexity_model
+
+
+    elif provider == "gemini":
+
+
+        config_model = config.ai.gemini_model
+
+
+    elif provider == "openrouter":
+
+
+        config_model = config.ai.openrouter_model
+
+
+    elif provider == "deepseek":
+
+
+        config_model = config.ai.deepseek_model
+
+
+    elif provider == "anthropic":
+
+
+        config_model = config.ai.anthropic_model
+
+
+
+
+
+    if config_model and _clean_env(config_model):
+
+
+        return _clean_env(config_model)
+
+
+
+
+
+    # 3. Third priority: Static overrides in ai_prompts.yaml
+
+
+    yaml_model = provider_cfg.get("model") if isinstance(provider_cfg, dict) else None
+
+
+    if isinstance(yaml_model, str) and _clean_env(yaml_model):
+
+
+        return _clean_env(yaml_model)
+
+
+
+
+
+    # 4. Final priority: Global fallback model
+
+
     return _clean_env(config.ai.model)
+
+
+
 
 
 def _provider_base_url(config: "Config", provider: str) -> Optional[str]:
@@ -620,6 +704,7 @@ def update_streaming_services(enabled_ids: list[str]) -> Config:
 def update_basic_settings(
     country: Optional[str] = None,
     ai_provider: Optional[str] = None,
+    ai_model: Optional[str] = None,
     dashboard: Optional[dict] = None,
     layout: Optional[dict] = None,
     sabnzbd: Optional[dict] = None
@@ -632,6 +717,15 @@ def update_basic_settings(
 
     if ai_provider:
         settings.setdefault("ai", {})["provider"] = ai_provider
+
+    if ai_model:
+        # Determine which provider to update the model for
+        target_provider = ai_provider or settings.get("ai", {}).get("provider") or "openai"
+        target_provider = target_provider.strip().lower()
+        
+        # Map provider to its settings key (e.g. openai -> openai_model)
+        model_key = f"{target_provider}_model"
+        settings.setdefault("ai", {})[model_key] = ai_model
 
     if dashboard:
         settings.setdefault("dashboard", {}).update(dashboard)
