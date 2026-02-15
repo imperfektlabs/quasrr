@@ -80,7 +80,7 @@ function LibraryContent() {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const librarySearchAtBottom = librarySearchPosition === 'bottom'
   const librarySearchStickyClass = librarySearchAtBottom
-    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-7xl'
     : 'sticky top-16'
 
   useEffect(() => {
@@ -479,7 +479,7 @@ function LibraryContent() {
         config={config}
       />
 
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         <section className={`space-y-3 ${librarySearchAtBottom ? 'pb-28' : ''}`}>
           {(() => {
             const searchPanel = (
@@ -745,7 +745,7 @@ function LibraryContent() {
                 {!loading && !error && sortedItems.length > 0 && (
                   <>
                     {isGridView && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                         {sortedItems.map((item, index) => (
                           <div
                             key={`${item.mediaType}-${item.id}`}

@@ -46,7 +46,7 @@ export default function StatusPage() {
           config={config}
         />
 
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
         <section id="status" className="scroll-mt-24">
           <details className="glass-panel rounded-xl border border-slate-700/40" open>
             <summary className="p-5 cursor-pointer font-semibold text-lg hover:text-cyan-300 transition-colors flex items-center gap-3">
