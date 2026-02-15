@@ -487,8 +487,8 @@ function HomeContent() {
 
   const discoverySearchAtBottom = settingsDiscoverySearchPosition === 'bottom'
   const discoverySearchStickyClass = discoverySearchAtBottom
-    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
-    : 'fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl'
+    ? 'fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-7xl'
+    : 'fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-7xl'
   const discoverySearchStickyStyle = discoverySearchAtBottom
     ? undefined
     : { top: `${topSearchViewportTop}px` }
@@ -929,7 +929,7 @@ function HomeContent() {
         </div>
 
         {trendingLoading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
             {Array.from({ length: 10 }).map((_, idx) => (
               <div key={`trending-skel-${idx}`} className="h-[300px] rounded-xl bg-slate-800/60 animate-pulse" />
             ))}
@@ -947,7 +947,7 @@ function HomeContent() {
         {!trendingLoading && filteredTrendingItems.length > 0 && (
           <>
             {isGridView && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                 {filteredTrendingItems.map((result, index) => (
                   <div
                     key={`trend-grid-${result.type}-${result.tmdb_id ?? result.tvdb_id ?? result.title}-${index}`}
@@ -995,7 +995,7 @@ function HomeContent() {
         onHomeClick={handleHome}
       />
 
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {dashboardEnabledCount > 0 && (
           <section id="dashboard" className="mb-4">
             <div className="glass-panel rounded-lg p-3">
@@ -1422,7 +1422,7 @@ function HomeContent() {
               ) : (
                 <>
                   {isGridView && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                       {searchResults.results.map((result, index) => (
                         <div
                           key={result.tmdb_id || result.tvdb_id || index}

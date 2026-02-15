@@ -67,7 +67,7 @@ export default function DownloadsPage() {
           config={config}
         />
 
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
         {!config ? (
           <div className="glass-panel rounded-lg p-6 text-center">
             <div className="text-slate-400 animate-pulse">Loading configuration...</div>
