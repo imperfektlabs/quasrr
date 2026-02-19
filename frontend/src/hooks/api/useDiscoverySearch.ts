@@ -182,16 +182,17 @@ export function useDiscoverySearch(): DiscoverySearchResult {
 
   const submitSearch = async (customQuery?: string) => {
     const queryToUse = customQuery || searchQuery
-    if (!queryToUse.trim()) return
+    const trimmedQuery = queryToUse.trim()
+    if (!trimmedQuery) return
 
     setSubmittingSearch(true)
-    setActiveQuery(queryToUse.trim())
+    setActiveQuery(trimmedQuery)
     setPage(1)
     setSelectedResult(null)
 
     // Reset to first page
     const params = new URLSearchParams()
-    params.set('q', queryToUse.trim())
+    params.set('q', trimmedQuery)
     if (filterType !== 'all') params.set('type', filterType)
     if (filterStatus !== 'all') params.set('status', filterStatus)
     const sortParam = getSortParam(sortField)
@@ -199,6 +200,12 @@ export function useDiscoverySearch(): DiscoverySearchResult {
     if (sortDirection !== 'desc') params.set('sort_dir', sortDirection)
 
     router.replace(`/?${params.toString()}`, { scroll: false })
+
+    // If the query is unchanged, the activeQuery effect won't fire.
+    // Run search explicitly so loading state always resolves.
+    if (trimmedQuery === activeQuery) {
+      await runSearch(trimmedQuery)
+    }
   }
 
   const handleSearch = (e: React.FormEvent) => {
