@@ -13,7 +13,7 @@ export type AiIntentSearchResult = {
   error: string | null
   enabled: boolean
   setEnabled: (e: boolean) => void
-  execute: (query: string) => Promise<void>
+  execute: (query: string, options?: { force?: boolean }) => Promise<void>
   clear: () => void
 }
 
@@ -40,14 +40,16 @@ export function useAiIntentSearch(aiEnabled: boolean): AiIntentSearchResult {
     localStorage.setItem('ai_intent_enabled', enabled.toString())
   }, [enabled])
 
-  const execute = async (query: string) => {
+  const execute = async (query: string, options?: { force?: boolean }) => {
+    const force = Boolean(options?.force)
     console.log('[useAiIntentSearch.execute] Called', {
       length: query.length,
       aiEnabled,
       enabled,
+      force,
     })
 
-    if (!aiEnabled || !enabled) {
+    if ((!aiEnabled || !enabled) && !force) {
       console.log('[useAiIntentSearch.execute] AI not enabled, clearing plan')
       setPlan(null)
       return
