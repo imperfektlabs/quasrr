@@ -183,6 +183,10 @@ export function CommandPalette() {
         event.preventDefault()
         setOpen(false)
         setQuery('')
+        if (hotkeyCommand.id === 'search-home' && typeof window !== 'undefined') {
+          window.location.assign('/')
+          return
+        }
         router.push(hotkeyCommand.path)
         return
       }
@@ -222,6 +226,10 @@ export function CommandPalette() {
         }
       }
       if (pathname !== '/') router.push('/')
+      return
+    }
+    if (item.kind === 'command' && item.id === 'search-home' && typeof window !== 'undefined') {
+      window.location.assign('/')
       return
     }
     router.push(item.path)
