@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { DownloadToastHost } from '@/components/DownloadToastHost'
+import { CommandPalette } from '@/components/CommandPalette'
 import { AuthProvider, AuthGate } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default function RootLayout({
         <AuthProvider>
           <AuthGate>
             {children}
+            <CommandPalette />
             <DownloadToastHost />
           </AuthGate>
         </AuthProvider>

@@ -46,6 +46,9 @@ import {
   ReelIcon,
 } from '@/components'
 
+const PALETTE_AI_QUERY_KEY = 'quasrr.palette.ai_query'
+const PALETTE_AI_EVENT = 'quasrr:palette-ai-search'
+
 function HomeContent() {
   const router = useRouter()
 
@@ -626,7 +629,7 @@ function HomeContent() {
 
   const handleSubmitSearch = async (
     overrideQuery?: string,
-    options?: { keepAiModal?: boolean },
+    options?: { keepAiModal?: boolean; forceAiIntent?: boolean },
   ) => {
     const rawQuery = overrideQuery ?? searchQuery
     const trimmed = rawQuery.trim()
@@ -651,15 +654,43 @@ function HomeContent() {
     }
 
     // If ID query or AI disabled, do search immediately
-    if (normalized.isIdQuery || !aiEnabled || !aiIntentEnabled) {
+    const shouldUseAiIntent = options?.forceAiIntent ? true : (aiEnabled && aiIntentEnabled)
+
+    if (normalized.isIdQuery || !shouldUseAiIntent) {
       submitSearch(overrideQuery ? trimmed : undefined)
       return
     }
 
     // Otherwise, wait for AI to translate the query first
     // The useEffect will trigger the search when AI returns
-    executeAiIntent(query)
+    executeAiIntent(query, { force: options?.forceAiIntent })
   }
+
+  useEffect(() => {
+    const runPaletteAiSearch = (query: string) => {
+      const trimmed = query.trim()
+      if (!trimmed) return
+      void handleSubmitSearch(trimmed, { forceAiIntent: true })
+    }
+
+    const eventHandler = (event: Event) => {
+      const custom = event as CustomEvent<{ query?: string }>
+      const nextQuery = custom.detail?.query || ''
+      runPaletteAiSearch(nextQuery)
+    }
+
+    window.addEventListener(PALETTE_AI_EVENT, eventHandler as EventListener)
+
+    const pending = window.sessionStorage.getItem(PALETTE_AI_QUERY_KEY)
+    if (pending) {
+      window.sessionStorage.removeItem(PALETTE_AI_QUERY_KEY)
+      runPaletteAiSearch(pending)
+    }
+
+    return () => {
+      window.removeEventListener(PALETTE_AI_EVENT, eventHandler as EventListener)
+    }
+  }, [handleSubmitSearch])
 
   // Handler for when user confirms AI suggestion (routes to library detail flow)
   const handleAiConfirm = async (plan: AIIntentPlan) => {
