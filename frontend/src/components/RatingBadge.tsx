@@ -7,7 +7,7 @@ export function RatingBadge({ rating, href }: { rating: Rating; href?: string | 
   const value = formatRating(rating)
 
   const logoMap: Record<string, string> = {
-    imdb: 'https://p7.hiclipart.com/preview/223/954/431/imdb-film-director-computer-icons-television-u-thumbnail.jpg',
+    imdb: 'https://cdn.brandfetch.io/idsm3ekCSb/theme/dark/logo.svg?c=1bxid64Mup7aczewSAYMX&t=1667571542374',
     tmdb: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/tmdb.svg',
     tdb: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/tmdb.svg',
     justwatch: 'https://upload.wikimedia.org/wikipedia/commons/a/af/JustWatch_Logo.svg',
