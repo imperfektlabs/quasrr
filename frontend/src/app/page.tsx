@@ -775,10 +775,10 @@ function HomeContent() {
 
 
   const toolIcons = {
-    sonarr: '/logos/tools/sonarr.svg',
-    radarr: '/logos/tools/radarr.svg',
-    sabnzbd: '/logos/tools/sabnzbd.svg',
-    plex: '/logos/tools/plex.svg',
+    sonarr: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/sonarr.svg',
+    radarr: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/radarr.svg',
+    sabnzbd: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/sabnzbd.svg',
+    plex: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex.svg',
   }
 
   const toolLinks = {
@@ -844,8 +844,8 @@ function HomeContent() {
 
   const trendingSourceLogo = (() => {
     const normalized = (activeTrendingSource ?? '').trim().toLowerCase()
-    if (normalized.includes('justwatch')) return '/logos/ratings/justwatch.svg'
-    if (normalized.includes('tvdb')) return '/logos/ratings/tvdb.svg'
+    if (normalized.includes('justwatch')) return 'https://img.favpng.com/15/9/23/justwatch-logo-uygERgrq.jpg'
+    if (normalized.includes('tvdb')) return 'https://titlecardmaker.com/getting_started/connections/assets/tvdb-dark.png'
     return null
   })()
 

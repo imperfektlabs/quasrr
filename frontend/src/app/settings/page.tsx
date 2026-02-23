@@ -102,24 +102,24 @@ export default function SettingsPage() {
   const selectedProviderBaseUrl = selectedProviderOption?.base_url || null
 
   const aiProviderIcons: Record<string, string> = {
-    openai: '/logos/ai/openai.svg',
-    grok: '/logos/ai/grok.png',
-    perplexity: '/logos/ai/perplexity.svg',
-    anthropic: '/logos/ai/anthropic.svg',
-    openrouter: '/logos/ai/openrouter.svg',
-    gemini: '/logos/ai/gemini.svg',
-    deepseek: '/logos/ai/deepseek.svg',
-    local: '/logos/ai/local.svg',
+    openai: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openai-light.svg',
+    grok: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/grok-dark.svg',
+    perplexity: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/perplexity.svg',
+    anthropic: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/claude-ai.svg',
+    openrouter: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/open-router-dark.svg',
+    gemini: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/google-gemini.svg',
+    deepseek: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/deepseek.svg',
+    local: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/ollama-dark.svg',
   }
 
   const sortedStreamingServices = [...(config?.streaming_services ?? [])]
     .sort((a, b) => a.name.localeCompare(b.name))
 
   const toolIcons: Record<string, string> = {
-    sonarr: '/logos/tools/sonarr.svg',
-    radarr: '/logos/tools/radarr.svg',
-    sabnzbd: '/logos/tools/sabnzbd.svg',
-    plex: '/logos/tools/plex.svg',
+    sonarr: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/sonarr.svg',
+    radarr: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/radarr.svg',
+    sabnzbd: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/sabnzbd.svg',
+    plex: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex.svg',
   }
 
   const toolLinks: Record<string, string> = {

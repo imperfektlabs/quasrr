@@ -3,16 +3,14 @@
 # 0. Local/Environment-Specific Files
 # Convention: prefix with _ for files that shouldn't be committed
 _*
+.recollect/
+.scratch/
 
 # AI Agent Directories (developer-specific)
 .claude/
 .codex/
 .cursor/
 .vscode/
-
-# Scratch Folder
-.scratch/
-
 
 # 1. System Junk
 .DS_Store

@@ -7,13 +7,13 @@ export function RatingBadge({ rating, href }: { rating: Rating; href?: string | 
   const value = formatRating(rating)
 
   const logoMap: Record<string, string> = {
-    imdb: '/logos/ratings/imdb.svg',
-    tmdb: '/logos/ratings/tmdb.svg',
-    tdb: '/logos/ratings/tmdb.svg',
-    justwatch: '/logos/ratings/justwatch.png',
-    metacritic: '/logos/ratings/metacritic.svg',
-    rottentomatoes: '/logos/ratings/rottentomatoes.svg',
-    tvdb: '/logos/ratings/tvdb.svg',
+    imdb: 'https://p7.hiclipart.com/preview/223/954/431/imdb-film-director-computer-icons-television-u-thumbnail.jpg',
+    tmdb: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/tmdb.svg',
+    tdb: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/tmdb.svg',
+    justwatch: 'https://img.favpng.com/15/9/23/justwatch-logo-uygERgrq.jpg',
+    metacritic: 'https://image.pngaaa.com/447/2540447-middle.png',
+    rottentomatoes: 'https://s3-eu-central-1.amazonaws.com/centaur-wp/designweek/prod/content/uploads/2018/03/06163710/RT_Rebrand_LogoMonogram.jpg',
+    tvdb: 'https://titlecardmaker.com/getting_started/connections/assets/tvdb-dark.png',
   }
 
   const logo = logoMap[source]

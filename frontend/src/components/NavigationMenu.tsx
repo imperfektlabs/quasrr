@@ -57,21 +57,21 @@ type QuickConfig = {
 }
 
 const aiProviderIcons: Record<string, string> = {
-  openai: '/logos/ai/openai.svg',
-  grok: '/logos/ai/grok.png',
-  perplexity: '/logos/ai/perplexity.svg',
-  anthropic: '/logos/ai/anthropic.svg',
-  openrouter: '/logos/ai/openrouter.svg',
-  gemini: '/logos/ai/gemini.svg',
-  deepseek: '/logos/ai/deepseek.svg',
-  local: '/logos/ai/local.svg',
+  openai: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openai-light.svg',
+  grok: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/grok-dark.svg',
+  perplexity: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/perplexity.svg',
+  anthropic: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/claude-ai.svg',
+  openrouter: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/open-router-dark.svg',
+  gemini: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/google-gemini.svg',
+  deepseek: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/deepseek.svg',
+  local: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/ollama-dark.svg',
 }
 
 const dashboardCards = [
-  { id: 'show_sonarr', label: 'Sonarr', icon: '/logos/tools/sonarr.svg' },
-  { id: 'show_radarr', label: 'Radarr', icon: '/logos/tools/radarr.svg' },
-  { id: 'show_sabnzbd', label: 'SABnzbd', icon: '/logos/tools/sabnzbd.svg' },
-  { id: 'show_plex', label: 'Plex', icon: '/logos/tools/plex.svg' },
+  { id: 'show_sonarr', label: 'Sonarr', icon: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/sonarr.svg' },
+  { id: 'show_radarr', label: 'Radarr', icon: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/radarr.svg' },
+  { id: 'show_sabnzbd', label: 'SABnzbd', icon: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/sabnzbd.svg' },
+  { id: 'show_plex', label: 'Plex', icon: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex.svg' },
 ] as const
 
 function mapQuickConfig(config: MenuConfig): QuickConfig | null {
