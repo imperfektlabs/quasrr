@@ -10,9 +10,11 @@ export function RatingBadge({ rating, href }: { rating: Rating; href?: string | 
     imdb: 'https://p7.hiclipart.com/preview/223/954/431/imdb-film-director-computer-icons-television-u-thumbnail.jpg',
     tmdb: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/tmdb.svg',
     tdb: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/tmdb.svg',
-    justwatch: 'https://img.favpng.com/15/9/23/justwatch-logo-uygERgrq.jpg',
+    justwatch: 'https://upload.wikimedia.org/wikipedia/commons/a/af/JustWatch_Logo.svg',
     metacritic: 'https://image.pngaaa.com/447/2540447-middle.png',
-    rottentomatoes: 'https://s3-eu-central-1.amazonaws.com/centaur-wp/designweek/prod/content/uploads/2018/03/06163710/RT_Rebrand_LogoMonogram.jpg',
+    rottentomatoes: 'https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg',
+    rotten_tomatoes: 'https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg',
+    rt: 'https://upload.wikimedia.org/wikipedia/commons/5/5b/Rotten_Tomatoes.svg',
     tvdb: 'https://titlecardmaker.com/getting_started/connections/assets/tvdb-dark.png',
   }
 

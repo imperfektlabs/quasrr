@@ -844,7 +844,7 @@ function HomeContent() {
 
   const trendingSourceLogo = (() => {
     const normalized = (activeTrendingSource ?? '').trim().toLowerCase()
-    if (normalized.includes('justwatch')) return 'https://img.favpng.com/15/9/23/justwatch-logo-uygERgrq.jpg'
+    if (normalized.includes('justwatch')) return 'https://upload.wikimedia.org/wikipedia/commons/a/af/JustWatch_Logo.svg'
     if (normalized.includes('tvdb')) return 'https://titlecardmaker.com/getting_started/connections/assets/tvdb-dark.png'
     return null
   })()
