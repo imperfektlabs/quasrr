@@ -91,7 +91,7 @@ For a standalone legal notice and contributor-facing policy details, see `LEGAL.
 
 ✅ **Streaming Availability**
 - Country-aware provider detection (TMDB)
-- Local SVG logos and subscription highlighting
+- Public remote logos and subscription highlighting
 - Per-title availability in AI, discovery, and library modals
 - Trending source support via JustWatch popular feed (with TMDB fallback)
 
@@ -225,10 +225,7 @@ quasrr/
 │   │   ├── hooks/                # API, release, and UI hooks
 │   │   ├── types/                # Shared TypeScript types
 │   │   └── utils/                # Formatting and streaming helpers
-│   ├── public/
-│   │   ├── logos/ratings/         # Rating service logos
-│   │   ├── logos/streaming/       # Streaming service logos (SVG)
-│   │   └── logos/tools/           # Tool logos (SVG)
+│   ├── public/                   # Static assets
 │   ├── package.json
 │   ├── Dockerfile
 │   ├── next.config.js
