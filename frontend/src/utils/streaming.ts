@@ -18,7 +18,7 @@ export const STREAMING_LOGOS: Record<string, string> = {
   amc_plus: 'https://upload.wikimedia.org/wikipedia/commons/4/4a/AMC%2B_logo.png',
   apple: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/apple-light.svg',
   britbox: 'https://upload.wikimedia.org/wikipedia/commons/1/1a/Britbox_2022_%28UK%29.svg',
-  apple_tv_store: 'https://www.pngfind.com/pngs/m/362-3629314_apple-tv-apple-hd-png-download.png',
+  apple_tv_store: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/apple-light.svg',
   fubo: 'https://upload.wikimedia.org/wikipedia/commons/c/cb/Fubo_2023.svg',
   fubotv: 'https://upload.wikimedia.org/wikipedia/commons/c/cb/Fubo_2023.svg',
   global_tv: 'https://upload.wikimedia.org/wikipedia/commons/9/9c/Global_Television_Network_Logo.svg',
