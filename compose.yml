@@ -33,13 +33,13 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - <<: *bind-strict
-        source: ${PROJECT_ROOT_PATH:-.}/data
+        source: ${PROJECT_DATA_PATH:-.}/data
         target: /app/data
       - <<: *bind-strict
-        source: ${PROJECT_ROOT_PATH:-.}/config
+        source: ${PROJECT_DATA_PATH:-.}/config
         target: /app/config
       - <<: *bind-strict
-        source: ${PROJECT_ROOT_PATH:-.}/logs
+        source: ${PROJECT_DATA_PATH:-.}/logs
         target: /app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
